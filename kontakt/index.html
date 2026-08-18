@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>L-appen · kontakt</title>
+<meta name="description" content="Spørsmål eller tilbakemelding om L-appen? Send oss en melding.">
+<link rel="canonical" href="https://l-appen.app/kontakt/">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       background:#F1F2F6;color:#101114;line-height:1.6;padding:32px 20px 64px}
+  .side{max-width:480px;margin:0 auto}
+  .logo{display:inline-flex;align-items:center;gap:8px;margin-bottom:28px;text-decoration:none;color:inherit}
+  .lskilt{width:32px;height:32px;background:#fff;border:1.5px solid #D9DCE1;
+          border-radius:7%;position:relative;flex:none}
+  .lskilt::before{content:'';position:absolute;left:29.8%;top:22.0%;
+                  width:16.7%;height:59.8%;background:#E0201B}
+  .lskilt::after{content:'';position:absolute;left:29.8%;bottom:18.2%;
+                 width:43.9%;height:15.9%;background:#E0201B}
+  .ordmerke{font-size:18px;font-weight:800;letter-spacing:-.03em}
+  h1{font-size:1.7rem;font-weight:800;letter-spacing:-.02em;margin-bottom:.5em}
+  p.ingress{font-size:15.5px;color:#3A3D42;margin-bottom:1.6em}
+  form{display:flex;flex-direction:column;gap:14px}
+  label{font-size:13px;font-weight:700;color:#4a4d52;margin-bottom:5px;display:block}
+  input,select,textarea{width:100%;padding:12px 13px;border:1.5px solid #D6DBE2;
+       border-radius:11px;font-size:15px;font-family:inherit;background:#fff;color:#101114}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:#0A7AFF}
+  textarea{resize:vertical;min-height:110px}
+  button{margin-top:4px;background:#101114;color:#fff;border:none;border-radius:12px;
+         padding:14px;font-size:16px;font-weight:700;cursor:pointer}
+  button:active{opacity:.85}
+  button:disabled{opacity:.5;cursor:default}
+  .status{font-size:14px;margin-top:4px;display:none}
+  .status.vis{display:block}
+  .status.ok{color:#0a7d2c}
+  .status.feil{color:#c0362c}
+  .direkte{font-size:13.5px;color:#6C6E73;margin-top:22px}
+  .direkte a{color:#0A7AFF}
+  .fot{margin-top:32px;font-size:13px;color:#8b8e93}
+  .fot a{color:#6C6E73}
+  @media (prefers-color-scheme:dark){
+    body{background:#101114;color:#fff}
+    p.ingress{color:#c7c9cd} label{color:#a9acb2}
+    input,select,textarea{background:#1a1c20;border-color:#2b2e33;color:#fff}
+    button{background:#fff;color:#101114}
+    .direkte,.fot{color:#a9acb2} .direkte a,.fot a{color:#9aa0a6}
+  }
+</style>
+</head>
+<body>
+<div class="side">
+  <a class="logo" href="/"><div class="lskilt"></div><div class="ordmerke">-appen</div></a>
+  <h1>Kontakt</h1>
+  <p class="ingress">Funnet en feil i et spørsmål, eller lurer du på noe om appen?
+  Skriv til oss - vi svarer så raskt vi kan.</p>
+
+  <form id="skjema" action="https://formsubmit.co/ajax/edvaglaz@gmail.com" method="POST">
+    <input type="hidden" name="_subject" value="L-appen - ny henvendelse">
+    <input type="hidden" name="_template" value="table">
+    <input type="text" name="_honey" style="display:none" tabindex="-1" autocomplete="off">
+    <div>
+      <label for="epost">Din e-post</label>
+      <input type="email" id="epost" name="E-post" required>
+    </div>
+    <div>
+      <label for="emne">Gjelder</label>
+      <select id="emne" name="Gjelder">
+        <option>Feil i et spørsmål</option>
+        <option>Manglende språk</option>
+        <option>Spørsmål om kjøp</option>
+        <option>Annet</option>
+      </select>
+    </div>
+    <div>
+      <label for="melding">Melding</label>
+      <textarea id="melding" name="Melding" required></textarea>
+    </div>
+    <button type="submit">Send melding</button>
+    <p class="status" id="status"></p>
+  </form>
+
+  <p class="direkte">Foretrekker du e-post direkte?
+  <a href="mailto:edvaglaz@gmail.com">edvaglaz@gmail.com</a></p>
+  <p class="direkte">Feil i et spørsmål kan også meldes rett fra appen, under
+  «Meld inn justering» på hvert spørsmål.</p>
+
+  <p class="fot"><a href="/">L-appen</a> · Studio Glazebrook ·
+  <a href="/personvern/">Personvern</a></p>
+</div>
+<script>
+(function () {
+  'use strict';
+  var form = document.getElementById('skjema');
+  var status = document.getElementById('status');
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var btn = form.querySelector('button');
+    btn.disabled = true; btn.textContent = 'Sender …';
+    status.className = 'status';
+
+    fetch(form.action, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(Object.fromEntries(new FormData(form))),
+    })
+      .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+      .then(function () {
+        form.reset();
+        form.hidden = true;
+        status.textContent = 'Takk for meldingen! Vi svarer på e-posten du oppga.';
+        status.className = 'status vis ok';
+      })
+      .catch(function () {
+        btn.disabled = false; btn.textContent = 'Send melding';
+        status.textContent = 'Noe gikk galt. Send oss gjerne en e-post direkte til edvaglaz@gmail.com i stedet.';
+        status.className = 'status vis feil';
+      });
+  });
+})();
+</script>
+</body>
+</html>
