@@ -79,10 +79,19 @@
   vår egen annonsering - altså hvor mange som laster ned appen etter å ha sett en annonse
   for den. Til dette sendes enkle hendelser som «appen ble installert» og «appen ble
   åpnet» til Meta, knyttet til en anonym app-ID.</p>
-  <p>Appen henter <strong>ikke</strong> ut Apples reklame-ID (IDFA), og dataene kobles ikke
-  til deg som person. Selve målingen skjer aggregert gjennom Apples SKAdNetwork, der Apple
-  rapporterer anonyme totaltall til annonsenettverket i stedet for opplysninger om
-  enkeltbrukere. Det er derfor appen ikke spør om tillatelse til sporing.</p>
+  <p><strong>På iPhone og iPad</strong> spør appen først om lov, gjennom Apples egen
+  dialog om sporing. Svarer du nei, brukes ikke Apples reklame-ID (IDFA), og målingen
+  skjer bare aggregert gjennom Apples SKAdNetwork - der Apple rapporterer anonyme
+  totaltall i stedet for opplysninger om enkeltbrukere. Svarer du ja, kan Meta knytte
+  hendelsene til reklame-ID-en. Du kan når som helst ombestemme deg under Innstillinger
+  → Personvern og sikkerhet → Sporing.</p>
+  <p><strong>På Android</strong> finnes ikke en slik dialog. Der bruker Meta Googles
+  annonse-ID til å se hvilken annonse som førte til nedlastingen. Du kan slette
+  annonse-ID-en eller slå den av helt under Innstillinger → Google → Annonser, og da
+  får Meta ingen slik kobling.</p>
+  <p>Uansett plattform sendes bare hendelser som «appen ble installert» og «appen ble
+  åpnet». Vi sender aldri hva du har svart, hvordan du ligger an eller noe annet fra
+  øvingen din, og vi selger ikke data om deg til noen.</p>
   <p>Meta er selv ansvarlig for hvordan de behandler disse dataene. Du kan lese mer i
   <a href="https://www.facebook.com/privacy/policy/">Metas personvernerklæring</a>.</p>
 
