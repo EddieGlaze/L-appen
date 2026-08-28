@@ -1,0 +1,1037 @@
+<!doctype html>
+<html lang="nb">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'self' data:; connect-src https://kbhekpqyfduhdfoshdvl.supabase.co; base-uri 'none'; form-action 'none'">
+<title>L-appen · bruksanalyse</title>
+<style>
+  /* Palettroller (dataviz-referansepaletten). Lys er grunnfargene,
+     mørk er samme fargetoner trappet for mørk flate. */
+  :root {
+    color-scheme: light;
+    --plane:        #f9f9f7;
+    --surface-1:    #fcfcfb;
+    --text-primary: #0b0b0b;
+    --text-secondary:#52514e;
+    --muted:        #898781;
+    --grid:         #e1e0d9;
+    --baseline:     #c3c2b7;
+    --border:       rgba(11,11,11,0.10);
+    --series-1:     #2a78d6;
+    --seq-250:      #86b6ef;
+    --good-text:    #006300;
+    --critical:     #d03b3b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) {
+      color-scheme: dark;
+      --plane:        #0d0d0d;
+      --surface-1:    #1a1a19;
+      --text-primary: #ffffff;
+      --text-secondary:#c3c2b7;
+      --muted:        #898781;
+      --grid:         #2c2c2a;
+      --baseline:     #383835;
+      --border:       rgba(255,255,255,0.10);
+      --series-1:     #3987e5;
+      --seq-250:      #1c5cab;
+      --good-text:    #0ca30c;
+      --critical:     #d03b3b;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --plane:        #0d0d0d;
+    --surface-1:    #1a1a19;
+    --text-primary: #ffffff;
+    --text-secondary:#c3c2b7;
+    --muted:        #898781;
+    --grid:         #2c2c2a;
+    --baseline:     #383835;
+    --border:       rgba(255,255,255,0.10);
+    --series-1:     #3987e5;
+    --seq-250:      #1c5cab;
+    --good-text:    #0ca30c;
+    --critical:     #d03b3b;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--plane); color:var(--text-primary);
+         font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+         padding:22px 20px 48px; }
+  .topp { max-width:1060px; margin:0 auto 16px; display:flex; align-items:baseline;
+          justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  h1 { font-size:19px; font-weight:700; }
+  .stempel { font-size:12px; color:var(--muted); }
+  .stempel button { font:inherit; color:var(--series-1); background:none; border:none;
+                    cursor:pointer; padding:0 0 0 8px; }
+  .ramme { max-width:1060px; margin:0 auto; }
+
+  /* Filterrad */
+  .filtre { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
+  .filtre .sep { flex:1; }
+  .knapp { font-size:12.5px; padding:5px 11px; border-radius:8px; cursor:pointer;
+           border:1px solid var(--border); background:var(--surface-1);
+           color:var(--text-secondary); }
+  .knapp.valgt { color:var(--text-primary); font-weight:700;
+                 border-color:var(--series-1); }
+  label.bryter { font-size:12.5px; color:var(--text-secondary); display:flex;
+                 gap:6px; align-items:center; cursor:pointer; }
+
+  /* Stat-fliser */
+  .fliser { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
+            gap:10px; margin-bottom:14px; }
+  .flis { background:var(--surface-1); border:1px solid var(--border);
+          border-radius:12px; padding:13px 15px 11px; }
+  .flis .navn { font-size:11.5px; color:var(--muted); letter-spacing:.2px; }
+  .flis .tall { font-size:27px; font-weight:700; margin-top:2px; line-height:1.15; }
+  .flis .under { font-size:11.5px; color:var(--text-secondary); margin-top:2px; }
+  .flis .under.god { color:var(--good-text); }
+
+  /* Kortrutenett */
+  .rute2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+  @media (max-width:760px){ .rute2 { grid-template-columns:1fr; } }
+  .kort { background:var(--surface-1); border:1px solid var(--border);
+          border-radius:12px; padding:15px 16px 10px; }
+  .kort h2 { font-size:13.5px; font-weight:700; margin-bottom:2px; }
+  .kort .hint { font-size:11.5px; color:var(--muted); margin-bottom:10px; }
+  svg text { font-family:inherit; }
+
+  /* Tooltip */
+  #tips { position:fixed; pointer-events:none; background:var(--surface-1);
+          border:1px solid var(--border); border-radius:8px; padding:7px 10px;
+          font-size:12px; box-shadow:0 4px 14px rgba(0,0,0,.13); display:none;
+          z-index:9; color:var(--text-primary); }
+  #tips .l1 { color:var(--muted); font-size:11px; }
+  #tips .l2 { font-weight:700; }
+
+  /* Tabell */
+  table { width:100%; border-collapse:collapse; font-size:12.5px; }
+  th { text-align:left; color:var(--muted); font-weight:600; font-size:11.5px;
+       padding:5px 10px 7px 0; border-bottom:1px solid var(--grid); }
+  td { padding:6px 10px 6px 0; border-bottom:1px solid var(--grid);
+       color:var(--text-secondary); font-variant-numeric:tabular-nums; }
+  td:first-child { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:11.5px; }
+  tr.test td { opacity:.55; }
+  .merke { display:inline-block; font-size:10.5px; padding:1px 7px; border-radius:9px;
+           border:1px solid var(--border); color:var(--muted); margin-left:6px; }
+  .merke.betalt { color:var(--good-text); border-color:var(--good-text); }
+  .bygglinje { font-size:12.5px; color:var(--text-secondary); margin:2px 0 12px;
+               display:flex; flex-wrap:wrap; gap:4px 14px; align-items:baseline; }
+  .bygglinje b { color:var(--text-primary); }
+  .bygglinje .ny { color:var(--good-text); font-weight:700; }
+  .bygg { font-size:10.5px; font-weight:700; padding:1px 6px; border-radius:9px;
+          border:1px solid var(--border); color:var(--muted); white-space:nowrap; }
+  .bygg.n4 { color:var(--good-text); border-color:var(--good-text); }
+  th.sorter { cursor:pointer; user-select:none; white-space:nowrap; }
+  th.sorter:hover { color:var(--text-primary); }
+  th.sorter .pil { opacity:0; margin-left:3px; font-size:9px; }
+  th.sorter.aktiv { color:var(--series-1); }
+  th.sorter.aktiv .pil { opacity:1; }
+  .tsprak { font-size:11.5px; color:var(--muted); font-variant-numeric:tabular-nums; }
+  .tsprak.avvik { color:var(--series-1); font-weight:700; }
+  .detblokk { margin-top:10px; font-size:11.5px; }
+  .detblokk .tit { color:var(--muted); margin-bottom:3px; }
+  .dstripe { display:inline-flex; align-items:center; gap:3px; }
+  .dpunkt { width:8px; height:8px; border-radius:50%; flex:none;
+            background:var(--series-1); }
+  .dpunkt.av { background:transparent; box-shadow: inset 0 0 0 1.5px var(--baseline); }
+  .dhopp { font-size:10.5px; font-weight:700; color:var(--muted);
+           padding:0 3px; font-variant-numeric:tabular-nums; }
+  .feil { background:var(--surface-1); border:1px solid var(--critical);
+          border-radius:12px; padding:14px 16px; font-size:13px; display:none; }
+
+  /* --- mobil ------------------------------------------------------- */
+  @media (max-width: 640px) {
+    body { padding: 12px 10px 48px; }
+    .topp { margin-bottom: 12px; }
+    .topp h1 { font-size: 18px; }
+    .fliser { grid-template-columns: repeat(auto-fit, minmax(108px, 1fr)); gap: 8px; }
+    .flis { padding: 9px 10px; }
+    .flis .tall { font-size: 21px; }
+    .flis .navn, .flis .under { font-size: 10.5px; }
+    .kort { padding: 12px; }
+    .kort h2 { font-size: 14px; }
+    .kort .hint { font-size: 11px; }
+    table { font-size: 11.5px; }
+    th, td { padding-right: 8px; }
+    th.sorter { padding-bottom: 9px; }      /* stoerre treffflate for finger */
+    .bygglinje { font-size: 11.5px; gap: 3px 10px; }
+  }
+  /* --- innloggingsport --------------------------------------------- */
+  #port { position:fixed; inset:0; z-index:100; background:var(--plane);
+          display:flex; align-items:center; justify-content:center; padding:24px; }
+  #port form { width:100%; max-width:300px; display:flex; flex-direction:column; gap:10px; }
+  #port .merket { display:flex; align-items:center; gap:9px; margin-bottom:6px; }
+  #port .merket .navn { font-size:17px; font-weight:800; letter-spacing:-.02em; }
+  #port .lskilt { width:26px; height:26px; background:#fff; border:1px solid #D9DCE1;
+                  border-radius:7%; position:relative; flex:none; }
+  #port .lskilt::before { content:''; position:absolute; left:29.8%; top:22.0%;
+                          width:16.7%; height:59.8%; background:#E0201B; }
+  #port .lskilt::after { content:''; position:absolute; left:29.8%; bottom:18.2%;
+                         width:43.9%; height:15.9%; background:#E0201B; }
+  #port input { font:inherit; font-size:16px; padding:11px 12px; border-radius:9px;
+                border:1px solid var(--border); background:var(--surface-1);
+                color:var(--text-primary); }
+  #port input:focus { outline:2px solid var(--series-1); outline-offset:-1px; }
+  #port button { font:inherit; font-size:15px; font-weight:700; padding:11px;
+                 border-radius:9px; border:none; background:var(--series-1);
+                 color:#fff; cursor:pointer; }
+  #port button[disabled] { opacity:.55; cursor:default; }
+  #port .feil { font-size:12.5px; color:var(--critical); min-height:16px; }
+  #port .fot { font-size:11.5px; color:var(--muted); margin-top:2px; }
+</style>
+</head>
+<body>
+<div id="port">
+  <form id="portform" autocomplete="on">
+    <div class="merket"><span class="lskilt"></span><span class="navn">L-appen</span></div>
+    <input id="pbruker" name="username" placeholder="Bruker" autocomplete="username"
+           autocapitalize="none" autocorrect="off" spellcheck="false">
+    <input id="ppass" name="password" type="password" placeholder="Passord"
+           autocomplete="current-password">
+    <button type="submit">Logg inn</button>
+    <div class="feil" id="pfeil"></div>
+    <div class="fot">Nøkkelen til dataene er kryptert med passordet. Feil passord gir ingen tilgang.</div>
+  </form>
+</div>
+
+<div class="topp">
+  <h1>L-appen · bruksanalyse</h1>
+  <div class="stempel"><span id="stempel">henter …</span><button onclick="hent()">Oppdater</button></div>
+</div>
+<div class="ramme">
+  <div class="feil" id="feil"></div>
+  <div class="filtre" id="filtre" style="display:none">
+    <button class="knapp" data-dager="7">Siste 7 dager</button>
+    <button class="knapp valgt" data-dager="14">Siste 14 dager</button>
+    <button class="knapp" data-dager="30">Siste 30 dager</button>
+    <span class="sep"></span>
+    <label class="bryter"><input type="checkbox" id="skjulTest" checked>
+      skjul testenheter (over 10 t brukstid)</label>
+    <span style="font-size:11.5px;color:var(--muted)">· enheter fra før lansering 14.08 holdes alltid utenfor</span>
+  </div>
+  <div id="byggInfo" class="bygglinje"></div>
+  <div class="fliser" id="fliser"></div>
+  <div class="rute2">
+    <div class="kort"><h2>Runder spilt per dag</h2>
+      <div class="hint">fra rundeloggen på hver enhet – reell aktivitet bakover i tid</div>
+      <div id="cRunder"></div></div>
+    <div class="kort"><h2>Enheter sist aktiv per dag</h2>
+      <div class="hint">hver enhet telles på sin siste aktive dag (øyeblikksbilde)</div>
+      <div id="cAktiv"></div></div>
+  </div>
+  <div class="rute2">
+    <div class="kort"><h2>Språk i appen</h2>
+      <div class="hint">rapporteres av enheter med ota-141 – fylles gradvis</div>
+      <div id="cSprak"></div></div>
+    <div class="kort"><h2>Total brukstid per enhet</h2>
+      <div class="hint">kumulative aktive minutter siden installasjon</div>
+      <div id="cTid"></div></div>
+  </div>
+  <div class="rute2">
+    <div class="kort"><h2>Hvor lenge de har hatt appen</h2>
+      <div class="hint">dager siden første oppstart – krever ota-141</div>
+      <div id="cEiertid"></div></div>
+    <div class="kort"><h2>Hvor ofte de åpner den</h2>
+      <div class="hint">aktive dager som andel av eiertiden – kun enheter med minst 2 dagers eiertid og dagslogg</div>
+      <div id="cFrek"></div></div>
+  </div>
+  <div class="kort"><h2>Prøvesimulering – og hva som skjer etterpå</h2>
+    <div class="hint">de som tar 45-spørsmålsprøven, og om de kommer tilbake før neste forsøk låses opp (dag 5)</div>
+    <div id="cProve"></div></div>
+  <div class="rute2">
+    <div class="kort"><h2>Skjermer som åpnes</h2>
+      <div class="hint">antall åpninger per skjerm – kun enheter på nyeste build</div>
+      <div id="cSkjerm"></div></div>
+    <div class="kort"><h2>Byggnivå</h2>
+      <div class="hint">utledet av hvilke felt enheten sender – appen rapporterer ingen versjon</div>
+      <div id="cBygg"></div></div>
+  </div>
+  <div class="rute2">
+    <div class="kort"><h2>Kjøpstrakt</h2>
+      <div class="hint">fra betalingsdialog til fullført kjøp – kun nyeste build</div>
+      <div id="cTrakt"></div></div>
+    <div class="kort"><h2>Gratispotten i dag</h2>
+      <div class="hint">hvor mye av dagens 8 minutter som er brukt</div>
+      <div id="cPott"></div></div>
+  </div>
+  <div class="kort"><h2>Bekreftede kjøpere</h2>
+    <div class="hint">utledet av øvingsrunder over 10 spørsmål – gratisnivået tillater ikke det. Tid før kjøp er akkumulert til og med kjøpsdagen, så tallet er en overkant for dem som kjøpte samme dag</div>
+    <div id="cKjop"></div></div>
+  <div class="kort"><h2>Enhetene</h2>
+    <div class="hint">klikk en kolonneoverskrift for å sortere, eller en rad for å se dager, runder og åpnede sider. Bygg er utledet av hvilke felt enheten sender; OTA-nummer rapporteres ikke av appen. Region er landet telefonen er satt til – appen klarer ikke lese telefonens språk</div>
+    <div style="overflow-x:auto"><table id="tabell"></table></div>
+  </div>
+</div>
+<div id="tips"></div>
+<script>
+'use strict';
+const URL_BASE = 'https://kbhekpqyfduhdfoshdvl.supabase.co/rest/v1/fremdrift_enhet';
+let NOKKEL = null;   // settes av innloggingen
+const TEST_GRENSE_SEK = 36000; // 10 timer -> antas aa vaere utviklerenhet
+const UTVIKLER = ['b9de0f22-8f80-4815-9d93-105a4e5d2cda',
+                  'a986fd4c-f435-4ee5-b1e9-6b039936f54d'];
+// App Store-lansering (1.1.0). Enheter med aktivitet fra FOER denne datoen er
+// TestFlight/utvikling og holdes helt utenfor. Juster datoen her ved behov.
+const LANSERT = '2026-08-14';
+let rader = [], dager = 14;
+
+function css(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+const fmtDag = iso => iso.slice(8,10) + '.' + iso.slice(5,7);
+// De ti spraakene appen stotter, med norske navn.
+const SPRAK_NAVN = {
+  no: 'Norsk', en: 'Engelsk', ar: 'Arabisk', ckb: 'Sorani', tr: 'Tyrkisk',
+  so: 'Somali', ur: 'Urdu', uk: 'Ukrainsk', ti: 'Tigrinja', es: 'Spansk',
+};
+const sprakNavn = k => SPRAK_NAVN[k] || k || '–';
+const sprakFullt = k => SPRAK_NAVN[k] ? SPRAK_NAVN[k] + ' (' + k + ')' : k;
+// Appen sender ingen versjon. Nivaaet utledes av hvilke felt som finnes,
+// i den rekkefolgen de ble innfort. Hoyeste treff vinner.
+const NIVAAER = [
+  { n: 4, navn: 'Nyeste build', test: r => r.hendelser || r.lampeblitz },
+  { n: 3, navn: 'Gratispott i backup', test: r => r.bruk },
+  { n: 2, navn: 'Dagslogg (ota-142)', test: r => r.tidDager && Object.keys(r.tidDager).length },
+  { n: 1, navn: 'Språk (ota-141)', test: r => r.sprak || r.foerste },
+  { n: 0, navn: 'Eldre enn ota-141', test: () => true },
+];
+const nivaa = r => NIVAAER.find(x => x.test(r));
+const BYGGKORT = { 4: 'ny', 3: 'pott', 2: '142', 1: '141', 0: 'eldre' };
+// Kolonnene i enhetstabellen. tall=1 gir hoyrestilt celle og synkende
+// foerstesortering; ellers sorteres tekst stigende foerste gang.
+const KOLONNER = [
+  { k: 'id',        t: 'enhet' },
+  { k: 'sprak',     t: 'språk' },
+  { k: 'region',    t: 'region' },
+  { k: 'bygg',      t: 'bygg',            tall: 1 },
+  { k: 'foerste',   t: 'første oppstart', tall: 1 },
+  { k: 'hatt',      t: 'hatt appen',      tall: 1, hoyre: 1 },
+  { k: 'oppdatert', t: 'sist aktiv',      tall: 1 },
+  { k: 'tid',       t: 'brukstid',        tall: 1, hoyre: 1 },
+  { k: 'runder',    t: 'runder',          tall: 1, hoyre: 1 },
+  { k: 'aktiv',     t: 'aktivitet',       tall: 1 },
+];
+let tabSort = { kol: 'oppdatert', ned: true };
+// Verdien hver kolonne sorteres paa. Manglende verdi sorteres alltid sist.
+function sortVerdi(r, k){
+  if (k === 'id') return r.id;
+  if (k === 'sprak') return sprakNavn(r.sprak || '');
+  if (k === 'region') return region(r) || '';
+  if (k === 'bygg') return nivaa(r).n;
+  if (k === 'foerste') return r.foerste || '';
+  if (k === 'hatt') return dagerHatt(r) ?? -1;
+  if (k === 'oppdatert') return r.oppdatert;
+  if (k === 'tid') return r.tid;
+  if (k === 'runder') return r.runder.length;
+  if (k === 'aktiv') return dagsLinjer(r).length;
+  return 0;
+}
+// telSprak gir IKKE telefonens spraak: spraakdelen er alltid "en" fordi den
+// leses fra JS-motorens locale, ikke fra systemet. Regionen bak bindestreken
+// er derimot ekte, og sier hvilket land telefonen er satt til.
+const region = r => {
+  const v = String(r.telSprak || "");
+  const i = v.indexOf("-");
+  return i > 0 ? v.slice(i + 1) : null;
+};
+// Region utenfor Norge er et hint om nylig ankomst - verdt aa markere.
+const utenlandsk = r => { const k = region(r); return k && k !== "NO"; };
+const minutter = s => s >= 5940 ? Math.round(s/3600)+' t' : Math.round(s/60)+' min';
+// Dager enheten har hatt appen: foerste oppstart til i dag, begge medregnet.
+// null naar foerste mangler (enheter fra foer ota-141).
+function dagerHatt(r){
+  if (!r.foerste) return null;
+  const d0 = Date.parse(r.foerste.slice(0,10) + 'T00:00:00Z');
+  const idag = Date.parse(new Date().toISOString().slice(0,10) + 'T00:00:00Z');
+  return Math.max(1, Math.round((idag - d0) / 864e5) + 1);
+}
+// Aktive dager, med andel av eiertiden naar den sier noe (>= 2 dager eid).
+// Kjopsdeteksjon: gratis oevingsrunder er kappet paa 10 sporsmaal, saa en
+// oevingsrunde over 10 krever full tilgang. Proven er unntatt - den kan tas
+// gratis hver 5. dag. Blir eksakt naar ota-144 har naadd enhetene.
+function kjopsInfo(r){
+  // Eksakt naar enheten er paa nyeste build og har rapportert kjop.
+  if (r.proUtlop > 0) {
+    const dag = new Date(r.proUtlop).toISOString().slice(0,10);
+    return { betalt: true, dag, foerRunder: (r.runder || []).length, foerTid: 0, eksakt: true };
+  }
+  const store = (r.runder || []).filter(x => x && !x.prove && (x.av || 0) > 10)
+    .filter(x => x.dato).sort((a,b) => a.dato.localeCompare(b.dato));
+  if (!store.length) return { betalt:false };
+  const dag = store[0].dato;
+  // Teller ogsaa rundene samme dag som ikke selv er fulle runder - de fleste
+  // kjoepte samme dag, saa uten dette blir tallet alltid 0.
+  const foerRunder = (r.runder || []).filter(x => x && x.dato && (x.dato < dag ||
+    (x.dato === dag && !(!x.prove && (x.av || 0) > 10)))).length;
+  const foerTid = Object.entries(r.tidDager || {})
+    .filter(([k]) => k <= dag).reduce((a,[,v]) => a + (+v || 0), 0);
+  return { betalt:true, dag, foerRunder, foerTid };
+}
+
+// Prikkstripe fra foerste oppstart til i dag: fylt = aktiv, aapen = ikke.
+// Fire eller flere inaktive paa rad vises som tall i stedet.
+function dagStripe(r){
+  const start = r.foerste ? r.foerste.slice(0,10)
+    : (r.runder.filter(x => x && x.dato).map(x => x.dato).sort()[0] || null);
+  if (!start) return '<span style="color:var(--muted)">–</span>';
+  const idag = new Date().toISOString().slice(0,10);
+  const aktive = new Set([
+    ...Object.keys(r.tidDager || {}).filter(k => +r.tidDager[k] > 0),
+    ...r.runder.filter(x => x && x.dato).map(x => x.dato),
+  ]);
+  const dager = [];
+  for (let t = Date.parse(start); t <= Date.parse(idag); t += 864e5) {
+    const d = new Date(t).toISOString().slice(0,10);
+    dager.push({ d, paa: aktive.has(d) });
+  }
+  let ut = '', i = 0;
+  while (i < dager.length) {
+    if (dager[i].paa) {
+      ut += '<span class="dpunkt" title="' + dager[i].d + '"></span>'; i++;
+    } else {
+      let j = i; while (j < dager.length && !dager[j].paa) j++;
+      const n = j - i;
+      if (n > 3) {
+        ut += '<span class="dhopp" title="' + n + ' dager uten aktivitet">' + n + '</span>';
+      } else {
+        for (let k = i; k < j; k++) ut += '<span class="dpunkt av" title="' + dager[k].d + '"></span>';
+      }
+      i = j;
+    }
+  }
+  const ant = dager.filter(x => x.paa).length;
+  return '<span class="dstripe" title="' + ant + ' aktive av ' + dager.length
+    + ' dager">' + ut + '</span>';
+}
+function andelTekst(aktive, hatt){
+  if (!aktive) return '–';
+  if (!hatt || hatt < 2) return String(aktive);
+  const pct = Math.round(100 * Math.min(1, aktive / hatt));
+  return aktive + ' <span style="color:var(--muted)">· ' + pct + ' %</span>';
+}
+
+async function hent(){
+  document.getElementById('stempel').textContent = 'henter …';
+  try {
+    const sel = encodeURIComponent('device_id,oppdatert,sprak:stats->>sprak,foerste:stats->>foerste,'
+      + 'tid:stats->>tidSek,tidDager:stats->tidDager,telSprak:stats->>telSprak,runder,'
+      + 'proUtlop:stats->>proUtlop,kodeUtlop:stats->>kodeUtlop,'
+      + 'hendelser:stats->hendelser,lampeblitz:stats->lampeblitz,bruk:stats->bruk');
+    const res = await fetch(URL_BASE + '?select=' + sel,
+      { headers: { apikey: NOKKEL, Authorization: 'Bearer ' + NOKKEL } });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    rader = (await res.json()).map(r => {
+      const runder = Array.isArray(r.runder) ? r.runder : [];
+      // Alle daterte spor enheten har satt: runde-datoer, foerste oppstart,
+      // sist aktiv. Ett eneste spor foer lanseringsdatoen = testperiode-enhet.
+      const spor = runder.filter(x => x && x.dato).map(x => x.dato);
+      if (r.foerste) spor.push(r.foerste.slice(0,10));
+      spor.push(r.oppdatert.slice(0,10));
+      return {
+        id: r.device_id, oppdatert: r.oppdatert, sprak: r.sprak,
+        foerste: r.foerste, tid: parseInt(r.tid || '0', 10) || 0,
+        tidDager: (r.tidDager && typeof r.tidDager === 'object') ? r.tidDager : {},
+        telSprak: r.telSprak || null,
+        // Kjopsstatus kommer med ota-144. null = enheten har ikke fatt den
+        // ennaa, og maa ikke forveksles med "har ikke betalt".
+        erUtvikler: UTVIKLER.includes(r.device_id),
+        harKjopsfelt: r.proUtlop != null,
+        hendelser: (r.hendelser && typeof r.hendelser === 'object') ? r.hendelser : null,
+        lampeblitz: Array.isArray(r.lampeblitz) ? r.lampeblitz : null,
+        bruk: (r.bruk && typeof r.bruk === 'object') ? r.bruk : null,
+        proUtlop: parseInt(r.proUtlop || '0', 10) || 0,
+        kodeUtlop: parseInt(r.kodeUtlop || '0', 10) || 0,
+        runder, forLansering: spor.some(d => d < LANSERT),
+      };
+    });
+    document.getElementById('stempel').textContent =
+      'oppdatert ' + new Date().toLocaleTimeString('nb-NO').slice(0,5);
+    document.getElementById('filtre').style.display = 'flex';
+    tegn();
+  } catch (e) {
+    const f = document.getElementById('feil');
+    f.style.display = 'block';
+    f.textContent = 'Fikk ikke hentet data (' + e.message + '). Sjekk nettforbindelsen og prøv igjen.';
+    document.getElementById('stempel').textContent = 'feilet';
+  }
+}
+
+function utvalg(){
+  const skjul = document.getElementById('skjulTest').checked;
+  return rader.filter(r => !r.forLansering && !r.erUtvikler
+    && (!skjul || r.tid < TEST_GRENSE_SEK));
+}
+
+function tegn(){
+  const data = utvalg();
+  const naa = Date.now();
+  const d1 = data.filter(r => naa - Date.parse(r.oppdatert) < 864e5).length;
+  const d7 = data.filter(r => naa - Date.parse(r.oppdatert) < 7*864e5).length;
+  const medOta = data.filter(r => r.sprak).length;
+  const tider = data.map(r => r.tid).filter(t => t > 0).sort((a,b) => a-b);
+  const median = tider.length ? tider[Math.floor(tider.length/2)] : 0;
+  const runderTot = data.reduce((a,r) => a + r.runder.length, 0);
+  // Bruksfrekvens = aktive dager / dager eid. Bare enheter med minst 2
+  // dagers eiertid OG faktisk dagslogg - ellers blir alle trivielt 100 %.
+  const frek = data.map(r => ({ h: dagerHatt(r), a: dagsLinjer(r).length }))
+    .filter(x => x.h >= 2 && x.a > 0)
+    .map(x => Math.min(1, x.a / x.h)).sort((a,b) => a - b);
+  const medFrek = frek.length ? frek[Math.floor(frek.length / 2)] : 0;
+  // Betalt = kjop via Apple. Innloest kode teller ikke som betalende.
+  const medKjopsfelt = data.filter(r => r.harKjopsfelt).length;
+  const betalendeTot = data.filter(r => kjopsInfo(r).betalt).length;
+  const betalendeNaa = data.filter(r => r.proUtlop > naa).length;   // eksakt, krever ota-144
+
+  const forL = rader.filter(r => r.forLansering && !r.erUtvikler).length;
+  const testSkjult = rader.length - forL - data.length
+    - rader.filter(r => r.erUtvikler && !r.forLansering).length;
+  const skjultDeler = [];
+  if (forL) skjultDeler.push(forL + ' fra testperioden');
+  if (testSkjult > 0) skjultDeler.push(testSkjult + ' testenheter');
+  const utv = rader.filter(r => r.erUtvikler).length;
+  if (utv) skjultDeler.push(utv + ' utviklerenhet' + (utv > 1 ? 'er' : ''));
+  document.getElementById('fliser').innerHTML = [
+    flis('Enheter', data.length, skjultDeler.length
+      ? skjultDeler.join(' + ') + ' skjult' : 'alle vist'),
+    flis('Aktive siste døgn', d1, d7 + ' siste 7 dager', d1 > 0),
+    flis('Bekreftede kjøpere', betalendeTot,
+      betalendeTot
+        ? (100 * betalendeTot / Math.max(1, data.length)).toFixed(1) + ' % av brukerne'
+        : 'ingen kjøp påvist ennå',
+      betalendeTot > 0),
+    flis('Median brukstid', tider.length ? minutter(median) : '–',
+      tider.length + ' enheter med tid'),
+    flis('Bruksfrekvens', frek.length ? Math.round(medFrek * 100) + ' %' : '–',
+      frek.length ? 'av dagene siden nedlasting, median av ' + frek.length
+        : 'for kort eiertid ennå'),
+    flis('Runder logget', runderTot, 'siste 30 per enhet'),
+    flis('Har ota-141', medOta, 'rapporterer språk'),
+  ].join('');
+
+  // Runder per dag (ekte historikk fra rundeloggene)
+  const perDagR = {};
+  data.forEach(r => r.runder.forEach(x => {
+    if (x && x.dato) perDagR[x.dato] = (perDagR[x.dato] || 0) + 1;
+  }));
+  stolper('cRunder', sisteDager(perDagR), 'runder');
+
+  // Sist aktiv per dag
+  const perDagA = {};
+  data.forEach(r => { const d = r.oppdatert.slice(0,10); perDagA[d] = (perDagA[d]||0)+1; });
+  stolper('cAktiv', sisteDager(perDagA), 'enheter');
+
+  // Spraak (liggende liste)
+  const spr = {};
+  data.forEach(r => { const s = r.sprak || '\u2014'; spr[s] = (spr[s]||0)+1; });
+  liste('cSprak', Object.entries(spr).sort((a,b) => b[1]-a[1])
+    .map(([k,v]) => [k === '\u2014' ? 'Ukjent (eldre versjon)' : sprakFullt(k), v]), data.length);
+
+  // Brukstid-boetter
+  const b = [['under 1 min',0],['1–5 min',0],['5–20 min',0],['20–60 min',0],['over 1 t',0]];
+  data.forEach(r => { const t = r.tid;
+    if (t <= 0) return;
+    b[t < 60 ? 0 : t < 300 ? 1 : t < 1200 ? 2 : t < 3600 ? 3 : 4][1]++; });
+  liste('cTid', b, Math.max(1, ...b.map(x => x[1])), true);
+
+  proveKort(data);
+  kjoperKort(data);
+  byggKort(data);
+  skjermKort(data);
+  traktKort(data);
+  pottKort(data);
+  // Hvor lenge enhetene har hatt appen
+  const eb = [['i dag',0],['2–3 dager',0],['4–7 dager',0],['over en uke',0]];
+  data.forEach(r => { const h = dagerHatt(r); if (!h) return;
+    eb[h <= 1 ? 0 : h <= 3 ? 1 : h <= 7 ? 2 : 3][1]++; });
+  liste('cEiertid', eb, Math.max(1, ...eb.map(x => x[1])), true);
+  // ... og hvor stor del av de dagene de faktisk aapnet den
+  const fb = [['nesten hver dag',0],['de fleste dagene',0],
+              ['omtrent halvparten',0],['sjeldnere',0]];
+  frek.forEach(a => fb[a >= 0.9 ? 0 : a >= 0.6 ? 1 : a >= 0.35 ? 2 : 3][1]++);
+  liste('cFrek', fb, Math.max(1, ...fb.map(x => x[1])), true);
+  tabell(data);
+}
+
+function flis(navn, tall, under, god){
+  return '<div class="flis"><div class="navn">' + navn + '</div><div class="tall">'
+    + tall + '</div><div class="under' + (god ? ' god' : '') + '">' + under + '</div></div>';
+}
+
+function sisteDager(kart){
+  const ut = [];
+  for (let i = dager - 1; i >= 0; i--) {
+    const d = new Date(Date.now() - i*864e5).toISOString().slice(0,10);
+    ut.push([d, kart[d] || 0]);
+  }
+  return ut;
+}
+
+// Stolpediagram: tynne stolper, 4px avrundet datatopp mot grunnlinjen,
+// 2px mellomrom, hårlinje-rutenett, verdier kun i tooltip (+ maks-etikett).
+function stolper(mål, par, enhet){
+  const el = document.getElementById(mål);
+  const B = el.clientWidth || 460, H = 190, mV = 6, mB = 22, mT = 8;
+  const maks = Math.max(1, ...par.map(p => p[1]));
+  const bw = Math.max(3, (B - mV*2) / par.length - 2);
+  let s = '<svg width="' + B + '" height="' + H + '" role="img">';
+  for (let g = 1; g <= 3; g++) {
+    const y = mT + (H - mB - mT) * (1 - g/3);
+    s += '<line x1="' + mV + '" x2="' + (B-mV) + '" y1="' + y + '" y2="' + y
+      + '" stroke="' + css('--grid') + '" stroke-width="1"/>';
+  }
+  const grunnY = H - mB;
+  par.forEach((p, i) => {
+    const x = mV + i * ((B - mV*2) / par.length) + 1;
+    const h = Math.round((H - mB - mT) * p[1] / maks);
+    const y = grunnY - h;
+    if (p[1] > 0) {
+      const r = Math.min(4, bw/2, h);
+      s += '<path d="M' + x + ',' + grunnY + ' V' + (y+r) + ' Q' + x + ',' + y + ' '
+        + (x+r) + ',' + y + ' H' + (x+bw-r) + ' Q' + (x+bw) + ',' + y + ' '
+        + (x+bw) + ',' + (y+r) + ' V' + grunnY + ' Z" fill="' + css('--series-1') + '"/>';
+    }
+    // Treffflate stoerre enn stolpen (hele kolonnen)
+    s += '<rect x="' + (x-1) + '" y="' + mT + '" width="' + (bw+2) + '" height="'
+      + (H - mB - mT) + '" fill="transparent" data-tt="' + fmtDag(p[0]) + '|' + p[1]
+      + ' ' + enhet + '"/>';
+    if (par.length <= 16 || i % 2 === 0) {
+      s += '<text x="' + (x + bw/2) + '" y="' + (H-7) + '" text-anchor="middle" font-size="10"'
+        + ' fill="' + css('--muted') + '" style="font-variant-numeric:tabular-nums">'
+        + fmtDag(p[0]).slice(0,2) + '</text>';
+    }
+  });
+  s += '<line x1="' + mV + '" x2="' + (B-mV) + '" y1="' + grunnY + '" y2="' + grunnY
+    + '" stroke="' + css('--baseline') + '" stroke-width="1"/>';
+  s += '<text x="' + mV + '" y="' + (mT+9) + '" font-size="10" fill="' + css('--muted')
+    + '">maks ' + maks + '</text></svg>';
+  el.innerHTML = s;
+  kobleTips(el);
+}
+
+// Liggende etikett+stolpe-liste (for faa kategorier til aa trenge akser)
+function liste(mål, par, maksTall, erBoetter){
+  const el = document.getElementById(mål);
+  const maks = erBoetter ? maksTall : Math.max(1, ...par.map(p => p[1]));
+  let s = '';
+  par.forEach(p => {
+    const pct = Math.round(100 * p[1] / maks);
+    s += '<div style="display:flex;align-items:center;gap:10px;margin:7px 0">'
+      + '<div style="width:132px;font-size:12px;color:var(--text-secondary);flex:none">' + p[0] + '</div>'
+      + '<div style="flex:1;height:14px;position:relative">'
+      + (p[1] > 0 ? '<div style="position:absolute;left:0;top:0;bottom:0;width:' + Math.max(2,pct)
+        + '%;background:var(--series-1);border-radius:0 4px 4px 0"></div>' : '')
+      + '</div>'
+      + '<div style="width:30px;text-align:right;font-size:12px;font-weight:700;'
+      + 'font-variant-numeric:tabular-nums">' + p[1] + '</div></div>';
+  });
+  el.innerHTML = s + '<div style="height:6px"></div>';
+}
+
+// Rundetype fra loggen: proeve er eget flagg, blitz kjennes paa temanavnet
+function rundeType(x){
+  if (x.prove) return 'Prøve';
+  if ((x.temaer||[]).some(t => /Skiltblitz/.test(t))) return 'Blitz';
+  return 'Øving';
+}
+// Runder gruppert per dato, nyeste foerst
+function perDato(runder){
+  const kart = {};
+  runder.forEach(x => { if (x && x.dato) (kart[x.dato] = kart[x.dato] || []).push(x); });
+  return Object.entries(kart).sort((a,b) => b[0].localeCompare(a[0]));
+}
+
+// Dagslinjer: slaar sammen tidsdagboken (ota-142) og rundeloggen, saa en dag
+// dukker opp selv om bare en av delene finnes. Nyeste foerst.
+function dagsLinjer(r){
+  const kart = {};
+  Object.entries(r.tidDager || {}).forEach(([d, sek]) => {
+    kart[d] = { dato: d, sek: +sek || 0, runder: [] };
+  });
+  (r.runder || []).forEach(x => {
+    if (!x || !x.dato) return;
+    (kart[x.dato] = kart[x.dato] || { dato: x.dato, sek: null, runder: [] }).runder.push(x);
+  });
+  return Object.values(kart).sort((a,b) => b.dato.localeCompare(a.dato));
+}
+
+// Merkelapp per runde
+function rundeMerke(x){
+  const t = rundeType(x), pr = t === 'Prøve';
+  return '<span style="display:inline-block;font-size:11.5px;margin:0 5px 3px 0;'
+    + 'padding:2px 8px;border-radius:9px;border:1px solid '
+    + (pr ? 'var(--series-1)' : 'var(--border)') + ';'
+    + (pr ? 'color:var(--series-1);font-weight:700' : 'color:var(--text-secondary)')
+    + '">' + t + ' ' + x.poeng + '/' + x.av + '</span>';
+}
+
+// En dagslinje: dato · tidsstolpe · minutter · rundemerker
+function dagsRad(l, maksSek){
+  const har = l.sek !== null && l.sek > 0;
+  const bredde = har ? Math.max(3, Math.round(100 * l.sek / Math.max(60, maksSek))) : 0;
+  return '<div style="display:flex;gap:9px;align-items:center;margin:5px 0">'
+    + '<div style="width:44px;font-size:11.5px;color:var(--muted);flex:none;'
+      + 'font-variant-numeric:tabular-nums">' + fmtDag(l.dato) + '</div>'
+    + '<div style="width:70px;flex:none;height:10px;position:relative">'
+      + (har ? '<div style="position:absolute;left:0;top:0;bottom:0;width:' + bredde
+        + '%;background:var(--series-1);border-radius:0 4px 4px 0"></div>' : '') + '</div>'
+    + '<div style="width:52px;flex:none;text-align:right;font-size:11.5px;'
+      + 'font-variant-numeric:tabular-nums;color:' + (har ? 'var(--text-primary)' : 'var(--muted)') + '">'
+      + (har ? minutter(l.sek) : '–') + '</div>'
+    + '<div style="flex:1;padding-left:6px">' + l.runder.map(rundeMerke).join('') + '</div></div>';
+}
+
+function proveKort(data){
+  const el = document.getElementById('cProve');
+  const medProve = data.filter(r => r.runder.some(x => x && x.prove));
+  if (!medProve.length) {
+    el.innerHTML = '<div style="font-size:12.5px;color:var(--text-secondary);padding:4px 0 10px">'
+      + 'Ingen har tatt prøvesimulering ennå.</div>';
+    return;
+  }
+  // Median brukstid: proeve-takere mot resten
+  const med = v => { const s = v.filter(x=>x>0).sort((a,b)=>a-b);
+    return s.length ? s[Math.floor(s.length/2)] : 0; };
+  const mP = med(medProve.map(r => r.tid));
+  const mR = med(data.filter(r => !medProve.includes(r)).map(r => r.tid));
+  let s = '<div style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px">'
+    + '<b>' + medProve.length + '</b> av ' + data.length + ' enheter har tatt prøven. '
+    + 'Median brukstid: <b>' + minutter(mP) + '</b> for dem, mot ' + minutter(mR) + ' for de andre.</div>';
+  medProve.forEach(r => {
+    const linjer = dagsLinjer(r);
+    const proveDato = r.runder.filter(x => x && x.prove).map(x => x.dato).sort().pop();
+    // Aktivitet ETTER siste proeve = kom de tilbake for aa oeve?
+    const etter = r.runder.filter(x => x && x.dato > proveDato);
+    const sisteAktivDag = r.oppdatert.slice(0,10);
+    const dagerSiden = Math.round((Date.parse(sisteAktivDag) - Date.parse(proveDato)) / 864e5);
+    let dom;
+    if (etter.length) dom = '<span style="color:var(--good-text)">kom tilbake og øvde ('
+      + etter.length + ' ' + (etter.length === 1 ? 'runde' : 'runder') + ')</span>';
+    else if (dagerSiden >= 1) dom = 'åpnet appen ' + dagerSiden + ' d senere, men øvde ikke';
+    else dom = 'ikke sett igjen ennå';
+    s += '<div style="border-top:1px solid var(--grid);padding:10px 0 4px">'
+      + '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">'
+      + '<div style="font-family:ui-monospace,Menlo,monospace;font-size:12px">' + r.id.slice(0,8)
+      + '<span class="merke">' + minutter(r.tid) + '</span></div>'
+      + '<div style="font-size:12px;color:var(--text-secondary)">' + dom + '</div></div>';
+    const maks = Math.max(60, ...linjer.map(l => l.sek || 0));
+    s += linjer.map(l => dagsRad(l, maks)).join('') + '</div>';
+  });
+  el.innerHTML = s;
+}
+
+function byggKort(data){
+  const grupper = {};
+  data.forEach(r => { const n = nivaa(r); (grupper[n.n] = grupper[n.n] || { navn: n.navn, r: [] }).r.push(r); });
+  const par = Object.keys(grupper).sort((a,b) => b - a)
+    .map(k => [grupper[k].navn, grupper[k].r.length]);
+  liste("cBygg", par, data.length);
+  // infolinja over fliser
+  const ny = (grupper[4] || { r: [] }).r.length;
+  const el = document.getElementById("byggInfo");
+  el.innerHTML = "<span><span class='ny'>" + ny + "</span> på nyeste build" +
+    " <span style='color:var(--muted)'>(" + (100*ny/Math.max(1,data.length)).toFixed(1) + " %)</span></span>" +
+    par.slice(1).map(([n,v]) => "<span><b>" + v + "</b> " + n.toLowerCase() + "</span>").join("") +
+    "<span style='color:var(--muted)'>hendelser, lampeblitz og kjøpsstatus finnes bare for de " + ny + "</span>";
+}
+
+function skjermKort(data){
+  const nye = data.filter(r => r.hendelser);
+  const el = document.getElementById("cSkjerm");
+  if (!nye.length) { el.innerHTML = "<div style='color:var(--muted);font-size:12px'>" +
+    "Ingen enheter har fått den nye builden ennå.</div>"; return; }
+  const sum = {};
+  nye.forEach(r => Object.entries(r.hendelser).forEach(([k,v]) => {
+    if (!k.startsWith("skjerm_")) return;
+    const navn = k.slice(7); sum[navn] = (sum[navn] || 0) + (+v || 0); }));
+  const par = Object.entries(sum).sort((a,b) => b[1]-a[1]);
+  if (!par.length) { el.innerHTML = "<div style='color:var(--muted);font-size:12px'>Ingen skjermdata.</div>"; return; }
+  liste("cSkjerm", par, Math.max(...par.map(x => x[1])), true);
+}
+
+function traktKort(data){
+  const nye = data.filter(r => r.hendelser);
+  const el = document.getElementById("cTrakt");
+  if (!nye.length) { el.innerHTML = "<div style='color:var(--muted);font-size:12px'>" +
+    "Krever nyeste build.</div>"; return; }
+  const tell = k => nye.filter(r => (r.hendelser[k] || 0) > 0).length;
+  const dialog = nye.filter(r => Object.keys(r.hendelser).some(k => k.startsWith("betaldialog_"))).length;
+  const steg = [["Åpnet appen", nye.length], ["Så betalingsdialogen", dialog],
+                ["Startet kjøp", tell("kjop_start")], ["Fullførte kjøp", tell("kjop_fullfort")]];
+  liste("cTrakt", steg, nye.length, true);
+}
+
+function pottKort(data){
+  const idag = new Date().toISOString().slice(0,10);
+  const med = data.filter(r => r.bruk && r.bruk.dag === idag);
+  const el = document.getElementById("cPott");
+  if (!med.length) { el.innerHTML = "<div style='color:var(--muted);font-size:12px'>" +
+    "Ingen enheter har brukt appen i dag ennå.</div>"; return; }
+  const b = [["ikke rørt (0 min)",0],["under halve potten",0],["over halve",0],["brukt opp (8 min)",0]];
+  med.forEach(r => { const t = +r.bruk.tidSekBrukt || 0;
+    b[t <= 0 ? 0 : t < 240 ? 1 : t < 480 ? 2 : 3][1]++; });
+  liste("cPott", b, Math.max(1, ...b.map(x => x[1])), true);
+  el.insertAdjacentHTML("beforeend", "<div style='font-size:11.5px;color:var(--muted);margin-top:6px'>" +
+    med.length + " enheter aktive i dag</div>");
+}
+
+function kjoperKort(data){
+  const k = data.map(r => ({ r, i: kjopsInfo(r) })).filter(x => x.i.betalt)
+    .sort((a,b) => (b.i.dag || "").localeCompare(a.i.dag || ""));
+  const el = document.getElementById("cKjop");
+  if (!k.length) { el.innerHTML = "<div style='color:var(--muted);font-size:12px'>" +
+    "Ingen kjøp påvist ennå.</div>"; return; }
+
+  // Dager fra foerste oppstart til kjopsdagen. null naar foerste mangler
+  // (enheter fra foer ota-141 har feil foerstedato og maa holdes utenfor).
+  const dagerFoerKjop = x => (x.r.foerste && x.i.dag)
+    ? Math.max(0, Math.round((Date.parse(x.i.dag) - Date.parse(x.r.foerste.slice(0,10))) / 864e5))
+    : null;
+
+  const tot = {}, kjop = {};
+  data.forEach(r => { const s = r.sprak || "ukjent"; tot[s] = (tot[s]||0)+1; });
+  k.forEach(x => { const s = x.r.sprak || "ukjent"; kjop[s] = (kjop[s]||0)+1; });
+  const spr = Object.keys(kjop).sort((a,b) => kjop[b]-kjop[a]);
+
+  // Naar kjoper de? Det er sporsmaalet kortet skal svare paa.
+  const md = k.map(dagerFoerKjop).filter(v => v !== null);
+  const samme = md.filter(v => v === 0).length;
+  const etter1 = md.filter(v => v === 1).length;
+  const senere = md.filter(v => v >= 2).length;
+
+  let s2 = "<div style='font-size:12.5px;color:var(--text-secondary);margin-bottom:4px'>" +
+    "<b>" + k.length + "</b> av " + data.length + " enheter (" +
+    (100*k.length/Math.max(1,data.length)).toFixed(1) + " %). Per språk: " +
+    spr.map(x => (x === "ukjent" ? "Ukjent" : sprakNavn(x)) + " " + kjop[x] + "/" + tot[x] +
+      (tot[x] >= 5 ? " (" + Math.round(100*kjop[x]/tot[x]) + " %)" : "")).join(" · ") + "</div>";
+  if (md.length) s2 += "<div style='font-size:12.5px;color:var(--text-secondary);margin-bottom:10px'>" +
+    "Kjøpte <b>samme dag</b>: " + samme + " · <b>dagen etter</b>: " + etter1 +
+    " · <b>etter 2 dager eller mer</b>: " + senere +
+    " <span style='color:var(--muted)'>(" + (k.length - md.length) +
+    " uten pålitelig nedlastingsdato)</span></div>";
+
+  s2 += "<div style='overflow-x:auto'><table id='ktab'>" +
+    "<tr><th></th><th>enhet</th><th>språk</th><th>kjøpsdag</th>" +
+    "<th style='text-align:right'>hadde appen</th>" +
+    "<th style='text-align:right'>spilt før kjøp</th>" +
+    "<th style='text-align:right'>runder før</th>" +
+    "<th style='text-align:right'>tid i dag</th></tr>";
+
+  k.forEach((x, i) => {
+    const linjer = dagsLinjer(x.r);
+    const kanApnes = linjer.length > 0;
+    const d = dagerFoerKjop(x);
+    s2 += "<tr" + (kanApnes ? " style='cursor:pointer' data-krad='" + i + "'" : "") + ">" +
+      "<td style='width:14px;color:var(--muted)'>" +
+        (kanApnes ? "<span id='kpil" + i + "'>›</span>" : "") + "</td>" +
+      "<td>" + x.r.id.slice(0,8) + "</td><td>" + sprakNavn(x.r.sprak) +
+      "</td><td>" + fmtDag(x.i.dag) +
+      "</td><td style='text-align:right'>" +
+        (d === null ? "<span style='color:var(--muted)'>–</span>"
+          : d === 0 ? "<b>samme dag</b>" : d + " d") +
+      "</td><td style='text-align:right'>" +
+        (x.i.foerTid ? minutter(x.i.foerTid) : "<span style='color:var(--muted)'>–</span>") +
+      "</td><td style='text-align:right'>" + x.i.foerRunder +
+      "</td><td style='text-align:right'>" + (x.r.tid ? minutter(x.r.tid) : "–") + "</td></tr>";
+    if (kanApnes) {
+      const maks = Math.max(60, ...linjer.map(l => l.sek || 0));
+      s2 += "<tr id='kdet" + i + "' style='display:none'><td></td>" +
+        "<td colspan='7' style='padding:4px 0 12px'>" +
+        "<div style='display:flex;gap:9px;font-size:11px;color:var(--muted);margin-bottom:2px'>" +
+        "<span style='width:44px;flex:none'>dato</span>" +
+        "<span style='width:128px;flex:none'>tid i appen</span><span>runder</span></div>" +
+        linjer.map(l => dagsRad(l, maks)).join('') + "</td></tr>";
+    }
+  });
+
+  el.innerHTML = s2 + "</table></div>";
+  el.querySelectorAll('[data-krad]').forEach(rad => {
+    rad.addEventListener('click', () => {
+      const i = rad.dataset.krad, d = document.getElementById('kdet' + i);
+      const apen = d.style.display !== 'none';
+      d.style.display = apen ? 'none' : '';
+      const pil = document.getElementById('kpil' + i);
+      if (pil) pil.textContent = apen ? '›' : '⌄';
+    });
+  });
+}
+
+// Rundene fordelt paa type, saa man ser hva enheten faktisk har spilt.
+function rundeOppsummering(r){
+  const runder = (r.runder || []).filter(Boolean);
+  if (!runder.length) return "";
+  const t = {};
+  runder.forEach(x => { const k = rundeType(x); (t[k] = t[k] || []).push(x); });
+  const deler = Object.keys(t).map(k => {
+    const g = t[k];
+    const snitt = Math.round(g.reduce((a,x) => a + (x.poeng||0), 0) / g.length);
+    const av = g[0].av || "?";
+    return "<b>" + g.length + "</b> " + k.toLowerCase() + " <span style='color:var(--muted)'>" +
+      "(snitt " + snitt + "/" + av + ")</span>";
+  });
+  return "<div class='detblokk'><div class='tit'>runder</div>" +
+    deler.join(" &nbsp;·&nbsp; ") + "</div>";
+}
+
+// Skjermaapninger. Finnes bare paa nyeste build, saa de fleste faar en
+// forklaring i stedet for et tomt felt.
+function sideOppsummering(r){
+  if (!r.hendelser) return "<div class='detblokk'><div class='tit'>sider åpnet</div>" +
+    "<span style='color:var(--muted)'>krever nyeste build</span></div>";
+  const sider = Object.entries(r.hendelser).filter(([k]) => k.startsWith("skjerm_"))
+    .map(([k,v]) => [k.slice(7), +v || 0]).sort((a,b) => b[1]-a[1]);
+  const annet = Object.entries(r.hendelser).filter(([k]) => !k.startsWith("skjerm_"))
+    .map(([k,v]) => k + " " + v);
+  if (!sider.length && !annet.length) return "";
+  return "<div class='detblokk'><div class='tit'>sider åpnet</div>" +
+    sider.map(([n,v]) => n + " <b>" + v + "</b>").join(" &nbsp;·&nbsp; ") +
+    (annet.length ? "<div style='margin-top:3px;color:var(--series-1)'>" +
+      annet.join(" &nbsp;·&nbsp; ") + "</div>" : "") + "</div>";
+}
+
+function tabell(data){
+  const t = document.getElementById('tabell');
+  const naa = Date.now();
+  const sortert = [...data].sort((a,b) => {
+    const x = sortVerdi(a, tabSort.kol), y = sortVerdi(b, tabSort.kol);
+    const c = (typeof x === 'number' && typeof y === 'number')
+      ? x - y : String(x).localeCompare(String(y), 'nb');
+    return tabSort.ned ? -c : c;
+  });
+  let s = '<tr><th></th>' + KOLONNER.map(k =>
+    '<th class="sorter' + (tabSort.kol === k.k ? ' aktiv' : '') + '" data-kol="' + k.k + '"'
+    + (k.hoyre ? ' style="text-align:right"' : '') + '>' + k.t
+    + '<span class="pil">' + (tabSort.ned ? '▼' : '▲') + '</span></th>').join('') + '</tr>';
+  sortert.forEach((r, i) => {
+    const linjer = dagsLinjer(r);
+    const kanApnes = linjer.length > 0;
+    s += '<tr' + (r.tid >= TEST_GRENSE_SEK ? ' class="test"' : '')
+      + (kanApnes ? ' style="cursor:pointer" data-rad="' + i + '"' : '') + '>'
+      + '<td style="width:14px;color:var(--muted)">' + (kanApnes ? '<span id="pil'+i+'">›</span>' : '') + '</td>'
+      + '<td>' + r.id.slice(0,8)
+      + (r.runder.some(x => x && x.prove) ? '<span class="merke">prøve</span>' : '')
+      + (kjopsInfo(r).betalt ? '<span class="merke betalt">betalt</span>' : '')
+      + (r.kodeUtlop > naa ? '<span class="merke">kode</span>' : '')
+      + '</td><td title="' + sprakNavn(r.sprak || '') + '">' + (r.sprak || '–')
+      + '</td><td><span class="tsprak' + (utenlandsk(r) ? ' avvik' : '')
+        + '" title="telefonens region (fra ' + (r.telSprak || 'ukjent') + ')">'
+        + (region(r) || '–') + '</span>'
+      + '</td><td><span class="bygg n' + nivaa(r).n + '" title="' + nivaa(r).navn + '">'
+        + BYGGKORT[nivaa(r).n] + '</span>'
+      + '</td><td>' + (r.foerste ? fmtDag(r.foerste) : '–')
+      + '</td><td style="text-align:right">' + (dagerHatt(r) ? dagerHatt(r) + ' d' : '–')
+      + '</td><td>' + fmtDag(r.oppdatert) + ' ' + r.oppdatert.slice(11,16)
+      + '</td><td style="text-align:right">' + (r.tid > 0 ? minutter(r.tid) : '–')
+      + '</td><td style="text-align:right">' + r.runder.length
+      + '</td><td>' + dagStripe(r) + '</td></tr>';
+    if (kanApnes) {
+      const maks = Math.max(60, ...linjer.map(l => l.sek || 0));
+      s += '<tr id="det' + i + '" style="display:none"><td></td><td colspan="10" style="padding:4px 0 12px">'
+        + '<div style="display:flex;gap:9px;font-size:11px;color:var(--muted);margin-bottom:2px">'
+        + '<span style="width:44px;flex:none">dato</span>'
+        + '<span style="width:128px;flex:none">tid i appen</span><span>runder</span></div>'
+        + linjer.map(l => dagsRad(l, maks)).join('')
+        + rundeOppsummering(r) + sideOppsummering(r)
+        + (r.tid > 0 && !Object.keys(r.tidDager).length
+            ? '<div style="font-size:11px;color:var(--muted);margin-top:6px">'
+              + 'Tid per dag mangler – enheten har ikke fått ota-142 ennå. '
+              + 'Totalt ' + minutter(r.tid) + '.</div>' : '')
+        + '</td></tr>';
+    }
+  });
+  t.innerHTML = s;
+  t.querySelectorAll('th[data-kol]').forEach(th => {
+    th.addEventListener('click', () => {
+      const k = th.dataset.kol;
+      const def = KOLONNER.find(x => x.k === k);
+      if (tabSort.kol === k) tabSort.ned = !tabSort.ned;
+      else tabSort = { kol: k, ned: !!(def && def.tall) };
+      tabell(data);
+    });
+  });
+  t.querySelectorAll('[data-rad]').forEach(rad => {
+    rad.addEventListener('click', () => {
+      const i = rad.dataset.rad, d = document.getElementById('det' + i);
+      const apen = d.style.display !== 'none';
+      d.style.display = apen ? 'none' : 'table-row';
+      document.getElementById('pil' + i).textContent = apen ? '›' : '⌄';
+    });
+  });
+}
+
+// Tooltip-laget
+const tips = document.getElementById('tips');
+function kobleTips(rot){
+  rot.querySelectorAll('[data-tt]').forEach(n => {
+    n.addEventListener('mousemove', e => {
+      const [l1, l2] = n.getAttribute('data-tt').split('|');
+      tips.innerHTML = '<div class="l1">' + l1 + '</div><div class="l2">' + l2 + '</div>';
+      tips.style.display = 'block';
+      tips.style.left = Math.min(innerWidth - 130, e.clientX + 12) + 'px';
+      tips.style.top = (e.clientY - 40) + 'px';
+    });
+    n.addEventListener('mouseleave', () => { tips.style.display = 'none'; });
+  });
+}
+
+document.getElementById('filtre').addEventListener('click', e => {
+  const k = e.target.closest('.knapp'); if (!k) return;
+  dager = +k.dataset.dager;
+  document.querySelectorAll('.knapp').forEach(x => x.classList.toggle('valgt', x === k));
+  tegn();
+});
+document.getElementById('skjulTest').addEventListener('change', tegn);
+addEventListener('resize', () => { if (rader.length) tegn(); });
+
+// Krypterte data. Uten riktig bruker+passord kan ikke Supabase-noekkelen
+// utledes, og siden har ingenting aa hente med.
+const KRYPT = { s: '/4G1FPpOn1HxmBO/4UxEPw==', i: 'rjtqTJLtp3fzT6EZ', d: 'jB3w4BI5+D9H8sg0PpmpBjSPoVNUqtHsUxBWEPNc/BZwxmD35X+Q9XR3/DwnOO+ZOhJB9E6Xkh3eGhzWx8Y=', it: 310000 };
+const fraB64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
+
+async function lasOppNokkel(bruker, passord) {
+  const rot = await crypto.subtle.importKey('raw',
+    new TextEncoder().encode(bruker + ':' + passord), 'PBKDF2', false, ['deriveKey']);
+  const n = await crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: fraB64(KRYPT.s), iterations: KRYPT.it, hash: 'SHA-256' },
+    rot, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  const klar = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: fraB64(KRYPT.i) }, n, fraB64(KRYPT.d));
+  return new TextDecoder().decode(klar);
+}
+
+function apne(nokkel) {
+  NOKKEL = nokkel;
+  try { sessionStorage.setItem('lappen-analyse', nokkel); } catch (e) {}
+  const p = document.getElementById('port');
+  if (p) p.remove();
+  hent();
+}
+
+(function () {
+  // Samme fane som allerede har logget inn slipper aa gjoere det paa nytt.
+  let lagret = null;
+  try { lagret = sessionStorage.getItem('lappen-analyse'); } catch (e) {}
+  if (lagret) { apne(lagret); return; }
+
+  const f = document.getElementById('portform');
+  const feil = document.getElementById('pfeil');
+  f.addEventListener('submit', async e => {
+    e.preventDefault();
+    const knapp = f.querySelector('button');
+    knapp.disabled = true; feil.textContent = ''; knapp.textContent = 'Låser opp …';
+    try {
+      const n = await lasOppNokkel(
+        document.getElementById('pbruker').value.trim(),
+        document.getElementById('ppass').value);
+      apne(n);
+    } catch (err) {
+      feil.textContent = 'Feil bruker eller passord.';
+      knapp.disabled = false; knapp.textContent = 'Logg inn';
+      document.getElementById('ppass').value = '';
+    }
+  });
+  document.getElementById('pbruker').focus();
+})();
+</script>
+</body>
+</html>
