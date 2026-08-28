@@ -40,7 +40,7 @@
     <div class="lskilt"></div><div class="ordmerke">-appen</div>
   </a>
   <h1>Personvernerklæring for L-appen</h1>
-  <p class="oppdatert">Sist oppdatert: 16. august 2026</p>
+  <p class="oppdatert">Sist oppdatert: 28. august 2026</p>
 
   <p>L-appen er en øvingsapp for teoriprøven til førerkort klasse B, utgitt av Studio
   Glazebrook. Appen er laget for å samle inn så lite data som overhodet mulig - den
@@ -71,9 +71,10 @@
 
   <h2>Hva lagres IKKE?</h2>
   <p>Ingen navn, e-postadresser, telefonnumre, posisjonsdata, kontakter, bilder eller
-  betalingsopplysninger. Appen viser ingen annonser, og du blir ikke sporet på tvers av
-  apper eller nettsteder. Appen henter aldri ut Apples reklame-ID (IDFA) - se «Måling av
-  annonser» nedenfor.</p>
+  betalingsopplysninger. Appen viser ingen annonser inne i appen, og ingenting fra øvingen
+  din deles med noen. Sporing på tvers av apper skjer bare hvis du selv tillater det - på
+  iPhone og iPad gjennom Apples dialog om sporing, på Android gjennom Googles annonse-ID.
+  Begge kan du slå av, og begge er forklart under «Måling av annonser» nedenfor.</p>
 
   <h2>Kjøp</h2>
   <p>Alle kjøp gjennomføres av Apple via App Store (In-App Purchase). Betalingsopplysningene
@@ -88,8 +89,9 @@
   <h2>Måling av annonser</h2>
   <p>Appen bruker Metas SDK (selskapet bak Facebook og Instagram) til å måle effekten av
   vår egen annonsering - altså hvor mange som laster ned appen etter å ha sett en annonse
-  for den. Til dette sendes enkle hendelser som «appen ble installert» og «appen ble
-  åpnet» til Meta, knyttet til en anonym app-ID.</p>
+  for den. Til dette sendes enkle hendelser til Meta, knyttet til en anonym app-ID:
+  «appen ble installert», «appen ble åpnet», og - på iPhone og iPad - «betaling påbegynt»
+  og «kjøp gjennomført».</p>
   <p><strong>På iPhone og iPad</strong> spør appen først om lov, gjennom Apples egen
   dialog om sporing. Svarer du nei, brukes ikke Apples reklame-ID (IDFA), og målingen
   skjer bare aggregert gjennom Apples SKAdNetwork - der Apple rapporterer anonyme
@@ -100,9 +102,15 @@
   annonse-ID til å se hvilken annonse som førte til nedlastingen. Du kan slette
   annonse-ID-en eller slå den av helt under Innstillinger → Google → Annonser, og da
   får Meta ingen slik kobling.</p>
-  <p>Uansett plattform sendes bare hendelser som «appen ble installert» og «appen ble
-  åpnet». Vi sender aldri hva du har svart, hvordan du ligger an eller noe annet fra
-  øvingen din, og vi selger ikke data om deg til noen.</p>
+  <p><strong>Om kjøpshendelsene:</strong> kjøper du full tilgang, sender Metas SDK
+  automatisk beskjed om at et kjøp ble gjennomført, sammen med beløpet og valutaen. Det
+  brukes til å se hvilke annonser som faktisk fører til kjøp, ikke bare til nedlastinger.
+  Hendelsen er knyttet til den samme anonyme app-ID-en, så Meta får aldri vite hvem som
+  betalte - og aldri kortnummer eller andre betalingsopplysninger, som utelukkende
+  håndteres av Apple. Dette gjelder bare iPhone og iPad. På Android er hele appen gratis,
+  det finnes ingen kjøp i appen, og dermed sendes heller ingen slike hendelser.</p>
+  <p>Utover dette sendes ingenting. Vi sender aldri hva du har svart, hvordan du ligger an
+  eller noe annet fra øvingen din, og vi selger ikke data om deg til noen.</p>
   <p>Meta er selv ansvarlig for hvordan de behandler disse dataene. Du kan lese mer i
   <a href="https://www.facebook.com/privacy/policy/">Metas personvernerklæring</a>.</p>
 
