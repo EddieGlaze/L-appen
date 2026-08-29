@@ -339,6 +339,7 @@ const KOLONNER = [
   { k: 'oppdatert', t: 'sist aktiv',      tall: 1 },
   { k: 'tid',       t: 'brukstid',        tall: 1, hoyre: 1 },
   { k: 'runder',    t: 'runder',          tall: 1, hoyre: 1 },
+  { k: 'kjopt',     t: 'kjøpt',           tall: 1 },
   { k: 'aktiv',     t: 'aktivitet',       tall: 1 },
 ];
 let tabSort = { kol: 'oppdatert', ned: true };
@@ -353,6 +354,7 @@ function sortVerdi(r, k){
   if (k === 'oppdatert') return r.oppdatert;
   if (k === 'tid') return r.tid;
   if (k === 'runder') return r.runder.length + dashAntall(r);
+  if (k === 'kjopt') { const i2 = kjopsInfo(r); return i2.kjopMs || (i2.kilde === 'antatt' && i2.dag ? Date.parse(i2.dag) : 0); }
   if (k === 'aktiv') return dagsLinjer(r).length;
   return 0;
 }
@@ -380,10 +382,23 @@ function dagerHatt(r){
 // oevingsrunde over 10 krever full tilgang. Proven er unntatt - den kan tas
 // gratis hver 5. dag. Blir eksakt naar ota-144 har naadd enhetene.
 function kjopsInfo(r){
+  // Tre kilder, i fallende sikkerhet:
+  //   kjop   - kvitteringen rapporterer proUtlop (stemmer mot RevenueCat)
+  //   kode   - kodeUtlop satt: full tilgang via innloest kode, IKKE kjoep
+  //   antatt - bare store runder (>10 sporsmaal) beviser full tilgang, men
+  //            kan ikke skille kjoep fra kode paa eldre builds
   // Eksakt naar enheten er paa nyeste build og har rapportert kjop.
+  // Kjoepstidspunktet regnes BAKOVER fra utloepet: hvert kjoep gir 120
+  // dager, saa proUtlop - 120 d er kjoepsoyeblikket paa minuttet for
+  // enkeltkjoep. For forleng-stablere blir det et estimat som ligger
+  // etter foerste kjoep - aldri foer.
   if (r.proUtlop > 0) {
-    const dag = new Date(r.proUtlop).toISOString().slice(0,10);
-    return { betalt: true, dag, foerRunder: (r.runder || []).length, foerTid: 0, eksakt: true };
+    const kjopMs = r.proUtlop - 120 * 864e5;
+    const dag = new Date(kjopMs).toISOString().slice(0,10);
+    return { betalt: true, kilde: 'kjop', kjopMs, dag, foerRunder: (r.runder || []).length, foerTid: 0, eksakt: true };
+  }
+  if (r.kodeUtlop > 0) {
+    return { betalt: false, kilde: 'kode' };
   }
   const store = (r.runder || []).filter(x => x && !x.prove && (x.av || 0) > 10)
     .filter(x => x.dato).sort((a,b) => a.dato.localeCompare(b.dato));
@@ -395,7 +410,7 @@ function kjopsInfo(r){
     (x.dato === dag && !(!x.prove && (x.av || 0) > 10)))).length;
   const foerTid = Object.entries(r.tidDager || {})
     .filter(([k]) => k <= dag).reduce((a,[,v]) => a + (+v || 0), 0);
-  return { betalt:true, dag, foerRunder, foerTid };
+  return { betalt:true, kilde: 'antatt', dag, foerRunder, foerTid };
 }
 
 // Prikkstripe fra foerste oppstart til i dag: fylt = aktiv, aapen = ikke.
@@ -510,8 +525,10 @@ function tegn(){
   const medFrek = frek.length ? frek[Math.floor(frek.length / 2)] : 0;
   // Betalt = kjop via Apple. Innloest kode teller ikke som betalende.
   const medKjopsfelt = data.filter(r => r.harKjopsfelt).length;
-  const betalendeTot = data.filter(r => kjopsInfo(r).betalt).length;
-  const betalendeNaa = data.filter(r => r.proUtlop > naa).length;   // eksakt, krever ota-144
+  const kilder = data.map(r => kjopsInfo(r).kilde);
+  const bekreftet = kilder.filter(k => k === 'kjop').length;
+  const antatt = kilder.filter(k => k === 'antatt').length;
+  const medKode = kilder.filter(k => k === 'kode').length;
 
   const forL = rader.filter(r => r.forLansering && !r.erUtvikler).length;
   const testSkjult = rader.length - forL - data.length
@@ -525,11 +542,12 @@ function tegn(){
     flis('Enheter', data.length, skjultDeler.length
       ? skjultDeler.join(' + ') + ' skjult' : 'alle vist'),
     flis('Aktive siste døgn', d1, d7 + ' siste 7 dager', d1 > 0),
-    flis('Bekreftede kjøpere', betalendeTot,
-      betalendeTot
-        ? (100 * betalendeTot / Math.max(1, data.length)).toFixed(1) + ' % av brukerne'
-        : 'ingen kjøp påvist ennå',
-      betalendeTot > 0),
+    flis('Bekreftede kjøpere', bekreftet,
+      (bekreftet ? (100 * bekreftet / Math.max(1, data.length)).toFixed(1) + ' % av brukerne'
+        : 'ingen kvitteringer ennå')
+        + (antatt ? ' · ' + antatt + ' antatt' : '')
+        + (medKode ? ' · ' + medKode + ' m/kode' : ''),
+      bekreftet > 0),
     flis('Median brukstid', tider.length ? minutter(median) : '–',
       tider.length + ' enheter med tid'),
     flis('Bruksfrekvens', frek.length ? Math.round(medFrek * 100) + ' %' : '–',
@@ -735,11 +753,23 @@ function dagsLinjer(r){
     if (!x || !x.dato) return;
     (kart[x.dato] = kart[x.dato] || { dato: x.dato, sek: null, runder: [] }).runder.push(x);
   });
+  // Dash-blitz-rundene hoerer hjemme i samme dagslinjer - d er ms-stempel.
+  // En dag med bare dash teller dermed ogsaa som aktiv dag, som er riktig.
+  (r.lampeblitz || []).forEach(x => {
+    if (!x || !x.d) return;
+    const dato = new Date(x.d).toISOString().slice(0,10);
+    (kart[dato] = kart[dato] || { dato, sek: null, runder: [] }).runder.push({ dash: true, riktige: Number(x.r) || 0 });
+  });
   return Object.values(kart).sort((a,b) => b.dato.localeCompare(a.dato));
 }
 
 // Merkelapp per runde
 function rundeMerke(x){
+  if (x.dash) {
+    return '<span style="display:inline-block;font-size:11.5px;margin:0 5px 3px 0;'
+      + 'padding:2px 8px;border-radius:9px;border:1px solid var(--border);'
+      + 'color:var(--text-secondary)">&#x26A1; ' + x.riktige + '</span>';
+  }
   const t = rundeType(x), pr = t === 'Prøve';
   return '<span style="display:inline-block;font-size:11.5px;margin:0 5px 3px 0;'
     + 'padding:2px 8px;border-radius:9px;border:1px solid '
@@ -859,7 +889,9 @@ function pottKort(data){
 }
 
 function kjoperKort(data){
-  const k = data.map(r => ({ r, i: kjopsInfo(r) })).filter(x => x.i.betalt)
+  const alle = data.map(r => ({ r, i: kjopsInfo(r) }));
+  const antattN = alle.filter(x => x.i.kilde === 'antatt').length;
+  const k = alle.filter(x => x.i.kilde === 'kjop')
     .sort((a,b) => (b.i.dag || "").localeCompare(a.i.dag || ""));
   const el = document.getElementById("cKjop");
   if (!k.length) { el.innerHTML = "<div style='color:var(--muted);font-size:12px'>" +
@@ -884,7 +916,8 @@ function kjoperKort(data){
 
   let s2 = "<div style='font-size:12.5px;color:var(--text-secondary);margin-bottom:4px'>" +
     "<b>" + k.length + "</b> av " + data.length + " enheter (" +
-    (100*k.length/Math.max(1,data.length)).toFixed(1) + " %). Per språk: " +
+    (100*k.length/Math.max(1,data.length)).toFixed(1) + " %)" +
+    (antattN ? " + " + antattN + " antatt (eldre build, uten kvittering)" : "") + ". Per språk: " +
     spr.map(x => (x === "ukjent" ? "Ukjent" : sprakNavn(x)) + " " + kjop[x] + "/" + tot[x] +
       (tot[x] >= 5 ? " (" + Math.round(100*kjop[x]/tot[x]) + " %)" : "")).join(" · ") + "</div>";
   if (md.length) s2 += "<div style='font-size:12.5px;color:var(--text-secondary);margin-bottom:10px'>" +
@@ -939,28 +972,6 @@ function kjoperKort(data){
   });
 }
 
-// Rundene fordelt paa type, saa man ser hva enheten faktisk har spilt.
-function rundeOppsummering(r){
-  const runder = (r.runder || []).filter(Boolean);
-  const dash = (r.lampeblitz || []).filter(Boolean);
-  if (!runder.length && !dash.length) return "";
-  const t = {};
-  runder.forEach(x => { const k = rundeType(x); (t[k] = t[k] || []).push(x); });
-  const deler = Object.keys(t).map(k => {
-    const g = t[k];
-    const snitt = Math.round(g.reduce((a,x) => a + (x.poeng||0), 0) / g.length);
-    const av = g[0].av || "?";
-    return "<b>" + g.length + "</b> " + k.toLowerCase() + " <span style='color:var(--muted)'>" +
-      "(snitt " + snitt + "/" + av + ")</span>";
-  });
-  if (dash.length) {
-    const snittR = Math.round(dash.reduce((a,x) => a + (Number(x.r)||0), 0) / dash.length);
-    deler.push("<b>" + dash.length + "</b> dash-blitz <span style='color:var(--muted)'>(snitt "
-      + snittR + " riktige)</span>");
-  }
-  return "<div class='detblokk'><div class='tit'>runder</div>" +
-    deler.join(" &nbsp;·&nbsp; ") + "</div>";
-}
 
 // Skjermaapninger. Finnes bare paa nyeste build, saa de fleste faar en
 // forklaring i stedet for et tomt felt.
@@ -999,29 +1010,36 @@ function tabell(data){
       + '<td style="width:14px;color:var(--muted)">' + (kanApnes ? '<span id="pil'+i+'">›</span>' : '') + '</td>'
       + '<td>' + r.id.slice(0,8)
       + (r.runder.some(x => x && x.prove) ? '<span class="merke">prøve</span>' : '')
-      + (kjopsInfo(r).betalt ? '<span class="merke betalt">betalt</span>' : '')
-      + (r.kodeUtlop > naa ? '<span class="merke">kode</span>' : '')
+      + (kjopsInfo(r).kilde === 'kjop' ? '<span class="merke betalt">betalt</span>' : '')
+      + (kjopsInfo(r).kilde === 'antatt' ? '<span class="merke" title="store runder, men ingen kvittering rapportert - kan vaere kjoep paa eldre build eller kode">antatt</span>' : '')
+      + (r.kodeUtlop > 0 ? '<span class="merke">kode</span>' : '')
       + '</td><td title="' + sprakNavn(r.sprak || '') + '">' + (r.sprak || '–')
       + '</td><td><span class="tsprak' + (utenlandsk(r) ? ' avvik' : '')
         + '" title="telefonens region (fra ' + (r.telSprak || 'ukjent') + ')">'
         + (region(r) || '–') + '</span>'
       + '</td><td><span class="bygg n' + nivaa(r).n + '" title="' + nivaa(r).navn + '">'
         + BYGGKORT[nivaa(r).n] + '</span>'
-      + '</td><td>' + (r.foerste ? fmtDag(r.foerste) : '–')
+      + '</td><td>' + (r.foerste ? fmtDag(r.foerste) + ' ' + (r.foerste.length > 15 ? r.foerste.slice(11,16) : '') : '–')
       + '</td><td style="text-align:right">' + (dagerHatt(r) ? dagerHatt(r) + ' d' : '–')
       + '</td><td>' + fmtDag(r.oppdatert) + ' ' + r.oppdatert.slice(11,16)
       + '</td><td style="text-align:right">' + (r.tid > 0 ? minutter(r.tid) : '–')
       + '</td><td style="text-align:right">' + (r.runder.length + dashAntall(r))
       + (dashAntall(r) ? ' <span style="color:var(--muted)">(' + dashAntall(r) + '&#x26A1;)</span>' : '')
+      + '</td><td>' + (function(){
+          const i2 = kjopsInfo(r);
+          if (i2.kjopMs) { const iso = new Date(i2.kjopMs).toISOString(); return fmtDag(iso) + ' ' + iso.slice(11,16); }
+          if (i2.kilde === 'antatt' && i2.dag) return '<span style="color:var(--muted)" title="foerste store runde - kvittering mangler">~' + fmtDag(i2.dag) + '</span>';
+          return '–';
+        })()
       + '</td><td>' + dagStripe(r) + '</td></tr>';
     if (kanApnes) {
       const maks = Math.max(60, ...linjer.map(l => l.sek || 0));
-      s += '<tr id="det' + i + '" style="display:none"><td></td><td colspan="10" style="padding:4px 0 12px">'
+      s += '<tr id="det' + i + '" style="display:none"><td></td><td colspan="11" style="padding:4px 0 12px">'
         + '<div style="display:flex;gap:9px;font-size:11px;color:var(--muted);margin-bottom:2px">'
         + '<span style="width:44px;flex:none">dato</span>'
         + '<span style="width:128px;flex:none">tid i appen</span><span>runder</span></div>'
         + linjer.map(l => dagsRad(l, maks)).join('')
-        + rundeOppsummering(r) + sideOppsummering(r)
+        + sideOppsummering(r)
         + (r.tid > 0 && !Object.keys(r.tidDager).length
             ? '<div style="font-size:11px;color:var(--muted);margin-top:6px">'
               + 'Tid per dag mangler – enheten har ikke fått ota-142 ennå. '
@@ -1078,7 +1096,7 @@ addEventListener('resize', () => { if (rader.length) tegn(); });
 
 // Krypterte data. Uten riktig bruker+passord kan ikke Supabase-noekkelen
 // utledes, og siden har ingenting aa hente med.
-const KRYPT = { s: 'HC2a6eeHmAA195jVe45AeA==', i: '36gvfX9IScX0RFvh', d: 'nocKb59ZkfwQD97ATO490+dg6Eb41aEj7RuznRgSJJMjdrS7syA7Edk+mopD3ldVADAfKU9apVnB4f3d6qA=', it: 310000 };
+const KRYPT = { s: 'XuR+iFzrpyu0m5J6b0PhtQ==', i: 'iYfRgx6jZhW8gDye', d: 'pEo+UAdvDCy9ZvzsTXXAnhDdFWZxfSi1VPGgSrlopp7lrV6rEg8NBrOw9W/vc1DGYTCmUAtWVmoa8hjdOyA=', it: 310000 };
 const fraB64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
 
 async function lasOppNokkel(bruker, passord) {
