@@ -129,6 +129,15 @@
   th.sorter .pil { opacity:0; margin-left:3px; font-size:9px; }
   th.sorter.aktiv { color:var(--series-1); }
   th.sorter.aktiv .pil { opacity:1; }
+  .kort.fold > h2 { cursor:pointer; user-select:none; display:flex;
+                    align-items:center; gap:8px; margin:0; }
+  .kort.fold > h2 .fpil { color:var(--muted); font-size:13px; font-weight:700;
+                          transition:transform .15s; display:inline-block; }
+  .kort.fold.apen > h2 .fpil { transform:rotate(90deg); }
+  .kort.fold > h2 .fant { margin-left:auto; font-size:11.5px; font-weight:600;
+                          color:var(--muted); }
+  .kort.fold > .innhold { display:none; }
+  .kort.fold.apen > .innhold { display:block; padding-top:8px; }
   .tsprak { font-size:11.5px; color:var(--muted); font-variant-numeric:tabular-nums; }
   .tsprak.avvik { color:var(--series-1); font-weight:700; }
   .detblokk { margin-top:10px; font-size:11.5px; }
@@ -218,6 +227,10 @@
     <div class="kort"><h2>Runder spilt per dag</h2>
       <div class="hint">fra rundeloggen på hver enhet – reell aktivitet bakover i tid</div>
       <div id="cRunder"></div></div>
+    <div class="kort"><h2>Dash-blitz per dag</h2>
+      <div class="hint" id="cDashHint">fra lampeblitz-loggen – siste 50 runder per enhet</div>
+      <div id="cDash"></div>
+      <div id="cDashKlarte" style="margin-top:10px;font-size:12.5px;line-height:1.7"></div></div>
     <div class="kort"><h2>Enheter sist aktiv per dag</h2>
       <div class="hint">hver enhet telles på sin siste aktive dag (øyeblikksbilde)</div>
       <div id="cAktiv"></div></div>
@@ -226,6 +239,12 @@
     <div class="kort"><h2>Språk i appen</h2>
       <div class="hint">rapporteres av enheter med ota-141 – fylles gradvis</div>
       <div id="cSprak"></div></div>
+    <div class="kort"><h2>Frafall - tid siden sist aktiv</h2>
+      <p class="hint">En enhet som slutter å melde seg har sluttet å bruke appen
+      (slettet eller glemt - det kan ikke skilles). NB: rader slettes automatisk
+      90 dager etter siste aktivitet, så «borte»-tallene er et gulv - enheter
+      borte lenger enn 90 dager er allerede ute av tabellen.</p>
+      <div id="cFrafall"></div></div>
     <div class="kort"><h2>Total brukstid per enhet</h2>
       <div class="hint">kumulative aktive minutter siden installasjon</div>
       <div id="cTid"></div></div>
@@ -238,9 +257,13 @@
       <div class="hint">aktive dager som andel av eiertiden – kun enheter med minst 2 dagers eiertid og dagslogg</div>
       <div id="cFrek"></div></div>
   </div>
-  <div class="kort"><h2>Prøvesimulering – og hva som skjer etterpå</h2>
-    <div class="hint">de som tar 45-spørsmålsprøven, og om de kommer tilbake før neste forsøk låses opp (dag 5)</div>
-    <div id="cProve"></div></div>
+  <div class="kort fold" data-fold="prove">
+    <h2><span class="fpil">›</span>Prøvesimulering – og hva som skjer etterpå
+        <span class="fant" id="antProve"></span></h2>
+    <div class="innhold">
+      <div class="hint">de som tar 45-spørsmålsprøven, og om de kommer tilbake før neste forsøk låses opp (dag 5)</div>
+      <div id="cProve"></div>
+    </div></div>
   <div class="rute2">
     <div class="kort"><h2>Skjermer som åpnes</h2>
       <div class="hint">antall åpninger per skjerm – kun enheter på nyeste build</div>
@@ -257,9 +280,13 @@
       <div class="hint">hvor mye av dagens 8 minutter som er brukt</div>
       <div id="cPott"></div></div>
   </div>
-  <div class="kort"><h2>Bekreftede kjøpere</h2>
-    <div class="hint">utledet av øvingsrunder over 10 spørsmål – gratisnivået tillater ikke det. Tid før kjøp er akkumulert til og med kjøpsdagen, så tallet er en overkant for dem som kjøpte samme dag</div>
-    <div id="cKjop"></div></div>
+  <div class="kort fold" data-fold="kjop">
+    <h2><span class="fpil">›</span>Bekreftede kjøpere
+        <span class="fant" id="antKjop"></span></h2>
+    <div class="innhold">
+      <div class="hint">utledet av øvingsrunder over 10 spørsmål – gratisnivået tillater ikke det. Tid før kjøp er akkumulert til og med kjøpsdagen, så tallet er en overkant for dem som kjøpte samme dag</div>
+      <div id="cKjop"></div>
+    </div></div>
   <div class="kort"><h2>Enhetene</h2>
     <div class="hint">klikk en kolonneoverskrift for å sortere, eller en rad for å se dager, runder og åpnede sider. Bygg er utledet av hvilke felt enheten sender; OTA-nummer rapporteres ikke av appen. Region er landet telefonen er satt til – appen klarer ikke lese telefonens språk</div>
     <div style="overflow-x:auto"><table id="tabell"></table></div>
@@ -300,6 +327,8 @@ const nivaa = r => NIVAAER.find(x => x.test(r));
 const BYGGKORT = { 4: 'ny', 3: 'pott', 2: '142', 1: '141', 0: 'eldre' };
 // Kolonnene i enhetstabellen. tall=1 gir hoyrestilt celle og synkende
 // foerstesortering; ellers sorteres tekst stigende foerste gang.
+// Dash-blitz-runder per enhet (fra lampeblitz-loggen, siste 50)
+const dashAntall = r => (r.lampeblitz || []).filter(Boolean).length;
 const KOLONNER = [
   { k: 'id',        t: 'enhet' },
   { k: 'sprak',     t: 'språk' },
@@ -323,7 +352,7 @@ function sortVerdi(r, k){
   if (k === 'hatt') return dagerHatt(r) ?? -1;
   if (k === 'oppdatert') return r.oppdatert;
   if (k === 'tid') return r.tid;
-  if (k === 'runder') return r.runder.length;
+  if (k === 'runder') return r.runder.length + dashAntall(r);
   if (k === 'aktiv') return dagsLinjer(r).length;
   return 0;
 }
@@ -468,6 +497,7 @@ function tegn(){
   const naa = Date.now();
   const d1 = data.filter(r => naa - Date.parse(r.oppdatert) < 864e5).length;
   const d7 = data.filter(r => naa - Date.parse(r.oppdatert) < 7*864e5).length;
+  const borte14 = data.filter(r => naa - Date.parse(r.oppdatert) >= 14*864e5).length;
   const medOta = data.filter(r => r.sprak).length;
   const tider = data.map(r => r.tid).filter(t => t > 0).sort((a,b) => a-b);
   const median = tider.length ? tider[Math.floor(tider.length/2)] : 0;
@@ -507,6 +537,11 @@ function tegn(){
         : 'for kort eiertid ennå'),
     flis('Runder logget', runderTot, 'siste 30 per enhet'),
     flis('Har ota-141', medOta, 'rapporterer språk'),
+    flis('Frafall', borte14,
+      data.length
+        ? (100 * borte14 / data.length).toFixed(0) + ' % borte i 14+ dager (gulv: 90 d-sletting)'
+        : 'ingen enheter',
+      false),
   ].join('');
 
   // Runder per dag (ekte historikk fra rundeloggene)
@@ -515,6 +550,41 @@ function tegn(){
     if (x && x.dato) perDagR[x.dato] = (perDagR[x.dato] || 0) + 1;
   }));
   stolper('cRunder', sisteDager(perDagR), 'runder');
+
+  // Dash-blitz per dag (fra lampeblitz-loggen; d er ms-tidsstempel)
+  const perDagL = {};
+  let lbTot = 0, lbEnheter = 0;
+  data.forEach(r => {
+    if (!r.lampeblitz || !r.lampeblitz.length) return;
+    lbEnheter++;
+    r.lampeblitz.forEach(x => {
+      if (!x || !x.d) return;
+      lbTot++;
+      const dg = new Date(x.d).toISOString().slice(0,10);
+      perDagL[dg] = (perDagL[dg] || 0) + 1;
+    });
+  });
+  stolper('cDash', sisteDager(perDagL), 'runder');
+  document.getElementById('cDashHint').textContent =
+    lbTot + ' runder fra ' + lbEnheter + ' enheter (siste 50 per enhet, kun nyeste build)';
+
+  // Typisk resultat per rundelengde: median riktige og bom. Median, ikke
+  // snitt - en enkelt avbrutt runde skal ikke dra tallet ned.
+  const perTid = {};
+  data.forEach(r => (r.lampeblitz || []).forEach(x => {
+    if (!x) return;
+    const n = Number(x.tid) || 0;
+    (perTid[n] = perTid[n] || []).push(x);
+  }));
+  const med = a => { const s2 = a.slice().sort((x,y) => x-y); return s2.length ? s2[Math.floor(s2.length/2)] : 0; };
+  const rekkeflg = Object.keys(perTid).map(Number).sort((a,b) => (a||9999) - (b||9999));
+  document.getElementById('cDashKlarte').innerHTML = rekkeflg.map(t => {
+    const rn = perTid[t];
+    const navn = t ? t + ' sek' : 'Uten klokke';
+    return '<div><b>' + navn + '</b> · ' + rn.length + ' runder · typisk <b>'
+      + med(rn.map(x => Number(x.r) || 0)) + ' riktige</b>'
+      + ' <span style="color:var(--muted)">og ' + med(rn.map(x => Number(x.bom) || 0)) + ' bom</span></div>';
+  }).join('') || '<span style="color:var(--muted)">ingen runder logget ennå</span>';
 
   // Sist aktiv per dag
   const perDagA = {};
@@ -527,6 +597,14 @@ function tegn(){
   liste('cSprak', Object.entries(spr).sort((a,b) => b[1]-a[1])
     .map(([k,v]) => [k === '\u2014' ? 'Ukjent (eldre versjon)' : sprakFullt(k), v]), data.length);
 
+  // Frafalls-boetter: tid siden sist aktiv, fra ferskt til borte
+  const frafallB = [['aktiv i dag',0],['2–7 dager',0],['8–14 dager',0],['15–30 dager',0],['31–90 dager (på vei ut)',0]];
+  data.forEach(r => {
+    const d = (naa - Date.parse(r.oppdatert)) / 864e5;
+    frafallB[d < 1 ? 0 : d < 7 ? 1 : d < 14 ? 2 : d < 30 ? 3 : 4][1]++;
+  });
+  liste('cFrafall', frafallB, Math.max(1, ...frafallB.map(x => x[1])), true);
+
   // Brukstid-boetter
   const b = [['under 1 min',0],['1–5 min',0],['5–20 min',0],['20–60 min',0],['over 1 t',0]];
   data.forEach(r => { const t = r.tid;
@@ -536,6 +614,11 @@ function tegn(){
 
   proveKort(data);
   kjoperKort(data);
+  // Naar kortet er lukket skal overskriften likevel baere tallet.
+  const nProve = data.filter(r => r.runder.some(x => x && x.prove)).length;
+  const nKjop = data.filter(r => kjopsInfo(r).betalt).length;
+  document.getElementById('antProve').textContent = nProve + ' enheter';
+  document.getElementById('antKjop').textContent = nKjop + ' kjøpere';
   byggKort(data);
   skjermKort(data);
   traktKort(data);
@@ -859,7 +942,8 @@ function kjoperKort(data){
 // Rundene fordelt paa type, saa man ser hva enheten faktisk har spilt.
 function rundeOppsummering(r){
   const runder = (r.runder || []).filter(Boolean);
-  if (!runder.length) return "";
+  const dash = (r.lampeblitz || []).filter(Boolean);
+  if (!runder.length && !dash.length) return "";
   const t = {};
   runder.forEach(x => { const k = rundeType(x); (t[k] = t[k] || []).push(x); });
   const deler = Object.keys(t).map(k => {
@@ -869,6 +953,11 @@ function rundeOppsummering(r){
     return "<b>" + g.length + "</b> " + k.toLowerCase() + " <span style='color:var(--muted)'>" +
       "(snitt " + snitt + "/" + av + ")</span>";
   });
+  if (dash.length) {
+    const snittR = Math.round(dash.reduce((a,x) => a + (Number(x.r)||0), 0) / dash.length);
+    deler.push("<b>" + dash.length + "</b> dash-blitz <span style='color:var(--muted)'>(snitt "
+      + snittR + " riktige)</span>");
+  }
   return "<div class='detblokk'><div class='tit'>runder</div>" +
     deler.join(" &nbsp;·&nbsp; ") + "</div>";
 }
@@ -922,7 +1011,8 @@ function tabell(data){
       + '</td><td style="text-align:right">' + (dagerHatt(r) ? dagerHatt(r) + ' d' : '–')
       + '</td><td>' + fmtDag(r.oppdatert) + ' ' + r.oppdatert.slice(11,16)
       + '</td><td style="text-align:right">' + (r.tid > 0 ? minutter(r.tid) : '–')
-      + '</td><td style="text-align:right">' + r.runder.length
+      + '</td><td style="text-align:right">' + (r.runder.length + dashAntall(r))
+      + (dashAntall(r) ? ' <span style="color:var(--muted)">(' + dashAntall(r) + '&#x26A1;)</span>' : '')
       + '</td><td>' + dagStripe(r) + '</td></tr>';
     if (kanApnes) {
       const maks = Math.max(60, ...linjer.map(l => l.sek || 0));
@@ -980,12 +1070,15 @@ document.getElementById('filtre').addEventListener('click', e => {
   document.querySelectorAll('.knapp').forEach(x => x.classList.toggle('valgt', x === k));
   tegn();
 });
+document.querySelectorAll('.kort.fold > h2').forEach(h => {
+  h.addEventListener('click', () => h.parentElement.classList.toggle('apen'));
+});
 document.getElementById('skjulTest').addEventListener('change', tegn);
 addEventListener('resize', () => { if (rader.length) tegn(); });
 
 // Krypterte data. Uten riktig bruker+passord kan ikke Supabase-noekkelen
 // utledes, og siden har ingenting aa hente med.
-const KRYPT = { s: '/4G1FPpOn1HxmBO/4UxEPw==', i: 'rjtqTJLtp3fzT6EZ', d: 'jB3w4BI5+D9H8sg0PpmpBjSPoVNUqtHsUxBWEPNc/BZwxmD35X+Q9XR3/DwnOO+ZOhJB9E6Xkh3eGhzWx8Y=', it: 310000 };
+const KRYPT = { s: 'HC2a6eeHmAA195jVe45AeA==', i: '36gvfX9IScX0RFvh', d: 'nocKb59ZkfwQD97ATO490+dg6Eb41aEj7RuznRgSJJMjdrS7syA7Edk+mopD3ldVADAfKU9apVnB4f3d6qA=', it: 310000 };
 const fraB64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
 
 async function lasOppNokkel(bruker, passord) {
