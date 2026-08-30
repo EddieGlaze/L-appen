@@ -150,8 +150,17 @@
                  0 0 0 3.5px var(--critical); }
   /* Enheter som har ligget stille i mer enn 5 dager paa rad tones ned,
      saa de aktive skiller seg ut naar lista blir lang. */
-  tr.sovende td { color:var(--muted); }
-  tr.sovende td .merke { opacity:.65; }
+  /* Sovende = ikke sett paa over 5 dager. Tydelig nedtonet og strøket
+     over, saa lista kan skummes for dem som faktisk er i gang. */
+  tr.sovende td { color:var(--baseline); }
+  tr.sovende td .merke { opacity:.45; }
+  tr.sovende td .tsprak, tr.sovende td .bygg { opacity:.5; }
+  tr.sovende td:nth-child(2) { text-decoration:line-through;
+                               text-decoration-thickness:1.5px;
+                               text-decoration-color:var(--baseline); }
+  /* prikkstripa beholder kontrasten - den er hele poenget med raden */
+  tr.sovende .dpunkt { opacity:.5; }
+  tr.sovende .dpunkt.kjop { opacity:1; }
   .dhopp { font-size:10.5px; font-weight:700; color:var(--muted);
            padding:0 3px; font-variant-numeric:tabular-nums; }
   .feil { background:var(--surface-1); border:1px solid var(--critical);
@@ -301,7 +310,7 @@
       <div id="cKjop"></div>
     </div></div>
   <div class="kort"><h2>Enhetene</h2>
-    <div class="hint">klikk en kolonneoverskrift for å sortere, eller en rad for å se dager, runder og åpnede sider. Bygg er utledet av hvilke felt enheten sender; OTA-nummer rapporteres ikke av appen. Region er landet telefonen er satt til – appen klarer ikke lese telefonens språk</div>
+    <div class="hint">rader som er strøket over har ikke vært aktive på over 5 dager - kommer enheten tilbake, blir raden normal igjen. Klikk en kolonneoverskrift for å sortere, eller en rad for å se dager, runder og åpnede sider. Bygg er utledet av hvilke felt enheten sender; OTA-nummer rapporteres ikke av appen. Region er landet telefonen er satt til – appen klarer ikke lese telefonens språk</div>
     <div style="overflow-x:auto"><table id="tabell"></table></div>
   </div>
 </div>
@@ -426,8 +435,21 @@ function kjopsInfo(r){
   return { betalt:true, kilde: 'antatt', dag, foerRunder, foerTid };
 }
 
-// Lengste sammenhengende strekk uten aktivitet, i dager. Brukes til aa
-// graane rader for enheter som har lagt appen bort.
+// Dager siden enheten sist var aktiv. Dette - ikke lengste hull
+// noensinne - avgjoer om raden er sovende, saa en som har vaert borte
+// og kommet tilbake igjen teller som aktiv.
+function dagerSidenAktiv(r){
+  const aktive = [
+    ...Object.keys(r.tidDager || {}).filter(k => +r.tidDager[k] > 0),
+    ...r.runder.filter(x => x && x.dato).map(x => x.dato),
+  ].sort();
+  const sist = aktive.length ? aktive[aktive.length - 1]
+    : (r.foerste ? r.foerste.slice(0,10) : r.oppdatert.slice(0,10));
+  const idag = new Date().toISOString().slice(0,10);
+  return Math.round((Date.parse(idag) - Date.parse(sist)) / 864e5);
+}
+
+// Lengste sammenhengende strekk uten aktivitet, i dager.
 function lengsteHull(r){
   const start = r.foerste ? r.foerste.slice(0,10)
     : (r.runder.filter(x => x && x.dato).map(x => x.dato).sort()[0] || null);
@@ -1149,7 +1171,7 @@ function tabell(data){
   sortert.forEach((r, i) => {
     const linjer = dagsLinjer(r);
     const kanApnes = linjer.length > 0;
-    const soverInn = lengsteHull(r) > 5;
+    const soverInn = dagerSidenAktiv(r) > 5;
     s += '<tr class="' + (r.tid >= TEST_GRENSE_SEK ? 'test ' : '')
       + (soverInn ? 'sovende' : '') + '"'
       + (kanApnes ? ' style="cursor:pointer" data-rad="' + i + '"' : '') + '>'
@@ -1242,7 +1264,7 @@ addEventListener('resize', () => { if (rader.length) tegn(); });
 
 // Krypterte data. Uten riktig bruker+passord kan ikke Supabase-noekkelen
 // utledes, og siden har ingenting aa hente med.
-const KRYPT = { s: 'QA4X9ulfwywxCs3BmbOmVg==', i: 'pptGI5plB9HOaOLs', d: 'NJ9dYX/REXh6LwMozVzuzPrntj8YpVl1QzEWkyUsBqkhFrqMBdrEZkR3Mo+HC59C0oRtOd38dihTn3e6+4M=', it: 310000 };
+const KRYPT = { s: 'E3wSzlDyHISLDndSjJUCNw==', i: 'kOGSevtEoJ7JGZUe', d: '+p1cEnM0fvxAahygdX4sm6cIStRWn33ffFgg31WRRVZORObhbPz4CsvPQ0BhYDTbjC10Wa51DyI7h67At1Y=', it: 310000 };
 const fraB64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
 
 async function lasOppNokkel(bruker, passord) {
