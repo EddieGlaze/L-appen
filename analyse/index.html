@@ -146,6 +146,12 @@
   .dpunkt { width:8px; height:8px; border-radius:50%; flex:none;
             background:var(--series-1); }
   .dpunkt.av { background:transparent; box-shadow: inset 0 0 0 1.5px var(--baseline); }
+  .dpunkt.kjop { background:var(--critical); box-shadow:0 0 0 2px var(--surface-1),
+                 0 0 0 3.5px var(--critical); }
+  /* Enheter som har ligget stille i mer enn 5 dager paa rad tones ned,
+     saa de aktive skiller seg ut naar lista blir lang. */
+  tr.sovende td { color:var(--muted); }
+  tr.sovende td .merke { opacity:.65; }
   .dhopp { font-size:10.5px; font-weight:700; color:var(--muted);
            padding:0 3px; font-variant-numeric:tabular-nums; }
   .feil { background:var(--surface-1); border:1px solid var(--critical);
@@ -280,8 +286,15 @@
       <div class="hint">hvor mye av dagens 8 minutter som er brukt</div>
       <div id="cPott"></div></div>
   </div>
+  <div class="kort fold" data-fold="monster">
+    <h2><span class="fpil">›</span>Mønsteret før kjøp
+        <span class="fant" id="antMonster"></span></h2>
+    <div class="innhold">
+      <div class="hint">hva kjøperne rakk å gjøre før de betalte, målt mot dem som ikke kjøpte. Sammenligningsgruppen er enheter med minst én runde som ennå ikke har kjøpt - ikke alle nedlastinger, siden de som aldri åpnet appen ikke sier noe om kjøpsterskelen</div>
+      <div id="cMonster"></div>
+    </div></div>
   <div class="kort fold" data-fold="kjop">
-    <h2><span class="fpil">›</span>Bekreftede kjøpere
+    <h2><span class="fpil">›</span>Kjøpere
         <span class="fant" id="antKjop"></span></h2>
     <div class="innhold">
       <div class="hint">utledet av øvingsrunder over 10 spørsmål – gratisnivået tillater ikke det. Tid før kjøp er akkumulert til og med kjøpsdagen, så tallet er en overkant for dem som kjøpte samme dag</div>
@@ -413,6 +426,25 @@ function kjopsInfo(r){
   return { betalt:true, kilde: 'antatt', dag, foerRunder, foerTid };
 }
 
+// Lengste sammenhengende strekk uten aktivitet, i dager. Brukes til aa
+// graane rader for enheter som har lagt appen bort.
+function lengsteHull(r){
+  const start = r.foerste ? r.foerste.slice(0,10)
+    : (r.runder.filter(x => x && x.dato).map(x => x.dato).sort()[0] || null);
+  if (!start) return 0;
+  const idag = new Date().toISOString().slice(0,10);
+  const aktive = new Set([
+    ...Object.keys(r.tidDager || {}).filter(k => +r.tidDager[k] > 0),
+    ...r.runder.filter(x => x && x.dato).map(x => x.dato),
+  ]);
+  let mest = 0, naa = 0;
+  for (let t = Date.parse(start); t <= Date.parse(idag); t += 864e5) {
+    const d = new Date(t).toISOString().slice(0,10);
+    if (aktive.has(d)) naa = 0; else { naa++; if (naa > mest) mest = naa; }
+  }
+  return mest;
+}
+
 // Prikkstripe fra foerste oppstart til i dag: fylt = aktiv, aapen = ikke.
 // Fire eller flere inaktive paa rad vises som tall i stedet.
 function dagStripe(r){
@@ -424,17 +456,23 @@ function dagStripe(r){
     ...Object.keys(r.tidDager || {}).filter(k => +r.tidDager[k] > 0),
     ...r.runder.filter(x => x && x.dato).map(x => x.dato),
   ]);
+  // Kjoepsdagen markeres uansett om den ellers ser aktiv ut.
+  const ki = kjopsInfo(r);
+  const kjopsdag = ki.betalt ? (ki.kjopMs
+    ? new Date(ki.kjopMs).toISOString().slice(0,10) : ki.dag) : null;
   const dager = [];
   for (let t = Date.parse(start); t <= Date.parse(idag); t += 864e5) {
     const d = new Date(t).toISOString().slice(0,10);
-    dager.push({ d, paa: aktive.has(d) });
+    dager.push({ d, paa: aktive.has(d), kjop: d === kjopsdag });
   }
   let ut = '', i = 0;
   while (i < dager.length) {
-    if (dager[i].paa) {
+    if (dager[i].kjop) {
+      ut += '<span class="dpunkt kjop" title="' + dager[i].d + ' - kjøp"></span>'; i++;
+    } else if (dager[i].paa) {
       ut += '<span class="dpunkt" title="' + dager[i].d + '"></span>'; i++;
     } else {
-      let j = i; while (j < dager.length && !dager[j].paa) j++;
+      let j = i; while (j < dager.length && !dager[j].paa && !dager[j].kjop) j++;
       const n = j - i;
       if (n > 3) {
         ut += '<span class="dhopp" title="' + n + ' dager uten aktivitet">' + n + '</span>';
@@ -542,12 +580,13 @@ function tegn(){
     flis('Enheter', data.length, skjultDeler.length
       ? skjultDeler.join(' + ') + ' skjult' : 'alle vist'),
     flis('Aktive siste døgn', d1, d7 + ' siste 7 dager', d1 > 0),
-    flis('Bekreftede kjøpere', bekreftet,
-      (bekreftet ? (100 * bekreftet / Math.max(1, data.length)).toFixed(1) + ' % av brukerne'
-        : 'ingen kvitteringer ennå')
-        + (antatt ? ' · ' + antatt + ' antatt' : '')
+    flis('Kjøpere', bekreftet + antatt,
+      ((bekreftet + antatt)
+        ? (100 * (bekreftet + antatt) / Math.max(1, data.length)).toFixed(1) + ' % av brukerne'
+        : 'ingen kjøp påvist ennå')
+        + (bekreftet + antatt ? ' · ' + bekreftet + ' kvittert, ' + antatt + ' antatt' : '')
         + (medKode ? ' · ' + medKode + ' m/kode' : ''),
-      bekreftet > 0),
+      bekreftet + antatt > 0),
     flis('Median brukstid', tider.length ? minutter(median) : '–',
       tider.length + ' enheter med tid'),
     flis('Bruksfrekvens', frek.length ? Math.round(medFrek * 100) + ' %' : '–',
@@ -631,6 +670,7 @@ function tegn(){
   liste('cTid', b, Math.max(1, ...b.map(x => x[1])), true);
 
   proveKort(data);
+  monsterKort(data);
   kjoperKort(data);
   // Naar kortet er lukket skal overskriften likevel baere tallet.
   const nProve = data.filter(r => r.runder.some(x => x && x.prove)).length;
@@ -888,10 +928,112 @@ function pottKort(data){
     med.length + " enheter aktive i dag</div>");
 }
 
+// Hva skjedde FOER kjoepet? Kjoeperne maales mot aktive ikke-kjoepere, og
+// bare paa det som lot seg observere foer kjoepsdagen - alt etterpaa er
+// virkning av kjoepet, ikke aarsak til det.
+function monsterKort(data){
+  const el = document.getElementById("cMonster");
+  const alle = data.map(r => ({ r, i: kjopsInfo(r) }));
+  const kj = alle.filter(x => x.i.betalt);
+  // Sammenligningsgruppe: har brukt appen, men ikke kjoept.
+  const ikke = alle.filter(x => !x.i.betalt && (x.r.runder.length > 0 || x.r.tid > 0));
+  document.getElementById("antMonster").textContent = kj.length + " kjøpere";
+  if (!kj.length) { el.innerHTML = "<div style='color:var(--muted);font-size:12px'>Ingen kjøp påvist ennå.</div>"; return; }
+
+  // --- maal som kan leses foer kjoepsdagen ---
+  const kjopsdag = x => x.i.kjopMs ? new Date(x.i.kjopMs).toISOString().slice(0,10) : x.i.dag;
+  const foerDag = (r, til) => til ? Object.keys(r.tidDager || {}).filter(d => d <= til) : Object.keys(r.tidDager || {});
+  // aktive dager til og med kjoepsdagen
+  const aktiveDager = x => {
+    const til = x.i.betalt ? kjopsdag(x) : null;
+    const s2 = new Set([
+      ...Object.keys(x.r.tidDager || {}).filter(d => +x.r.tidDager[d] > 0 && (!til || d <= til)),
+      ...x.r.runder.filter(y => y && y.dato && (!til || y.dato <= til)).map(y => y.dato),
+    ]);
+    return s2.size;
+  };
+  const runderFoer = x => x.i.betalt ? (x.i.foerRunder || 0) : x.r.runder.length;
+  // null naar enheten mangler dagslogg (eldre build) - da kan tiden foer
+  // kjoepet ikke leses, og enheten maa holdes utenfor snittet i BEGGE
+  // grupper. Ellers ville kjoepere fatt 0 og ikke-kjoepere full tid.
+  const tidFoer = x => {
+    if (!Object.keys(x.r.tidDager || {}).length) return null;
+    const til = x.i.betalt ? kjopsdag(x) : null;
+    return foerDag(x.r, til).reduce((a,d) => a + (+x.r.tidDager[d] || 0), 0);
+  };
+  const toDagerFoer = x => {
+    const til = x.i.betalt ? kjopsdag(x) : null;
+    return x.r.runder.filter(y => y && y.dato && (!til || y.dato <= til) && y.prove).length > 0;
+  };
+  const median = a => { const b = a.filter(v => v !== null && !isNaN(v)).sort((x,y)=>x-y);
+    return b.length ? b[Math.floor(b.length/2)] : 0; };
+  const pct = (n, av) => av ? Math.round(100*n/av) + " %" : "–";
+
+  const rader = [
+    ["Tok prøvesimulering først", pct(kj.filter(toDagerFoer).length, kj.length),
+       pct(ikke.filter(toDagerFoer).length, ikke.length),
+       kj.filter(toDagerFoer).length + " av " + kj.length],
+    ["Median runder spilt", median(kj.map(runderFoer)), median(ikke.map(runderFoer)), ""],
+    ["Median aktive dager", median(kj.map(aktiveDager)), median(ikke.map(aktiveDager)), ""],
+    ["Median tid i appen", minutter(median(kj.map(tidFoer))), minutter(median(ikke.map(tidFoer))),
+       kj.filter(x => tidFoer(x) !== null).length + " av " + kj.length + " har dagslogg"],
+    ["Rakk 3 runder eller mer", pct(kj.filter(x => runderFoer(x) >= 3).length, kj.length),
+       pct(ikke.filter(x => runderFoer(x) >= 3).length, ikke.length), ""],
+  ];
+
+  let h = "<div style='overflow-x:auto'><table>" +
+    "<tr><th></th><th style='text-align:right'>kjøpere (" + kj.length + ")</th>" +
+    "<th style='text-align:right'>kjøpte ikke (" + ikke.length + ")</th><th></th></tr>" +
+    rader.map(r2 => "<tr><td>" + r2[0] + "</td>" +
+      "<td style='text-align:right'><b>" + r2[1] + "</b></td>" +
+      "<td style='text-align:right;color:var(--muted)'>" + r2[2] + "</td>" +
+      "<td style='color:var(--muted);font-size:11.5px'>" + (r2[3]||"") + "</td></tr>").join("") +
+    "</table></div>";
+
+  // --- hvor fort gikk det ---
+  const dager = kj.map(x => (x.r.foerste && kjopsdag(x))
+    ? Math.max(0, Math.round((Date.parse(kjopsdag(x)) - Date.parse(x.r.foerste.slice(0,10)))/864e5)) : null)
+    .filter(v => v !== null);
+  if (dager.length) {
+    const b = [["kjøpte samme dag", dager.filter(v => v === 0).length],
+               ["dagen etter", dager.filter(v => v === 1).length],
+               ["2-6 dager", dager.filter(v => v >= 2 && v <= 6).length],
+               ["7 dager eller mer", dager.filter(v => v >= 7).length]];
+    h += "<div class='detblokk'><div class='tit'>tid fra nedlasting til kjøp (" + dager.length + " med pålitelig dato)</div></div>";
+    h += "<div id='mFordeling'></div>";
+    setTimeout(() => liste("mFordeling", b, Math.max(1, ...b.map(x => x[1])), true), 0);
+  }
+
+  // --- runder paa selve kjoepsdagen: skjer kjoepet naar de moeter veggen? ---
+  const paaDagen = kj.map(x => {
+    const d = kjopsdag(x); if (!d) return null;
+    return x.r.runder.filter(y => y && y.dato === d).length;
+  }).filter(v => v !== null);
+  if (paaDagen.length) {
+    const snitt = (paaDagen.reduce((a,b2)=>a+b2,0) / paaDagen.length).toFixed(1);
+    h += "<div class='detblokk'><div class='tit'>på selve kjøpsdagen</div>" +
+      "median <b>" + median(paaDagen) + "</b> runder, snitt " + snitt +
+      " &nbsp;·&nbsp; " + paaDagen.filter(v => v >= 3).length + " av " + paaDagen.length +
+      " spilte 3 runder eller mer den dagen</div>";
+  }
+
+  // --- betalingsdialogen (bare nyeste build) ---
+  const medH = kj.filter(x => x.r.hendelser);
+  if (medH.length) {
+    const saaDialog = medH.filter(x => Object.keys(x.r.hendelser).some(k2 => k2.startsWith("betaldialog_"))).length;
+    h += "<div class='detblokk'><div class='tit'>betalingsdialogen</div>" +
+      saaDialog + " av " + medH.length + " kjøpere på nyeste build har registrert dialogvisning</div>";
+  }
+
+  el.innerHTML = h;
+}
+
 function kjoperKort(data){
   const alle = data.map(r => ({ r, i: kjopsInfo(r) }));
   const antattN = alle.filter(x => x.i.kilde === 'antatt').length;
-  const k = alle.filter(x => x.i.kilde === 'kjop')
+  // Bade kvitterte og antatte kjoep - antatte er enheter paa eldre build
+  // der store oevingsrunder beviser full tilgang uten at kvittering finnes.
+  const k = alle.filter(x => x.i.betalt)
     .sort((a,b) => (b.i.dag || "").localeCompare(a.i.dag || ""));
   const el = document.getElementById("cKjop");
   if (!k.length) { el.innerHTML = "<div style='color:var(--muted);font-size:12px'>" +
@@ -917,7 +1059,7 @@ function kjoperKort(data){
   let s2 = "<div style='font-size:12.5px;color:var(--text-secondary);margin-bottom:4px'>" +
     "<b>" + k.length + "</b> av " + data.length + " enheter (" +
     (100*k.length/Math.max(1,data.length)).toFixed(1) + " %)" +
-    (antattN ? " + " + antattN + " antatt (eldre build, uten kvittering)" : "") + ". Per språk: " +
+    (antattN ? " - av dem " + antattN + " antatt (eldre build, uten kvittering)" : "") + ". Per språk: " +
     spr.map(x => (x === "ukjent" ? "Ukjent" : sprakNavn(x)) + " " + kjop[x] + "/" + tot[x] +
       (tot[x] >= 5 ? " (" + Math.round(100*kjop[x]/tot[x]) + " %)" : "")).join(" · ") + "</div>";
   if (md.length) s2 += "<div style='font-size:12.5px;color:var(--text-secondary);margin-bottom:10px'>" +
@@ -940,7 +1082,9 @@ function kjoperKort(data){
     s2 += "<tr" + (kanApnes ? " style='cursor:pointer' data-krad='" + i + "'" : "") + ">" +
       "<td style='width:14px;color:var(--muted)'>" +
         (kanApnes ? "<span id='kpil" + i + "'>›</span>" : "") + "</td>" +
-      "<td>" + x.r.id.slice(0,8) + "</td><td>" + sprakNavn(x.r.sprak) +
+      "<td>" + x.r.id.slice(0,8) +
+        (x.i.kilde === "antatt" ? "<span class='merke' title='store runder, men ingen kvittering'>antatt</span>" : "") +
+        "</td><td>" + sprakNavn(x.r.sprak) +
       "</td><td>" + fmtDag(x.i.dag) +
       "</td><td style='text-align:right'>" +
         (d === null ? "<span style='color:var(--muted)'>–</span>"
@@ -1005,7 +1149,9 @@ function tabell(data){
   sortert.forEach((r, i) => {
     const linjer = dagsLinjer(r);
     const kanApnes = linjer.length > 0;
-    s += '<tr' + (r.tid >= TEST_GRENSE_SEK ? ' class="test"' : '')
+    const soverInn = lengsteHull(r) > 5;
+    s += '<tr class="' + (r.tid >= TEST_GRENSE_SEK ? 'test ' : '')
+      + (soverInn ? 'sovende' : '') + '"'
       + (kanApnes ? ' style="cursor:pointer" data-rad="' + i + '"' : '') + '>'
       + '<td style="width:14px;color:var(--muted)">' + (kanApnes ? '<span id="pil'+i+'">›</span>' : '') + '</td>'
       + '<td>' + r.id.slice(0,8)
@@ -1096,7 +1242,7 @@ addEventListener('resize', () => { if (rader.length) tegn(); });
 
 // Krypterte data. Uten riktig bruker+passord kan ikke Supabase-noekkelen
 // utledes, og siden har ingenting aa hente med.
-const KRYPT = { s: 'XuR+iFzrpyu0m5J6b0PhtQ==', i: 'iYfRgx6jZhW8gDye', d: 'pEo+UAdvDCy9ZvzsTXXAnhDdFWZxfSi1VPGgSrlopp7lrV6rEg8NBrOw9W/vc1DGYTCmUAtWVmoa8hjdOyA=', it: 310000 };
+const KRYPT = { s: 'QA4X9ulfwywxCs3BmbOmVg==', i: 'pptGI5plB9HOaOLs', d: 'NJ9dYX/REXh6LwMozVzuzPrntj8YpVl1QzEWkyUsBqkhFrqMBdrEZkR3Mo+HC59C0oRtOd38dihTn3e6+4M=', it: 310000 };
 const fraB64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
 
 async function lasOppNokkel(bruker, passord) {
