@@ -123,7 +123,7 @@
   .bygglinje .ny { color:var(--good-text); font-weight:700; }
   .bygg { font-size:10.5px; font-weight:700; padding:1px 6px; border-radius:9px;
           border:1px solid var(--border); color:var(--muted); white-space:nowrap; }
-  .bygg.n4 { color:var(--good-text); border-color:var(--good-text); }
+  .bygg.n3 { color:var(--good-text); border-color:var(--good-text); }
   th.sorter { cursor:pointer; user-select:none; white-space:nowrap; }
   th.sorter:hover { color:var(--text-primary); }
   th.sorter .pil { opacity:0; margin-left:3px; font-size:9px; }
@@ -238,81 +238,116 @@
   </div>
   <div id="byggInfo" class="bygglinje"></div>
   <div class="fliser" id="fliser"></div>
-  <div class="rute2">
-    <div class="kort"><h2>Runder spilt per dag</h2>
-      <div class="hint">fra rundeloggen på hver enhet – reell aktivitet bakover i tid</div>
-      <div id="cRunder"></div></div>
-    <div class="kort"><h2>Dash-blitz per dag</h2>
-      <div class="hint" id="cDashHint">fra lampeblitz-loggen – siste 50 runder per enhet</div>
-      <div id="cDash"></div>
-      <div id="cDashKlarte" style="margin-top:10px;font-size:12.5px;line-height:1.7"></div></div>
-    <div class="kort"><h2>Enheter sist aktiv per dag</h2>
-      <div class="hint">hver enhet telles på sin siste aktive dag (øyeblikksbilde)</div>
-      <div id="cAktiv"></div></div>
+
+  <!-- ENHETENE OEVERST. Dette er tabellen som faktisk brukes; alt annet er
+       oppsummeringer av den. -->
+  <div class="kort"><h2>Enhetene</h2>
+    <div class="hint">Én rad per enhet. Klikk en overskrift for å sortere, eller en rad for å se
+      dager, runder og åpnede sider. Strøket rad = ikke aktiv på over 5 dager; kommer enheten
+      tilbake blir raden normal igjen. <b>Modell</b> er hvilken gratisgrense enheten kjører -
+      5 min vektet tid, gammel dagsrasjon, eller den gamle 8-minutterspotten. Tid per spill og
+      startede/fullførte runder finnes bare fra build-126.</div>
+    <div style="overflow-x:auto"><table id="tabell"></table></div>
   </div>
+
+  <!-- ETT doegnsdiagram i stedet for tre. Nedlastinger og kjoep er det
+       Edvard spurte om; runder og aktive enheter laa foer i egne kort. -->
   <div class="rute2">
-    <div class="kort"><h2>Språk i appen</h2>
-      <div class="hint">rapporteres av enheter med ota-141 – fylles gradvis</div>
-      <div id="cSprak"></div></div>
-    <div class="kort"><h2>Frafall - tid siden sist aktiv</h2>
-      <p class="hint">En enhet som slutter å melde seg har sluttet å bruke appen
-      (slettet eller glemt - det kan ikke skilles). NB: rader slettes automatisk
-      90 dager etter siste aktivitet, så «borte»-tallene er et gulv - enheter
-      borte lenger enn 90 dager er allerede ute av tabellen.</p>
-      <div id="cFrafall"></div></div>
-    <div class="kort"><h2>Total brukstid per enhet</h2>
-      <div class="hint">kumulative aktive minutter siden installasjon</div>
-      <div id="cTid"></div></div>
+    <div class="kort"><h2>Nedlastinger og kjøp per dag</h2>
+      <div class="hint">nedlasting = første oppstart. Kjøpsdatoen er utledet av utløpsdatoen
+        minus 120 dager, så den er et anslag - stablede kjøp forskyver den</div>
+      <div id="cNedlast"></div>
+      <div id="cKjopDag" style="margin-top:14px"></div></div>
+    <div class="kort"><h2>Aktivitet per dag</h2>
+      <div class="hint">runder fra rundeloggen på hver enhet, og hvor mange enheter som var
+        aktive den dagen</div>
+      <div id="cRunder"></div>
+      <div id="cAktiv" style="margin-top:14px"></div></div>
   </div>
-  <div class="rute2">
-    <div class="kort"><h2>Hvor lenge de har hatt appen</h2>
-      <div class="hint">dager siden første oppstart – krever ota-141</div>
-      <div id="cEiertid"></div></div>
-    <div class="kort"><h2>Hvor ofte de åpner den</h2>
-      <div class="hint">aktive dager som andel av eiertiden – kun enheter med minst 2 dagers eiertid og dagslogg</div>
-      <div id="cFrek"></div></div>
+
+  <!-- Modellsammenligningen: hele poenget med aa skille versjonene -->
+  <div class="kort"><h2>Modellene mot hverandre</h2>
+    <div class="hint">5-minutters tidsmodellen mot dagsrasjonen den erstattet. Tallene er ikke
+      sammenlignbare før nok enheter har fått den nye - en OTA trer i kraft først ved neste
+      oppstart, så «aktiv i dag» sier ingenting om hvilken kode enheten kjører</div>
+    <!-- Sju kolonner faar ikke plass paa en telefon. Tabellen ruller inni
+         sin egen boks, saa selve sida aldri blir bredere enn skjermen. -->
+    <div id="cModell" style="overflow-x:auto"></div>
   </div>
-  <div class="kort fold" data-fold="prove">
-    <h2><span class="fpil">›</span>Prøvesimulering – og hva som skjer etterpå
-        <span class="fant" id="antProve"></span></h2>
-    <div class="innhold">
-      <div class="hint">de som tar 45-spørsmålsprøven, og om de kommer tilbake før neste forsøk låses opp (dag 5)</div>
-      <div id="cProve"></div>
-    </div></div>
+
+  <!-- Spillene: hvor lenge de er inne, og hvor de gaar ut -->
   <div class="rute2">
-    <div class="kort"><h2>Skjermer som åpnes</h2>
-      <div class="hint">antall åpninger per skjerm – kun enheter på nyeste build</div>
-      <div id="cSkjerm"></div></div>
-    <div class="kort"><h2>Byggnivå</h2>
-      <div class="hint">utledet av hvilke felt enheten sender – appen rapporterer ingen versjon</div>
-      <div id="cBygg"></div></div>
+    <div class="kort"><h2>Tid i hvert spill</h2>
+      <div class="hint">faktiske sekunder per skjerm, uvektet - krever build-126</div>
+      <div id="cSpilltid"></div></div>
+    <div class="kort"><h2>Hvor de avbryter</h2>
+      <div class="hint">startede mot fullførte runder. En avbrutt runde lagres ikke, så den er
+        usynlig i rundeloggen - dette er den eneste måten å se den på</div>
+      <div id="cAvbrudd"></div></div>
   </div>
+
+  <!-- Foer laasing og kjoep -->
   <div class="rute2">
+    <div class="kort"><h2>Før låsing</h2>
+      <div class="hint">hvor mange som møter tidsgrensen, og hva de rakk før den slo inn</div>
+      <div id="cLaas"></div></div>
     <div class="kort"><h2>Kjøpstrakt</h2>
-      <div class="hint">fra betalingsdialog til fullført kjøp – kun nyeste build</div>
+      <div class="hint">fra betalingsdialog til fullført kjøp</div>
       <div id="cTrakt"></div></div>
-    <div class="kort"><h2>Gratispotten i dag</h2>
-      <div class="hint">hvor mye av dagens 8 minutter som er brukt</div>
-      <div id="cPott"></div></div>
   </div>
+
   <div class="kort fold" data-fold="monster">
     <h2><span class="fpil">›</span>Mønsteret før kjøp
         <span class="fant" id="antMonster"></span></h2>
     <div class="innhold">
-      <div class="hint">hva kjøperne rakk å gjøre før de betalte, målt mot dem som ikke kjøpte. Sammenligningsgruppen er enheter med minst én runde som ennå ikke har kjøpt - ikke alle nedlastinger, siden de som aldri åpnet appen ikke sier noe om kjøpsterskelen</div>
+      <div class="hint">hva kjøperne rakk å gjøre før de betalte, målt mot dem som ikke kjøpte.
+        Sammenligningsgruppen er enheter med minst én runde som ennå ikke har kjøpt - ikke alle
+        nedlastinger, siden de som aldri åpnet appen ikke sier noe om kjøpsterskelen</div>
       <div id="cMonster"></div>
     </div></div>
   <div class="kort fold" data-fold="kjop">
-    <h2><span class="fpil">›</span>Kjøpere
+    <h2><span class="fpil">›</span>Kjøperne
         <span class="fant" id="antKjop"></span></h2>
     <div class="innhold">
-      <div class="hint">utledet av øvingsrunder over 10 spørsmål – gratisnivået tillater ikke det. Tid før kjøp er akkumulert til og med kjøpsdagen, så tallet er en overkant for dem som kjøpte samme dag</div>
+      <div class="hint">tid før kjøp er akkumulert til og med kjøpsdagen, så tallet er en
+        overkant for dem som kjøpte samme dag</div>
       <div id="cKjop"></div>
     </div></div>
-  <div class="kort"><h2>Enhetene</h2>
-    <div class="hint">rader som er strøket over har ikke vært aktive på over 5 dager - kommer enheten tilbake, blir raden normal igjen. Klikk en kolonneoverskrift for å sortere, eller en rad for å se dager, runder og åpnede sider. Bygg er utledet av hvilke felt enheten sender; OTA-nummer rapporteres ikke av appen. Region er landet telefonen er satt til – appen klarer ikke lese telefonens språk</div>
-    <div style="overflow-x:auto"><table id="tabell"></table></div>
+  <div class="kort fold" data-fold="prove">
+    <h2><span class="fpil">›</span>Prøvesimulering – og hva som skjer etterpå
+        <span class="fant" id="antProve"></span></h2>
+    <div class="innhold">
+      <div class="hint">de som tar 45-spørsmålsprøven, og om de kommer tilbake før neste forsøk
+        låses opp</div>
+      <div id="cProve"></div>
+    </div></div>
+
+  <!-- Tre fordelinger over de samme enhetene, samlet i ett kort -->
+  <div class="rute2">
+    <div class="kort"><h2>Brukerne</h2>
+      <div class="hint">samlet brukstid, hvor lenge de har hatt appen, og hvor stor del av de
+        dagene de faktisk åpnet den</div>
+      <div id="cTid"></div>
+      <div class="hint" style="margin-top:14px">hatt appen</div>
+      <div id="cEiertid"></div>
+      <div class="hint" style="margin-top:14px">åpner den</div>
+      <div id="cFrek"></div></div>
+    <div class="kort"><h2>Språk og frafall</h2>
+      <div class="hint">valgt språk i appen</div>
+      <div id="cSprak"></div>
+      <div class="hint" style="margin-top:14px">tid siden sist aktiv. Rader slettes 90 dager
+        etter siste aktivitet, så «borte»-tallene er et gulv</div>
+      <div id="cFrafall"></div></div>
   </div>
+
+  <div class="kort fold" data-fold="dash">
+    <h2><span class="fpil">›</span>Dash-blitz i detalj
+        <span class="fant" id="antDash"></span></h2>
+    <div class="innhold">
+      <div class="hint" id="cDashHint">fra lampeblitz-loggen – siste 50 runder per enhet</div>
+      <div id="cDash"></div>
+      <div id="cDashKlarte" style="margin-top:10px;font-size:12.5px;line-height:1.7"></div>
+    </div></div>
 </div>
 <div id="tips"></div>
 <script>
@@ -336,31 +371,56 @@ const SPRAK_NAVN = {
 };
 const sprakNavn = k => SPRAK_NAVN[k] || k || '–';
 const sprakFullt = k => SPRAK_NAVN[k] ? SPRAK_NAVN[k] + ' (' + k + ')' : k;
-// Appen sender ingen versjon. Nivaaet utledes av hvilke felt som finnes,
-// i den rekkefolgen de ble innfort. Hoyeste treff vinner.
-const NIVAAER = [
-  { n: 4, navn: 'Nyeste build', test: r => r.hendelser || r.lampeblitz },
-  { n: 3, navn: 'Gratispott i backup', test: r => r.bruk },
-  { n: 2, navn: 'Dagslogg (ota-142)', test: r => r.tidDager && Object.keys(r.tidDager).length },
-  { n: 1, navn: 'Språk (ota-141)', test: r => r.sprak || r.foerste },
-  { n: 0, navn: 'Eldre enn ota-141', test: () => true },
+// Hvilken GRATISMODELL enheten kjoerer. Det er det eneste skillet som betyr
+// noe naar tall sammenlignes: 5-minutters tidsmodell og dagsrasjon gir helt
+// ulike grenser, og blander man dem blir hvert snitt meningsloest.
+//
+// Fra build-126 sier appen selv hvilken build den er. For eldre enheter
+// utledes modellen av hvilke felt backupen inneholder.
+const byggNr = r => {
+  const m = String(r.versjon || "").match(/build-(\d+)/);
+  return m ? +m[1] : 0;
+};
+const MODELLER = [
+  { n: 3, kort: '5 min', navn: 'Tidsmodell · 5 minutter vektet',
+    test: r => byggNr(r) >= 112 || r.skjermSek || r.oevetimer
+      || (r.bruk && r.bruk.tidBolkDag !== undefined) },
+  { n: 2, kort: 'rasjon', navn: 'Dagsrasjon · runder og kort per dag',
+    test: r => r.bruk && (r.bruk.quiz !== undefined || r.bruk.kort !== undefined
+      || r.bruk.paafyll !== undefined || r.bruk.bolkDag !== undefined) },
+  { n: 1, kort: '8 min', navn: 'Gammel tidspott · 8 minutter uvektet',
+    test: r => r.bruk },
+  { n: 0, kort: 'eldre', navn: 'Eldre enn gratismodellen', test: () => true },
 ];
-const nivaa = r => NIVAAER.find(x => x.test(r));
-const BYGGKORT = { 4: 'ny', 3: 'pott', 2: '142', 1: '141', 0: 'eldre' };
+const nivaa = r => MODELLER.find(x => x.test(r));
+const BYGGKORT = { 3: '5 min', 2: 'rasjon', 1: '8 min', 0: 'eldre' };
+// Sekunder paa en gruppe skjermer, fra skjermSek (build-126+)
+const skjermTid = (r, liste) => (liste || []).reduce((a, k) => a + (+(r.skjermSek || {})[k] || 0), 0);
+const hend = (r, k) => +((r.hendelser || {})[k]) || 0;
 // Kolonnene i enhetstabellen. tall=1 gir hoyrestilt celle og synkende
 // foerstesortering; ellers sorteres tekst stigende foerste gang.
 // Dash-blitz-runder per enhet (fra lampeblitz-loggen, siste 50)
 const dashAntall = r => (r.lampeblitz || []).filter(Boolean).length;
+// Tid i selve spillene: quiz, fasiten etterpaa og de to blitzene. Brukstid
+// teller ogsaa lesing og navigering, saa de to kolonnene svarer paa hver sin
+// ting - hvor lenge de var i appen, og hvor mye av det som var spilling.
+const SPILLSKJERM = ['quiz', 'resultat', 'blitz', 'lampeblitz'];
+const spilltid = r => skjermTid(r, SPILLSKJERM);
+// Avbrutte runder per enhet: startet minus fullfort. Aldri under null - en
+// enhet kan ha fullfort runder som ble startet foer telleren fantes.
+const avbrutt = r => Math.max(0, hend(r, 'runde_start') - hend(r, 'runde_fullfort'));
 const KOLONNER = [
   { k: 'id',        t: 'enhet' },
   { k: 'sprak',     t: 'språk' },
   { k: 'region',    t: 'region' },
-  { k: 'bygg',      t: 'bygg',            tall: 1 },
+  { k: 'bygg',      t: 'modell',          tall: 1 },
   { k: 'foerste',   t: 'første oppstart', tall: 1 },
   { k: 'hatt',      t: 'hatt appen',      tall: 1, hoyre: 1 },
   { k: 'oppdatert', t: 'sist aktiv',      tall: 1 },
   { k: 'tid',       t: 'brukstid',        tall: 1, hoyre: 1 },
+  { k: 'spill',     t: 'i spill',         tall: 1, hoyre: 1 },
   { k: 'runder',    t: 'runder',          tall: 1, hoyre: 1 },
+  { k: 'laast',     t: 'låst',            tall: 1 },
   { k: 'kjopt',     t: 'kjøpt',           tall: 1 },
   { k: 'aktiv',     t: 'aktivitet',       tall: 1 },
 ];
@@ -375,7 +435,9 @@ function sortVerdi(r, k){
   if (k === 'hatt') return dagerHatt(r) ?? -1;
   if (k === 'oppdatert') return r.oppdatert;
   if (k === 'tid') return r.tid;
+  if (k === 'spill') return spilltid(r);
   if (k === 'runder') return r.runder.length + dashAntall(r);
+  if (k === 'laast') return hend(r, 'laas_vist');
   if (k === 'kjopt') { const i2 = kjopsInfo(r); return i2.kjopMs || (i2.kilde === 'antatt' && i2.dag ? Date.parse(i2.dag) : 0); }
   if (k === 'aktiv') return dagsLinjer(r).length;
   return 0;
@@ -521,7 +583,9 @@ async function hent(){
     const sel = encodeURIComponent('device_id,oppdatert,sprak:stats->>sprak,foerste:stats->>foerste,'
       + 'tid:stats->>tidSek,tidDager:stats->tidDager,telSprak:stats->>telSprak,runder,'
       + 'proUtlop:stats->>proUtlop,kodeUtlop:stats->>kodeUtlop,'
-      + 'hendelser:stats->hendelser,lampeblitz:stats->lampeblitz,bruk:stats->bruk');
+      + 'hendelser:stats->hendelser,lampeblitz:stats->lampeblitz,bruk:stats->bruk,'
+      + 'versjon:stats->>versjon,skjermSek:stats->skjermSek,oevetimer:stats->oevetimer,'
+      + 'tempoSek:stats->>tempoSek');
     const res = await fetch(URL_BASE + '?select=' + sel,
       { headers: { apikey: NOKKEL, Authorization: 'Bearer ' + NOKKEL } });
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -544,6 +608,12 @@ async function hent(){
         hendelser: (r.hendelser && typeof r.hendelser === 'object') ? r.hendelser : null,
         lampeblitz: Array.isArray(r.lampeblitz) ? r.lampeblitz : null,
         bruk: (r.bruk && typeof r.bruk === 'object') ? r.bruk : null,
+        // Fra build-126: appen sier selv hvilken build den kjoerer. Foer det
+        // maa modellen utledes av hvilke felt enheten sender.
+        versjon: r.versjon || null,
+        skjermSek: (r.skjermSek && typeof r.skjermSek === 'object') ? r.skjermSek : null,
+        oevetimer: Array.isArray(r.oevetimer) ? r.oevetimer : null,
+        tempoSek: parseInt(r.tempoSek || '0', 10) || 0,
         proUtlop: parseInt(r.proUtlop || '0', 10) || 0,
         kodeUtlop: parseInt(r.kodeUtlop || '0', 10) || 0,
         runder, forLansering: spor.some(d => d < LANSERT),
@@ -590,6 +660,19 @@ function tegn(){
   const antatt = kilder.filter(k => k === 'antatt').length;
   const medKode = kilder.filter(k => k === 'kode').length;
 
+  // Nedlastinger og kjoep i doegnet og uka, og hvor mange paa tidsmodellen
+  // som har sett laaseskjermen.
+  const idag = new Date().toISOString().slice(0, 10);
+  const uke = new Date(naa - 7 * 864e5).toISOString().slice(0, 10);
+  const ned = data.map(r => r.foerste ? r.foerste.slice(0, 10) : null).filter(Boolean);
+  const nedIdag = ned.filter(d => d === idag).length;
+  const ned7 = ned.filter(d => d >= uke).length;
+  const kjopDager = data.map(r => kjopsInfo(r)).filter(k => k.betalt && k.dag).map(k => k.dag);
+  const kjopIdag = kjopDager.filter(d => d === idag).length;
+  const kjop7 = kjopDager.filter(d => d >= uke).length;
+  const paaTid = data.filter(r => nivaa(r).n === 3);
+  const laastN = paaTid.filter(r => hend(r, 'laas_vist') > 0).length;
+
   const forL = rader.filter(r => r.forLansering && !r.erUtvikler).length;
   const testSkjult = rader.length - forL - data.length
     - rader.filter(r => r.erUtvikler && !r.forLansering).length;
@@ -615,12 +698,18 @@ function tegn(){
       frek.length ? 'av dagene siden nedlasting, median av ' + frek.length
         : 'for kort eiertid ennå'),
     flis('Runder logget', runderTot, 'siste 30 per enhet'),
-    flis('Har ota-141', medOta, 'rapporterer språk'),
-    flis('Frafall', borte14,
-      data.length
-        ? (100 * borte14 / data.length).toFixed(0) + ' % borte i 14+ dager (gulv: 90 d-sletting)'
-        : 'ingen enheter',
-      false),
+    // Nedlastinger og kjoep siste doegn: de to tallene Edvard leser hver dag.
+    flis('Nedlastet i dag', nedIdag,
+      ned7 + ' siste 7 dager', nedIdag > 0),
+    flis('Kjøpt i dag', kjopIdag,
+      kjop7 + ' siste 7 dager', kjopIdag > 0),
+    // Moett laasen: gjelder bare tidsmodellen, saa telleren maa staa mot
+    // antallet paa den modellen - ikke mot alle enheter.
+    flis('Møtt tidslåsen', laastN,
+      paaTid.length
+        ? (100 * laastN / paaTid.length).toFixed(0) + ' % av de ' + paaTid.length + ' på 5-min'
+        : 'ingen på tidsmodellen ennå',
+      laastN > 0),
   ].join('');
 
   // Runder per dag (ekte historikk fra rundeloggene)
@@ -691,6 +780,15 @@ function tegn(){
     b[t < 60 ? 0 : t < 300 ? 1 : t < 1200 ? 2 : t < 3600 ? 3 : 4][1]++; });
   liste('cTid', b, Math.max(1, ...b.map(x => x[1])), true);
 
+  // Enhetstabellen foerst: den er det Edvard faktisk leser, og alt annet paa
+  // sida er oppsummeringer av den.
+  tabell(data);
+  nedlastKort(data);
+  modellKort(data);
+  spilltidKort(data);
+  avbruddKort(data);
+  laasKort(data);
+  traktKort(data);
   proveKort(data);
   monsterKort(data);
   kjoperKort(data);
@@ -699,10 +797,9 @@ function tegn(){
   const nKjop = data.filter(r => kjopsInfo(r).betalt).length;
   document.getElementById('antProve').textContent = nProve + ' enheter';
   document.getElementById('antKjop').textContent = nKjop + ' kjøpere';
-  byggKort(data);
-  skjermKort(data);
-  traktKort(data);
-  pottKort(data);
+  document.getElementById('antMonster').textContent = nKjop + ' mot ' +
+    data.filter(r => r.runder.length && !kjopsInfo(r).betalt).length + ' uten kjøp';
+  document.getElementById('antDash').textContent = lbEnheter + ' enheter';
   // Hvor lenge enhetene har hatt appen
   const eb = [['i dag',0],['2–3 dager',0],['4–7 dager',0],['over en uke',0]];
   data.forEach(r => { const h = dagerHatt(r); if (!h) return;
@@ -713,7 +810,6 @@ function tegn(){
               ['omtrent halvparten',0],['sjeldnere',0]];
   frek.forEach(a => fb[a >= 0.9 ? 0 : a >= 0.6 ? 1 : a >= 0.35 ? 2 : 3][1]++);
   liste('cFrek', fb, Math.max(1, ...fb.map(x => x[1])), true);
-  tabell(data);
 }
 
 function flis(navn, tall, under, god){
@@ -895,33 +991,184 @@ function proveKort(data){
   el.innerHTML = s;
 }
 
-function byggKort(data){
-  const grupper = {};
-  data.forEach(r => { const n = nivaa(r); (grupper[n.n] = grupper[n.n] || { navn: n.navn, r: [] }).r.push(r); });
-  const par = Object.keys(grupper).sort((a,b) => b - a)
-    .map(k => [grupper[k].navn, grupper[k].r.length]);
-  liste("cBygg", par, data.length);
-  // infolinja over fliser
-  const ny = (grupper[4] || { r: [] }).r.length;
-  const el = document.getElementById("byggInfo");
-  el.innerHTML = "<span><span class='ny'>" + ny + "</span> på nyeste build" +
-    " <span style='color:var(--muted)'>(" + (100*ny/Math.max(1,data.length)).toFixed(1) + " %)</span></span>" +
-    par.slice(1).map(([n,v]) => "<span><b>" + v + "</b> " + n.toLowerCase() + "</span>").join("") +
-    "<span style='color:var(--muted)'>hendelser, lampeblitz og kjøpsstatus finnes bare for de " + ny + "</span>";
+
+
+// Nedlastinger og kjoep per dag.
+//
+// Nedlasting = foerste oppstart. Enheter fra foer ota-141 mangler feltet og
+// er ikke med - de er alle eldre enn 14-dagersvinduet uansett.
+//
+// Kjoepsdatoen er UTLEDET: proUtlop minus 120 dager. For et enkeltkjoep er
+// det riktig paa minuttet; for den som har forlenget flere ganger peker den
+// paa siste forlengelse, ikke foerste kjoep. Antatte kjoep (uten kvittering)
+// dateres til foerste store runde. Begge deler er anslag, og staar som det.
+function nedlastKort(data){
+  const nd = {}, kj = {};
+  let utenDato = 0;
+  data.forEach(r => {
+    if (r.foerste) nd[r.foerste.slice(0,10)] = (nd[r.foerste.slice(0,10)] || 0) + 1;
+    const k = kjopsInfo(r);
+    if (!k.betalt) return;
+    if (k.dag) kj[k.dag] = (kj[k.dag] || 0) + 1; else utenDato++;
+  });
+  stolper('cNedlast', sisteDager(nd), 'nedlastinger');
+  stolper('cKjopDag', sisteDager(kj), 'kjøp');
+  const grense = sisteDager({})[0][0];
+  const sum = o => Object.entries(o).filter(([d]) => d >= grense)
+    .reduce((a, kv) => a + kv[1], 0);
+  const n = sum(nd), k2 = sum(kj);
+  document.getElementById('cKjopDag').insertAdjacentHTML('beforeend',
+    "<div style='font-size:11.5px;color:var(--muted);margin-top:6px'>siste " + dager
+    + " dager: <b>" + n + "</b> nedlastinger og <b>" + k2 + "</b> kjøp"
+    + (n ? " – " + (100 * k2 / n).toFixed(1) + " %" : "")
+    + (utenDato ? " · " + utenDato + " kjøp uten dato" : "") + "</div>");
 }
 
-function skjermKort(data){
+// Modellene mot hverandre. Ett tall per modell i samme rad, saa det gaar an
+// aa se om 5-minutters tidsmodellen faktisk selger bedre enn dagsrasjonen.
+//
+// FELLE: en enhet som fikk OTAen i dag har brukt appen i ukevis under den
+// GAMLE modellen, og all den tiden ligger fortsatt i tallene. Kjoepsraten per
+// modell er derfor ikke et rent forsoek - den maa leses sammen med hvor lenge
+// gruppen har hatt appen, som er siste kolonne.
+function modellKort(data){
+  const g = {};
+  data.forEach(r => { const n = nivaa(r); (g[n.n] = g[n.n] || { m: n, r: [] }).r.push(r); });
+  const nokler = Object.keys(g).map(Number).sort((a, b) => b - a);
+  const med = a => { const x = a.slice().sort((p, q) => p - q);
+    return x.length ? x[Math.floor(x.length / 2)] : 0; };
+  const rad = nokler.map(k => {
+    const rs = g[k].r;
+    const kjop = rs.filter(r => kjopsInfo(r).betalt).length;
+    const runder = rs.reduce((a, r) => a + r.runder.length, 0);
+    const laast = rs.filter(r => hend(r, 'laas_vist') > 0).length;
+    return { navn: g[k].m.navn, n: rs.length, kjop, laast,
+      tid: med(rs.map(r => r.tid).filter(t => t > 0)),
+      runder: rs.length ? runder / rs.length : 0,
+      hatt: med(rs.map(r => dagerHatt(r)).filter(Boolean)) };
+  });
+  const c = (t, fet) => "<td style='text-align:right;padding:5px 8px"
+    + (fet ? ";font-weight:600" : "") + "'>" + t + "</td>";
+  const th = t => "<th style='padding:5px 8px;font-weight:500'>" + t + "</th>";
+  document.getElementById('cModell').innerHTML =
+    "<table style='width:100%;min-width:460px;border-collapse:collapse;font-size:12.5px'>"
+    + "<tr style='color:var(--muted);text-align:right'>"
+    + "<th style='text-align:left;padding:5px 8px;font-weight:500'>modell</th>"
+    + th("enheter") + th("kjøp") + th("kjøpsrate") + th("median tid")
+    + th("runder/enhet") + th("møtt låsen") + th("median dager eid") + "</tr>"
+    + rad.map(x => "<tr style='border-top:1px solid var(--grid)'>"
+      + "<td style='padding:5px 8px'>" + x.navn + "</td>"
+      + c(x.n) + c(x.kjop)
+      + c(x.n ? (100 * x.kjop / x.n).toFixed(1) + " %" : "–", true)
+      + c(x.tid ? minutter(x.tid) : "–") + c(x.runder.toFixed(1))
+      + c(x.laast || "–") + c(x.hatt || "–") + "</tr>").join("") + "</table>";
+  // Infolinja over flisene: hvor langt utrullingen er kommet
+  const ny = (g[3] || { r: [] }).r.length;
+  document.getElementById('byggInfo').innerHTML =
+    "<span><span class='ny'>" + ny + "</span> på 5-minuttersmodellen"
+    + " <span style='color:var(--muted)'>(" + (100 * ny / Math.max(1, data.length)).toFixed(1)
+    + " %)</span></span>"
+    + nokler.filter(k => k !== 3).map(k => "<span><b>" + g[k].r.length + "</b> "
+      + g[k].m.kort + "</span>").join("")
+    + "<span style='color:var(--muted)'>en OTA slår først inn ved neste oppstart</span>";
+}
+
+// Sekunder per spill, ikke antall aapninger. Dette er det eneste maalet som
+// sier hvor lenge noen faktisk BLIR i et spill - hendelsestellerne sa bare
+// hvor mange ganger siden ble aapnet.
+//
+// Snittet regnes over enhetene som har vaert i spillet i det hele tatt, ikke
+// over alle: ellers drar de som aldri aapnet blitz snittet mot null, og
+// spillene blir usammenlignbare.
+const SPILL = [
+  ['Quiz', ['quiz']],
+  ['Fasit etter runden', ['resultat']],
+  ['Skilt-blitz', ['blitz']],
+  ['Dash-blitz', ['lampeblitz']],
+  ['Pensum', ['kapittel', 'teoribok', 'laer']],
+  ['Bilen og lampene', ['bilen', 'lamper', 'betjening']],
+  ['Praktisk info', ['veien', 'provinfo', 'feller', 'ordliste']],
+  ['Meny og profil', ['hjem', 'ov', 'teori', 'profil', 'oppsett', 'resultater', 'rundedetalj']],
+];
+function spilltidKort(data){
+  const med = data.filter(r => r.skjermSek && Object.keys(r.skjermSek).length);
+  const el = document.getElementById('cSpilltid');
+  if (!med.length) { el.innerHTML = "<div style='color:var(--muted);font-size:12px'>"
+    + "Ingen enheter har fått build-126 ennå.</div>"; return; }
+  const rad = SPILL.map(par => {
+    const tall = med.map(r => skjermTid(r, par[1])).filter(t => t > 0);
+    const sum = tall.reduce((a, b) => a + b, 0);
+    return { navn: par[0], n: tall.length, sum, snitt: tall.length ? sum / tall.length : 0 };
+  }).sort((a, b) => b.sum - a.sum);
+  const maks = Math.max(1, ...rad.map(x => x.sum));
+  el.innerHTML = rad.map(x =>
+    "<div style='margin:7px 0'><div style='display:flex;justify-content:space-between;"
+    + "font-size:12.5px;margin-bottom:3px'><span>" + x.navn + "</span>"
+    + "<span style='color:var(--muted)'>" + minutter(Math.round(x.snitt))
+    + " snitt · " + x.n + " enheter</span></div>"
+    + "<div style='height:7px;background:var(--grid);border-radius:4px;overflow:hidden'>"
+    + "<div style='height:100%;width:" + (100 * x.sum / maks).toFixed(1)
+    + "%;background:var(--series-1);border-radius:4px'></div></div></div>").join("")
+    + "<div style='font-size:11.5px;color:var(--muted);margin-top:8px'>stolpen er samlet "
+    + "tid, tallet er snitt per enhet som var innom · " + med.length + " enheter</div>";
+}
+
+// Hvor de avbryter. En avbrutt runde lagres ALDRI i rundeloggen, saa den er
+// usynlig der - hendelsestellerne er eneste spor. Differansen mellom startet
+// og fullfoert er frafallet inne i runden.
+function avbruddKort(data){
   const nye = data.filter(r => r.hendelser);
-  const el = document.getElementById("cSkjerm");
-  if (!nye.length) { el.innerHTML = "<div style='color:var(--muted);font-size:12px'>" +
-    "Ingen enheter har fått den nye builden ennå.</div>"; return; }
-  const sum = {};
-  nye.forEach(r => Object.entries(r.hendelser).forEach(([k,v]) => {
-    if (!k.startsWith("skjerm_")) return;
-    const navn = k.slice(7); sum[navn] = (sum[navn] || 0) + (+v || 0); }));
-  const par = Object.entries(sum).sort((a,b) => b[1]-a[1]);
-  if (!par.length) { el.innerHTML = "<div style='color:var(--muted);font-size:12px'>Ingen skjermdata.</div>"; return; }
-  liste("cSkjerm", par, Math.max(...par.map(x => x[1])), true);
+  const el = document.getElementById('cAvbrudd');
+  if (!nye.length) { el.innerHTML = "<div style='color:var(--muted);font-size:12px'>"
+    + "Krever nyeste build.</div>"; return; }
+  const sum = k => nye.reduce((a, r) => a + hend(r, k), 0);
+  const rad = [
+    ['Quizrunde', sum('runde_start'), sum('runde_fullfort')],
+    ['Prøvesimulering', sum('prove_start'), sum('prove_fullfort')],
+  ];
+  const avbProve = sum('prove_avbrutt');
+  el.innerHTML = rad.map(x => {
+    const st = x[1], fu = x[2], av = Math.max(0, st - fu);
+    return "<div style='margin:9px 0'><div style='display:flex;justify-content:space-between;"
+      + "font-size:12.5px;margin-bottom:3px'><span>" + x[0] + "</span><span><b>" + av
+      + "</b> av " + st + " avbrutt <span style='color:var(--muted)'>("
+      + (st ? (100 * av / st).toFixed(0) : 0) + " %)</span></span></div>"
+      + "<div style='height:9px;background:var(--grid);border-radius:5px;overflow:hidden;display:flex'>"
+      + "<div style='height:100%;width:" + (st ? 100 * fu / st : 0).toFixed(1)
+      + "%;background:var(--good-text)'></div>"
+      + "<div style='height:100%;flex:1;background:var(--critical);opacity:.75'></div></div></div>";
+  }).join("")
+    + "<div style='font-size:11.5px;color:var(--muted);margin-top:8px'>grønt = fullført, "
+    + "rødt = forlatt underveis" + (avbProve ? " · " + avbProve
+    + " prøver avbrutt med bekreftelse" : "") + "</div>";
+}
+
+// Foer laasing: hvor mange som faktisk moeter tidsgrensen, og hva de rakk.
+//
+// Maales bare paa 5-minuttersmodellen. De eldre modellene hadde andre
+// grenser, og aa blande dem gir et snitt som ikke gjelder noen.
+function laasKort(data){
+  const med = data.filter(r => nivaa(r).n === 3);
+  const el = document.getElementById('cLaas');
+  if (!med.length) { el.innerHTML = "<div style='color:var(--muted);font-size:12px'>"
+    + "Ingen enheter på tidsmodellen ennå.</div>"; return; }
+  const laast = med.filter(r => hend(r, 'laas_vist') > 0);
+  const kjoptEtter = laast.filter(r => kjopsInfo(r).betalt).length;
+  const potte = med.filter(r => r.bruk).map(r => +r.bruk.tidSekBrukt || 0);
+  const b = [['ikke rørt', 0], ['under halve potten', 0], ['over halve', 0], ['brukt opp', 0]];
+  potte.forEach(t => b[t <= 0 ? 0 : t < 150 ? 1 : t < 290 ? 2 : 3][1]++);
+  liste('cLaas', b, Math.max(1, ...b.map(x => x[1])), true);
+  // Rakk de en runde foer laasen? Det er terskelen som avgjoer om
+  // gratisnivaaet gir smaken av appen, eller bare av grensen.
+  const utenRunde = laast.filter(r => !r.runder.length).length;
+  el.insertAdjacentHTML('beforeend',
+    "<div style='font-size:12px;margin-top:10px;line-height:1.8'><b>" + laast.length
+    + "</b> av " + med.length + " har møtt låsen <span style='color:var(--muted)'>("
+    + (100 * laast.length / med.length).toFixed(0) + " %)</span><br><b>" + kjoptEtter
+    + "</b> av dem har kjøpt" + (laast.length ? " <span style='color:var(--muted)'>("
+      + (100 * kjoptEtter / laast.length).toFixed(0) + " %)</span>" : "")
+    + "<br><span style='color:var(--muted)'><b>" + utenRunde + "</b> møtte låsen uten å ha "
+    + "fullført én eneste runde</span></div>");
 }
 
 function traktKort(data){
@@ -936,19 +1183,6 @@ function traktKort(data){
   liste("cTrakt", steg, nye.length, true);
 }
 
-function pottKort(data){
-  const idag = new Date().toISOString().slice(0,10);
-  const med = data.filter(r => r.bruk && r.bruk.dag === idag);
-  const el = document.getElementById("cPott");
-  if (!med.length) { el.innerHTML = "<div style='color:var(--muted);font-size:12px'>" +
-    "Ingen enheter har brukt appen i dag ennå.</div>"; return; }
-  const b = [["ikke rørt (0 min)",0],["under halve potten",0],["over halve",0],["brukt opp (8 min)",0]];
-  med.forEach(r => { const t = +r.bruk.tidSekBrukt || 0;
-    b[t <= 0 ? 0 : t < 240 ? 1 : t < 480 ? 2 : 3][1]++; });
-  liste("cPott", b, Math.max(1, ...b.map(x => x[1])), true);
-  el.insertAdjacentHTML("beforeend", "<div style='font-size:11.5px;color:var(--muted);margin-top:6px'>" +
-    med.length + " enheter aktive i dag</div>");
-}
 
 // Hva skjedde FOER kjoepet? Kjoeperne maales mot aktive ikke-kjoepere, og
 // bare paa det som lot seg observere foer kjoepsdagen - alt etterpaa er
@@ -1191,8 +1425,24 @@ function tabell(data){
       + '</td><td style="text-align:right">' + (dagerHatt(r) ? dagerHatt(r) + ' d' : '–')
       + '</td><td>' + fmtDag(r.oppdatert) + ' ' + r.oppdatert.slice(11,16)
       + '</td><td style="text-align:right">' + (r.tid > 0 ? minutter(r.tid) : '–')
+      // Tid i spill, og hvor stor del av brukstiden det er. Er andelen lav
+      // har enheten stort sett lest og navigert, ikke spilt.
+      + '</td><td style="text-align:right"' + (spilltid(r)
+          ? ' title="' + Math.round(100 * spilltid(r) / Math.max(1, r.tid)) + ' % av brukstiden"' : '')
+        + '>' + (spilltid(r) ? minutter(spilltid(r))
+          : (r.skjermSek ? '0 min' : '<span style="color:var(--muted)" title="krever build-126">–</span>'))
       + '</td><td style="text-align:right">' + (r.runder.length + dashAntall(r))
       + (dashAntall(r) ? ' <span style="color:var(--muted)">(' + dashAntall(r) + '&#x26A1;)</span>' : '')
+      // Avbrutte runder star som eget tall - de finnes ikke i rundeloggen
+      + (avbrutt(r) ? ' <span style="color:var(--critical)" title="startet, men forlatt underveis">-'
+          + avbrutt(r) + '</span>' : '')
+      // Laasen: viser hvor mange ganger den slo inn, og om enheten kjoepte
+      // etterpaa. Uten treff staar det ingenting - en tom celle leses raskere
+      // enn en rad med nuller.
+      + '</td><td>' + (hend(r, 'laas_vist')
+          ? '<span class="merke" title="låseskjermen vist ' + hend(r, 'laas_vist') + ' ganger">'
+            + (kjopsInfo(r).betalt ? 'låst → kjøpte' : 'låst ×' + hend(r, 'laas_vist')) + '</span>'
+          : '')
       + '</td><td>' + (function(){
           const i2 = kjopsInfo(r);
           if (i2.kjopMs) { const iso = new Date(i2.kjopMs).toISOString(); return fmtDag(iso) + ' ' + iso.slice(11,16); }
@@ -1202,7 +1452,7 @@ function tabell(data){
       + '</td><td>' + dagStripe(r) + '</td></tr>';
     if (kanApnes) {
       const maks = Math.max(60, ...linjer.map(l => l.sek || 0));
-      s += '<tr id="det' + i + '" style="display:none"><td></td><td colspan="11" style="padding:4px 0 12px">'
+      s += '<tr id="det' + i + '" style="display:none"><td></td><td colspan="13" style="padding:4px 0 12px">'
         + '<div style="display:flex;gap:9px;font-size:11px;color:var(--muted);margin-bottom:2px">'
         + '<span style="width:44px;flex:none">dato</span>'
         + '<span style="width:128px;flex:none">tid i appen</span><span>runder</span></div>'
@@ -1257,7 +1507,12 @@ document.getElementById('filtre').addEventListener('click', e => {
   tegn();
 });
 document.querySelectorAll('.kort.fold > h2').forEach(h => {
-  h.addEventListener('click', () => h.parentElement.classList.toggle('apen'));
+  h.addEventListener('click', () => {
+    const apen = h.parentElement.classList.toggle('apen');
+    // Diagrammene inni foldet ble tegnet mens det var skjult, altsaa uten
+    // maalbar bredde. Tegn paa nytt naa som kolonnen har en bredde.
+    if (apen && rader.length) tegn();
+  });
 });
 document.getElementById('skjulTest').addEventListener('change', tegn);
 addEventListener('resize', () => { if (rader.length) tegn(); });
