@@ -315,7 +315,11 @@
   <!-- Foer laasing og kjoep -->
   <div class="rute2">
     <div class="kort"><h2>Før låsing</h2>
-      <div class="hint">hvor mange som møter tidsgrensen, og hva de rakk før den slo inn</div>
+      <div class="hint">hvor mange som bruker opp gratistiden, og hva de rakk først.
+        Android og kjøpere holdes utenfor: Android har hele appen gratis (Play-kjøp er
+        aldri koblet på) og kjøpere har full tilgang, så ingen av dem kan låses.
+        «Brukt opp tiden» leses av potten og gjelder alle buildene; «sett låseskjermen»
+        er en egen teller som kom med build-126</div>
       <div id="cLaas"></div></div>
     <div class="kort"><h2>Kjøpstrakt</h2>
       <div class="hint">fra betalingsdialog til fullført kjøp</div>
@@ -425,6 +429,26 @@ const BYGGKORT = { 3: '5 min', 2: 'rasjon', 1: '8 min', 0: 'eldre' };
 // Sekunder paa en gruppe skjermer, fra skjermSek (build-126+)
 const skjermTid = (r, liste) => (liste || []).reduce((a, k) => a + (+(r.skjermSek || {})[k] || 0), 0);
 const hend = (r, k) => +((r.hendelser || {})[k]) || 0;
+// POTTEN. Naar den er tom, er gratistiden brukt opp - uansett build, og
+// uansett om laaseskjermen rakk aa vises. Feltet har vaert i backupen siden
+// build-112, saa dette er det eneste maalet som gjelder hele tidsmodellen.
+// 300 sek er standard; 240 for den som svarer raskt (tempoGrenseSek).
+const POTTE_SEK = 300, POTTE_RASK_SEK = 240;
+const pottenTom = r => !!r.bruk && (+r.bruk.tidSekBrukt || 0)
+  >= (r.tempoSek > 0 && r.tempoSek < 120 ? POTTE_RASK_SEK : POTTE_SEK);
+// Kan enheten i det hele tatt havne i laasen?
+//
+//   Android: hele appen er gratis der - Play-kjoep ble aldri koblet paa, saa
+//            harFull er sann for alle. En Android-enhet blir aldri tidLaast.
+//   kjoepere: erPro gir full tilgang, samme sak.
+//   foer 126: telleren laas_vist fantes ikke. Ikke det samme som null treff.
+//
+// Uten dette skillet ligger alle tre i nevneren og drar andelen ned - de to
+// foerste for alltid.
+const LAAS_BUILD = 126;   // build-126 innfoerte telleren 'laas_vist'
+const erAndroid = r => r.plattform === 'android';
+const kanLaases = r => !erAndroid(r) && !kjopsInfo(r).betalt;
+const kanMaaleLaas = r => kanLaases(r) && byggNr(r) >= LAAS_BUILD;
 // NEDLASTINGSDATOEN. stats.foerste settes foerste gang appen starter med en
 // versjon som setter den, og noekkelen kom med ota-141 - en enhet som hadde
 // appen fra foer fikk derfor datoen den OPPDATERTE, ikke datoen den lastet
@@ -672,7 +696,8 @@ async function hent(){
       + 'proUtlop:stats->>proUtlop,kodeUtlop:stats->>kodeUtlop,'
       + 'hendelser:stats->hendelser,lampeblitz:stats->lampeblitz,bruk:stats->bruk,'
       + 'versjon:stats->>versjon,skjermSek:stats->skjermSek,oevetimer:stats->oevetimer,'
-      + 'tempoSek:stats->>tempoSek,versjonlogg:stats->versjonlogg');
+      + 'tempoSek:stats->>tempoSek,versjonlogg:stats->versjonlogg,'
+      + 'plattform:stats->>plattform');
     // Sidevis henting. SIDE maa ligge under db-max-rows (1000), ellers
     // kutter tjeneren siden foer Range-vinduet er fylt og loekka tror den er
     // ferdig. Sorteringen maa vaere fast og entydig - uten den er
@@ -729,6 +754,8 @@ async function hent(){
         // Naar hver versjon kom til enheten. Kom med build-131; eldre
         // enheter har ingen historikk og faar tom liste.
         versjonlogg: Array.isArray(r.versjonlogg) ? r.versjonlogg : [],
+        // Kom med build-132. null = enheten har ikke faatt den ennaa.
+        plattform: r.plattform || null,
         proUtlop: parseInt(r.proUtlop || '0', 10) || 0,
         kodeUtlop: parseInt(r.kodeUtlop || '0', 10) || 0,
         runder, forLansering: spor.some(d => d < LANSERT),
@@ -811,7 +838,11 @@ function tegn(){
   const kjopIdag = kjopDager.filter(d => d === idag).length;
   const kjop7 = kjopDager.filter(d => d >= uke).length;
   const paaTid = data.filter(r => nivaa(r).n === 3);
-  const laastN = paaTid.filter(r => hend(r, 'laas_vist') > 0).length;
+  // Nevneren er de som KAN maales, ikke alle paa modellen
+  const kanMaale = paaTid.filter(kanMaaleLaas);
+  const laastN = kanMaale.filter(r => hend(r, 'laas_vist') > 0).length;
+  // Potten tom gjelder hele tidsmodellen og er det egentlige spoersmaalet
+  const oppbrukt = paaTid.filter(r => kanLaases(r) && pottenTom(r)).length;
 
   const forL = rader.filter(r => r.forLansering && !r.erUtvikler).length;
   const testSkjult = rader.length - forL - data.length
@@ -845,10 +876,16 @@ function tegn(){
       kjop7 + ' siste 7 dager', kjopIdag > 0),
     // Moett laasen: gjelder bare tidsmodellen, saa telleren maa staa mot
     // antallet paa den modellen - ikke mot alle enheter.
-    flis('Møtt tidslåsen', laastN,
+    flis('Brukt opp gratistiden', oppbrukt,
       paaTid.length
-        ? (100 * laastN / paaTid.length).toFixed(0) + ' % av de ' + paaTid.length + ' på 5-min'
+        ? (100 * oppbrukt / paaTid.length).toFixed(0) + ' % av de ' + paaTid.length + ' på 5-min'
         : 'ingen på tidsmodellen ennå',
+      oppbrukt > 0),
+    flis('Sett låseskjermen', laastN,
+      kanMaale.length
+        ? (100 * laastN / kanMaale.length).toFixed(0) + ' % av de ' + kanMaale.length
+          + ' som kan måles (av ' + paaTid.length + ')'
+        : 'ingen kan måle den ennå - krever build-' + LAAS_BUILD,
       laastN > 0),
   ].join('');
 
@@ -1199,10 +1236,14 @@ function modellKort(data){
     const rs = g[k].r;
     const kjop = rs.filter(r => kjopsInfo(r).betalt).length;
     const runder = rs.reduce((a, r) => a + r.runder.length, 0);
-    const laast = rs.filter(r => hend(r, 'laas_vist') > 0).length;
+    // Potten tom, ikke laaseskjermen: det tallet gjelder alle buildene, og
+    // Android/kjoepere holdes utenfor siden de aldri kan laases.
+    const laast = rs.filter(r => kanLaases(r) && pottenTom(r)).length;
     return { navn: g[k].m.navn, n: rs.length, kjop, laast,
       tid: med(rs.map(r => r.tid).filter(t => t > 0)),
       runder: rs.length ? runder / rs.length : 0,
+      // Bare tidsmodellen har en potte aa bruke opp
+      n3: k === 3,
       hatt: med(rs.map(r => dagerHatt(r)).filter(Boolean)) };
   });
   const c = (t, fet) => "<td style='text-align:right;padding:5px 8px"
@@ -1213,13 +1254,13 @@ function modellKort(data){
     + "<tr style='color:var(--muted);text-align:right'>"
     + "<th style='text-align:left;padding:5px 8px;font-weight:500'>modell</th>"
     + th("enheter") + th("kjøp") + th("kjøpsrate") + th("median tid")
-    + th("runder/enhet") + th("møtt låsen") + th("median dager eid") + "</tr>"
+    + th("runder/enhet") + th("brukt opp tiden") + th("median dager eid") + "</tr>"
     + rad.map(x => "<tr style='border-top:1px solid var(--grid)'>"
       + "<td style='padding:5px 8px'>" + x.navn + "</td>"
       + c(x.n) + c(x.kjop)
       + c(x.n ? (100 * x.kjop / x.n).toFixed(1) + " %" : "–", true)
       + c(x.tid ? minutter(x.tid) : "–") + c(x.runder.toFixed(1))
-      + c(x.laast || "–") + c(x.hatt || "–") + "</tr>").join("") + "</table>";
+      + c(x.n3 ? x.laast : "–") + c(x.hatt || "–") + "</tr>").join("") + "</table>";
   // Infolinja over flisene: hvor langt utrullingen er kommet
   const ny = (g[3] || { r: [] }).r.length;
   document.getElementById('byggInfo').innerHTML =
@@ -1310,23 +1351,41 @@ function laasKort(data){
   const el = document.getElementById('cLaas');
   if (!med.length) { el.innerHTML = "<div style='color:var(--muted);font-size:12px'>"
     + "Ingen enheter på tidsmodellen ennå.</div>"; return; }
-  const laast = med.filter(r => hend(r, 'laas_vist') > 0);
-  const kjoptEtter = laast.filter(r => kjopsInfo(r).betalt).length;
-  const potte = med.filter(r => r.bruk).map(r => +r.bruk.tidSekBrukt || 0);
+  // Bare enheter som KAN treffe laasen. Android har hele appen gratis, og
+  // kjoepere har full tilgang - begge ligger paa tidsmodellen, men ingen av
+  // dem kan noensinne bli laast.
+  const kanLaas = med.filter(kanLaases);
+  const maalbar = kanLaas.filter(kanMaaleLaas);
+  const laast = maalbar.filter(r => hend(r, 'laas_vist') > 0);
+  const tomPotte = kanLaas.filter(pottenTom);
+  const kjoptEtter = tomPotte.filter(r => kjopsInfo(r).betalt).length;
+  const potte = kanLaas.filter(r => r.bruk).map(r => +r.bruk.tidSekBrukt || 0);
   const b = [['ikke rørt', 0], ['under halve potten', 0], ['over halve', 0], ['brukt opp', 0]];
   potte.forEach(t => b[t <= 0 ? 0 : t < 150 ? 1 : t < 290 ? 2 : 3][1]++);
   liste('cLaas', b, Math.max(1, ...b.map(x => x[1])), true);
-  // Rakk de en runde foer laasen? Det er terskelen som avgjoer om
-  // gratisnivaaet gir smaken av appen, eller bare av grensen.
-  const utenRunde = laast.filter(r => !r.runder.length).length;
+  // Rakk de en runde foer tiden gikk? Det er terskelen som avgjoer om
+  // gratisnivaaet gir smaken av appen, eller bare av grensen. Maales paa
+  // tom potte, ikke paa laaseskjermen - da gjelder det alle buildene.
+  const utenRunde = tomPotte.filter(r => !r.runder.length).length;
+  // To ulike tall, og de maa ikke forveksles:
+  //   potten tom  - gjelder ALLE paa tidsmodellen, uansett build
+  //   laaseskjerm - krever build-126, som innfoerte telleren
+  const pst = (a, b) => b ? " <span style='color:var(--muted)'>(" + (100 * a / b).toFixed(0) + " %)</span>" : "";
   el.insertAdjacentHTML('beforeend',
-    "<div style='font-size:12px;margin-top:10px;line-height:1.8'><b>" + laast.length
-    + "</b> av " + med.length + " har møtt låsen <span style='color:var(--muted)'>("
-    + (100 * laast.length / med.length).toFixed(0) + " %)</span><br><b>" + kjoptEtter
-    + "</b> av dem har kjøpt" + (laast.length ? " <span style='color:var(--muted)'>("
-      + (100 * kjoptEtter / laast.length).toFixed(0) + " %)</span>" : "")
-    + "<br><span style='color:var(--muted)'><b>" + utenRunde + "</b> møtte låsen uten å ha "
-    + "fullført én eneste runde</span></div>");
+    "<div style='font-size:12px;margin-top:10px;line-height:1.8'>"
+    + "<b>" + tomPotte.length + "</b> av " + kanLaas.length + " har brukt opp gratistiden"
+    + pst(tomPotte.length, kanLaas.length) + "<br>"
+    + "<b>" + kjoptEtter + "</b> av dem har kjøpt" + pst(kjoptEtter, tomPotte.length) + "<br>"
+    + (maalbar.length
+        ? "<b>" + laast.length + "</b> av " + maalbar.length + " har sett selve låseskjermen"
+          + pst(laast.length, maalbar.length)
+        : "<span style='color:var(--muted)'>ingen kan måle låseskjermen ennå - krever build-126</span>")
+    + "<br><span style='color:var(--muted)'><b>" + utenRunde + "</b> brukte opp tiden uten å ha "
+    + "fullført én eneste runde"
+    + (kanLaas.length < med.length
+        ? " · " + (med.length - kanLaas.length) + " holdt utenfor: Android og kjøpere kan ikke låses"
+        : "")
+    + "</span></div>");
 }
 
 function traktKort(data){
