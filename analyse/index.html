@@ -121,6 +121,9 @@
                display:flex; flex-wrap:wrap; gap:4px 14px; align-items:baseline; }
   .bygglinje b { color:var(--text-primary); }
   .bygglinje .ny { color:var(--good-text); font-weight:700; }
+  /* Utledet dato: prikket understrek er den vanlige maaten aa si «dette er
+     et anslag, hold musepekeren her» uten aa rope. */
+  .anslag { border-bottom:1px dotted var(--muted); cursor:help; }
   .bygg { font-size:10.5px; font-weight:700; padding:1px 6px; border-radius:9px;
           border:1px solid var(--border); color:var(--muted); white-space:nowrap; }
   .bygg.n3 { color:var(--good-text); border-color:var(--good-text); }
@@ -152,9 +155,12 @@
      saa de aktive skiller seg ut naar lista blir lang. */
   /* Sovende = ikke sett paa over 5 dager. Tydelig nedtonet og strøket
      over, saa lista kan skummes for dem som faktisk er i gang. */
-  tr.sovende td { color:var(--baseline); }
-  tr.sovende td .merke { opacity:.45; }
-  tr.sovende td .tsprak, tr.sovende td .bygg { opacity:.5; }
+  /* Ett virkemiddel, ikke fire. Var --baseline mot --surface-1 - drygt 1,7:1
+     kontrast - PLUSS nedtonede merker, ikoner og gjennomstreking, saa raden
+     var i praksis usynlig. --text-secondary er dempet, men lesbart. */
+  tr.sovende td { color:var(--text-secondary); }
+  tr.sovende td .merke { opacity:.7; }
+  tr.sovende td .tsprak, tr.sovende td .bygg { opacity:.75; }
   tr.sovende td:nth-child(2) { text-decoration:line-through;
                                text-decoration-thickness:1.5px;
                                text-decoration-color:var(--baseline); }
@@ -231,10 +237,15 @@
     <button class="knapp" data-dager="7">Siste 7 dager</button>
     <button class="knapp valgt" data-dager="14">Siste 14 dager</button>
     <button class="knapp" data-dager="30">Siste 30 dager</button>
+    <span style="font-size:11.5px;color:var(--muted)">· gjelder bare diagrammene, ikke tabellen</span>
     <span class="sep"></span>
-    <label class="bryter"><input type="checkbox" id="skjulTest" checked>
-      skjul testenheter (over 10 t brukstid)</label>
-    <span style="font-size:11.5px;color:var(--muted)">· enheter fra før lansering 14.08 holdes alltid utenfor</span>
+    <!-- Sto avkrysset som standard og skjulte alle over 10 t. For en teoriapp
+         er ti timer en engasjert elev, ikke en testenhet - og det er nettopp
+         de som kjøper. Står nå av. -->
+    <label class="bryter"><input type="checkbox" id="skjulTest">
+      skjul over 10 t brukstid</label>
+    <label class="bryter"><input type="checkbox" id="visTest">
+      vis enheter fra testperioden (før 14.08)</label>
   </div>
   <div id="byggInfo" class="bygglinje"></div>
   <div class="fliser" id="fliser"></div>
@@ -248,6 +259,7 @@
       5 min vektet tid, gammel dagsrasjon, eller den gamle 8-minutterspotten. Tid per spill og
       startede/fullførte runder finnes bare fra build-126.</div>
     <div style="overflow-x:auto"><table id="tabell"></table></div>
+    <div class="hint" id="tabellFot" style="margin:8px 0 0"></div>
   </div>
 
   <!-- ETT doegnsdiagram i stedet for tre. Nedlastinger og kjoep er det
@@ -360,7 +372,9 @@ const UTVIKLER = ['b9de0f22-8f80-4815-9d93-105a4e5d2cda',
 // App Store-lansering (1.1.0). Enheter med aktivitet fra FOER denne datoen er
 // TestFlight/utvikling og holdes helt utenfor. Juster datoen her ved behov.
 const LANSERT = '2026-08-14';
-let rader = [], dager = 14;
+// hentetTotal er antallet rader tjeneren SIER at den har. Er den stoerre enn
+// rader.length, mangler vi noe - og da skal det staa, ikke gjettes.
+let rader = [], dager = 14, hentetTotal = 0;
 
 function css(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
 const fmtDag = iso => iso.slice(8,10) + '.' + iso.slice(5,7);
@@ -397,6 +411,58 @@ const BYGGKORT = { 3: '5 min', 2: 'rasjon', 1: '8 min', 0: 'eldre' };
 // Sekunder paa en gruppe skjermer, fra skjermSek (build-126+)
 const skjermTid = (r, liste) => (liste || []).reduce((a, k) => a + (+(r.skjermSek || {})[k] || 0), 0);
 const hend = (r, k) => +((r.hendelser || {})[k]) || 0;
+// NEDLASTINGSDATOEN. stats.foerste settes foerste gang appen starter med en
+// versjon som setter den, og noekkelen kom med ota-141 - en enhet som hadde
+// appen fra foer fikk derfor datoen den OPPDATERTE, ikke datoen den lastet
+// ned. Derfor leter vi opp det eldste daterte sporet enheten har:
+//
+//   foerste   enhetens egen dato (best naar den finnes og er ekte)
+//   tidDager  dagboken over brukstid - maks 45 noekler
+//   runder    rundeloggen - maks 30 poster
+//   lampeblitz Dash-blitz - maks 50 runder
+//
+// Alle fire er kappet paa enheten. Er den vinnende kilden FULL, er datoen et
+// gulv og ikke en maaling: enheten kan ha hatt appen lenger enn sporene
+// rekker. Tabellen merker de tilfellene, saa tallet ikke leses som fasit.
+const NED_KILDE_NAVN = {
+  foerste: 'enhetens egen dato', tid: 'dagboken over brukstid',
+  runde: 'rundeloggen', blitz: 'Dash-blitz-loggen',
+};
+// Et ms-tidsstempel maa vaere et troverdig tidspunkt. Et sekundtall som har
+// sneket seg inn der millisekunder skulle staa peker paa 1970 og ville ellers
+// gjort enheten flere tiaar gammel; en soeppelverdi faar toISOString til aa
+// kaste og ville stoppet hele tegningen.
+const MS_GULV = Date.parse('2020-01-01T00:00:00Z');
+const gyldigMs = t => Number.isFinite(t) && t > MS_GULV && t < Date.now() + 864e5;
+function nedlastKilde(r){
+  let dato = null, kilde = null, mettet = false;
+  const bud = (d, k, full) => {
+    if (!d || d.length < 10) return;
+    const dg = d.slice(0, 10);
+    if (dato && dg >= dato) return;
+    dato = dg; kilde = k; mettet = !!full;
+  };
+  bud(r.foerste, 'foerste', false);
+  const td = Object.keys(r.tidDager || {}).sort();
+  if (td.length) bud(td[0], 'tid', td.length >= 45);
+  const rd = (r.runder || []).filter(x => x && x.dato).map(x => x.dato).sort();
+  if (rd.length) bud(rd[0], 'runde', rd.length >= 30);
+  const lb = (r.lampeblitz || []).map(x => x && +x.d).filter(gyldigMs).sort((a, b) => a - b);
+  if (lb.length) bud(new Date(lb[0]).toISOString().slice(0, 10), 'blitz', lb.length >= 50);
+  // Uten et eneste spor er sist aktiv det eneste vi vet
+  if (!dato) return { dato: r.oppdatert.slice(0, 10), kilde: null, mettet: false, anslag: true };
+  return { dato, kilde, mettet, anslag: kilde !== 'foerste' };
+}
+const nedlastet = r => nedlastKilde(r).dato;
+// Datoen enheten fikk versjonen den kjoerer naa. Kom med build-131 - eldre
+// enheter har ingen historikk, og faar null i stedet for en gjettet dato.
+function versjonFikk(r){
+  const l = (r.versjonlogg || []).filter(x => x && x.v && x.d);
+  if (!l.length) return null;
+  const siste = l[l.length - 1];
+  return { dato: String(siste.d).slice(0, 10), versjon: String(siste.v), logg: l };
+}
+
 // Kolonnene i enhetstabellen. tall=1 gir hoyrestilt celle og synkende
 // foerstesortering; ellers sorteres tekst stigende foerste gang.
 // Dash-blitz-runder per enhet (fra lampeblitz-loggen, siste 50)
@@ -414,7 +480,8 @@ const KOLONNER = [
   { k: 'sprak',     t: 'språk' },
   { k: 'region',    t: 'region' },
   { k: 'bygg',      t: 'modell',          tall: 1 },
-  { k: 'foerste',   t: 'første oppstart', tall: 1 },
+  { k: 'foerste',   t: 'lastet ned',      tall: 1 },
+  { k: 'fikkversj', t: 'fikk versjon',    tall: 1 },
   { k: 'hatt',      t: 'hatt appen',      tall: 1, hoyre: 1 },
   { k: 'oppdatert', t: 'sist aktiv',      tall: 1 },
   { k: 'tid',       t: 'brukstid',        tall: 1, hoyre: 1 },
@@ -424,14 +491,17 @@ const KOLONNER = [
   { k: 'kjopt',     t: 'kjøpt',           tall: 1 },
   { k: 'aktiv',     t: 'aktivitet',       tall: 1 },
 ];
-let tabSort = { kol: 'oppdatert', ned: true };
+// Nyeste nedlasting oeverst. Sist aktiv sto her foer, og skjoev alt som ikke
+// var brukt i dag ned i bunnen av en lang tabell.
+let tabSort = { kol: 'foerste', ned: true };
 // Verdien hver kolonne sorteres paa. Manglende verdi sorteres alltid sist.
 function sortVerdi(r, k){
   if (k === 'id') return r.id;
   if (k === 'sprak') return sprakNavn(r.sprak || '');
   if (k === 'region') return region(r) || '';
   if (k === 'bygg') return nivaa(r).n;
-  if (k === 'foerste') return r.foerste || '';
+  if (k === 'foerste') return nedlastet(r);
+  if (k === 'fikkversj') { const f = versjonFikk(r); return f ? f.dato : ''; }
   if (k === 'hatt') return dagerHatt(r) ?? -1;
   if (k === 'oppdatert') return r.oppdatert;
   if (k === 'tid') return r.tid;
@@ -456,8 +526,11 @@ const minutter = s => s >= 5940 ? Math.round(s/3600)+' t' : Math.round(s/60)+' m
 // Dager enheten har hatt appen: foerste oppstart til i dag, begge medregnet.
 // null naar foerste mangler (enheter fra foer ota-141).
 function dagerHatt(r){
-  if (!r.foerste) return null;
-  const d0 = Date.parse(r.foerste.slice(0,10) + 'T00:00:00Z');
+  // Fra den REKONSTRUERTE nedlastingsdatoen. Med r.foerste alene ble
+  // enheter som hadde appen foer ota-141 systematisk yngre enn de er.
+  const nd = nedlastet(r);
+  if (!nd) return null;
+  const d0 = Date.parse(nd + 'T00:00:00Z');
   const idag = Date.parse(new Date().toISOString().slice(0,10) + 'T00:00:00Z');
   return Math.max(1, Math.round((idag - d0) / 864e5) + 1);
 }
@@ -585,11 +658,36 @@ async function hent(){
       + 'proUtlop:stats->>proUtlop,kodeUtlop:stats->>kodeUtlop,'
       + 'hendelser:stats->hendelser,lampeblitz:stats->lampeblitz,bruk:stats->bruk,'
       + 'versjon:stats->>versjon,skjermSek:stats->skjermSek,oevetimer:stats->oevetimer,'
-      + 'tempoSek:stats->>tempoSek');
-    const res = await fetch(URL_BASE + '?select=' + sel,
-      { headers: { apikey: NOKKEL, Authorization: 'Bearer ' + NOKKEL } });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    rader = (await res.json()).map(r => {
+      + 'tempoSek:stats->>tempoSek,versjonlogg:stats->versjonlogg');
+    // Sidevis henting. SIDE maa ligge under db-max-rows (1000), ellers
+    // kutter tjeneren siden foer Range-vinduet er fylt og loekka tror den er
+    // ferdig. Sorteringen maa vaere fast og entydig - uten den er
+    // raderekkefoelgen udefinert i Postgres, og sidene kan overlappe.
+    const SIDE = 500;
+    const raa = [];
+    let total = null;
+    for (let fra = 0; ; fra += SIDE) {
+      const res = await fetch(URL_BASE + '?select=' + sel + '&order=oppdatert.desc,device_id.asc',
+        { headers: {
+          apikey: NOKKEL, Authorization: 'Bearer ' + NOKKEL,
+          Range: fra + '-' + (fra + SIDE - 1), 'Range-Unit': 'items',
+          Prefer: 'count=exact',
+        } });
+      if (!res.ok && res.status !== 206) throw new Error('HTTP ' + res.status);
+      const bit = await res.json();
+      raa.push(...bit);
+      // Content-Range er «0-499/1234». Nevneren er totalen; «*» betyr ukjent.
+      const cr = res.headers.get('Content-Range') || '';
+      const n = Number((cr.split('/')[1] || '').trim());
+      if (Number.isFinite(n)) total = n;
+      if (bit.length < SIDE) break;
+      if (total !== null && raa.length >= total) break;
+      // Sikring mot en tjener som ignorerer Range: uten den ville loekka
+      // hentet den samme foerste siden i det uendelige.
+      if (fra > 100000) break;
+    }
+    hentetTotal = total === null ? raa.length : total;
+    rader = raa.map(r => {
       const runder = Array.isArray(r.runder) ? r.runder : [];
       // Alle daterte spor enheten har satt: runde-datoer, foerste oppstart,
       // sist aktiv. Ett eneste spor foer lanseringsdatoen = testperiode-enhet.
@@ -614,13 +712,18 @@ async function hent(){
         skjermSek: (r.skjermSek && typeof r.skjermSek === 'object') ? r.skjermSek : null,
         oevetimer: Array.isArray(r.oevetimer) ? r.oevetimer : null,
         tempoSek: parseInt(r.tempoSek || '0', 10) || 0,
+        // Naar hver versjon kom til enheten. Kom med build-131; eldre
+        // enheter har ingen historikk og faar tom liste.
+        versjonlogg: Array.isArray(r.versjonlogg) ? r.versjonlogg : [],
         proUtlop: parseInt(r.proUtlop || '0', 10) || 0,
         kodeUtlop: parseInt(r.kodeUtlop || '0', 10) || 0,
         runder, forLansering: spor.some(d => d < LANSERT),
       };
     });
     document.getElementById('stempel').textContent =
-      'oppdatert ' + new Date().toLocaleTimeString('nb-NO').slice(0,5);
+      'oppdatert ' + new Date().toLocaleTimeString('nb-NO').slice(0,5)
+      + ' · ' + rader.length + ' rader'
+      + (rader.length < hentetTotal ? ' av ' + hentetTotal + ' (!)' : '');
     document.getElementById('filtre').style.display = 'flex';
     tegn();
   } catch (e) {
@@ -631,10 +734,33 @@ async function hent(){
   }
 }
 
+// Enhetene som faktisk vises. Utviklerenhetene er de eneste som alltid er
+// ute - de er kjent stoey. Alt annet kan slaas paa.
 function utvalg(){
   const skjul = document.getElementById('skjulTest').checked;
-  return rader.filter(r => !r.forLansering && !r.erUtvikler
+  const visTest = document.getElementById('visTest').checked;
+  return rader.filter(r => !r.erUtvikler
+    && (visTest || !r.forLansering)
     && (!skjul || r.tid < TEST_GRENSE_SEK));
+}
+// Hva som ble holdt utenfor, og hvorfor. Staar under tabellen - et tall som
+// ikke stemmer med App Store skal kunne forklares paa stedet, ikke gjettes.
+function utelatt(){
+  const skjul = document.getElementById('skjulTest').checked;
+  const visTest = document.getElementById('visTest').checked;
+  const ut = [];
+  const utv = rader.filter(r => r.erUtvikler).length;
+  if (utv) ut.push(utv + ' utviklerenhet' + (utv > 1 ? 'er' : ''));
+  if (!visTest) {
+    const t = rader.filter(r => !r.erUtvikler && r.forLansering).length;
+    if (t) ut.push(t + ' fra testperioden før 14.08');
+  }
+  if (skjul) {
+    const st = rader.filter(r => !r.erUtvikler && (visTest || !r.forLansering)
+      && r.tid >= TEST_GRENSE_SEK).length;
+    if (st) ut.push(st + ' med over 10 t brukstid');
+  }
+  return ut;
 }
 
 function tegn(){
@@ -726,9 +852,11 @@ function tegn(){
     if (!r.lampeblitz || !r.lampeblitz.length) return;
     lbEnheter++;
     r.lampeblitz.forEach(x => {
-      if (!x || !x.d) return;
+      // Ugyldig stempel forkastes stille. Uten dette kaster toISOString og
+      // hele tegningen stopper paa én raadden rad.
+      if (!x || !gyldigMs(+x.d)) return;
       lbTot++;
-      const dg = new Date(x.d).toISOString().slice(0,10);
+      const dg = new Date(+x.d).toISOString().slice(0,10);
       perDagL[dg] = (perDagL[dg] || 0) + 1;
     });
   });
@@ -783,6 +911,19 @@ function tegn(){
   // Enhetstabellen foerst: den er det Edvard faktisk leser, og alt annet paa
   // sida er oppsummeringer av den.
   tabell(data);
+  // Hvor mange som ikke er med, og hvorfor. Uten dette ser tabellen ut som
+  // om den er alle brukerne - og er det ikke.
+  const skjult = utelatt();
+  document.getElementById('tabellFot').innerHTML =
+    "<b>" + data.length + "</b> av " + rader.length + " enheter i basen"
+    + (skjult.length
+      ? " · utelatt: " + skjult.join(", ")
+        + " <span style='color:var(--muted)'>(se bryterne øverst)</span>"
+      : " · ingen utelatt")
+    + (rader.length < hentetTotal
+      ? " · <b style='color:var(--critical)'>tjeneren har " + hentetTotal
+        + " rader - ikke alle ble hentet</b>" : "")
+    + " · rader slettes 90 dager etter siste aktivitet, så de eldste er borte for godt";
   nedlastKort(data);
   modellKort(data);
   spilltidKort(data);
@@ -914,8 +1055,8 @@ function dagsLinjer(r){
   // Dash-blitz-rundene hoerer hjemme i samme dagslinjer - d er ms-stempel.
   // En dag med bare dash teller dermed ogsaa som aktiv dag, som er riktig.
   (r.lampeblitz || []).forEach(x => {
-    if (!x || !x.d) return;
-    const dato = new Date(x.d).toISOString().slice(0,10);
+    if (!x || !gyldigMs(+x.d)) return;
+    const dato = new Date(+x.d).toISOString().slice(0,10);
     (kart[dato] = kart[dato] || { dato, sek: null, runder: [] }).runder.push({ dash: true, riktige: Number(x.r) || 0 });
   });
   return Object.values(kart).sort((a,b) => b.dato.localeCompare(a.dato));
@@ -1421,7 +1562,32 @@ function tabell(data){
         + (region(r) || '–') + '</span>'
       + '</td><td><span class="bygg n' + nivaa(r).n + '" title="' + nivaa(r).navn + '">'
         + BYGGKORT[nivaa(r).n] + '</span>'
-      + '</td><td>' + (r.foerste ? fmtDag(r.foerste) + ' ' + (r.foerste.length > 15 ? r.foerste.slice(11,16) : '') : '–')
+      // Nedlastingsdato: den ekte, ikke bare den enheten selv melder.
+      // Er den utledet av spor, staar den med ~ og forklarer seg i tittelen -
+      // et anslag som ser ut som en maaling er verre enn ingen dato.
+      + '</td><td>' + (function(){
+          const n = nedlastKilde(r);
+          const egen = r.foerste ? 'enheten melder ' + fmtDag(r.foerste)
+            + (r.foerste.length > 15 ? ' ' + r.foerste.slice(11,16) : '') : 'enheten melder ingen dato';
+          if (!n.anslag) return '<span title="' + egen + '">' + fmtDag(n.dato)
+            + (r.foerste.length > 15 ? ' <span style="color:var(--muted)">' + r.foerste.slice(11,16) + '</span>' : '') + '</span>';
+          const hvor = NED_KILDE_NAVN[n.kilde] || 'sist aktiv';
+          const tittel = 'Eldre spor enn enheten selv melder: ' + hvor + '. ' + egen + '.'
+            + (n.mettet ? ' Kilden er full, saa enheten kan ha hatt appen enda lenger.' : '');
+          return '<span class="anslag" title="' + tittel + '">~' + fmtDag(n.dato)
+            + (n.mettet ? '+' : '') + '</span>';
+        })()
+      // Naar enheten fikk versjonen den kjoerer. Tom for alt eldre enn
+      // build-131 - da fantes ikke stempelet.
+      + '</td><td>' + (function(){
+          const f = versjonFikk(r);
+          if (!f) return '<span style="color:var(--muted)" title="krever build-131">–</span>';
+          const bygg = (f.versjon.match(/build-(\d+)/) || [])[1];
+          return '<span title="' + f.versjon + (f.logg.length > 1
+            ? ' · ' + f.logg.slice(0, -1).map(x => x.v.replace(/^.*build-/, 'b') + ' ' + x.d).join(', ')
+            : '') + '">' + fmtDag(f.dato)
+            + (bygg ? ' <span style="color:var(--muted)">b' + bygg + '</span>' : '') + '</span>';
+        })()
       + '</td><td style="text-align:right">' + (dagerHatt(r) ? dagerHatt(r) + ' d' : '–')
       + '</td><td>' + fmtDag(r.oppdatert) + ' ' + r.oppdatert.slice(11,16)
       + '</td><td style="text-align:right">' + (r.tid > 0 ? minutter(r.tid) : '–')
@@ -1452,7 +1618,7 @@ function tabell(data){
       + '</td><td>' + dagStripe(r) + '</td></tr>';
     if (kanApnes) {
       const maks = Math.max(60, ...linjer.map(l => l.sek || 0));
-      s += '<tr id="det' + i + '" style="display:none"><td></td><td colspan="13" style="padding:4px 0 12px">'
+      s += '<tr id="det' + i + '" style="display:none"><td></td><td colspan="14" style="padding:4px 0 12px">'
         + '<div style="display:flex;gap:9px;font-size:11px;color:var(--muted);margin-bottom:2px">'
         + '<span style="width:44px;flex:none">dato</span>'
         + '<span style="width:128px;flex:none">tid i appen</span><span>runder</span></div>'
@@ -1515,6 +1681,7 @@ document.querySelectorAll('.kort.fold > h2').forEach(h => {
   });
 });
 document.getElementById('skjulTest').addEventListener('change', tegn);
+document.getElementById('visTest').addEventListener('change', tegn);
 addEventListener('resize', () => { if (rader.length) tegn(); });
 
 // Krypterte data. Uten riktig bruker+passord kan ikke Supabase-noekkelen
