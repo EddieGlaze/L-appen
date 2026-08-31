@@ -330,6 +330,18 @@
       <div id="cTrakt"></div></div>
   </div>
 
+  <div class="kort"><h2>Kom de tilbake?</h2>
+    <div class="hint">av dem som lastet ned appen for minst en uke siden, hvor mange var
+      innom igjen i løpet av den første uka. Alle måles over samme strekning: yngre
+      enheter er holdt utenfor helt til de har hatt sine sju dager, og retur som skjer
+      senere enn det telles ikke. Ellers ville andelen sunket bare fordi det kommer nye
+      nedlastinger inn.
+      <b>Merk:</b> de som lastet ned uten å åpne appen finnes ikke her i det hele tatt -
+      raden opprettes av appen ved første oppstart. Den forskjellen står bare i
+      App Store Connect (nedlastinger mot enheter som faktisk kjørte appen).</div>
+    <div id="cRetur"></div>
+  </div>
+
   <div class="kort fold" data-fold="monster">
     <h2><span class="fpil">›</span>Mønsteret før kjøp
         <span class="fant" id="antMonster"></span></h2>
@@ -1002,6 +1014,7 @@ function tegn(){
   spilltidKort(data);
   avbruddKort(data);
   laasKort(data);
+  returKort(data);
   traktKort(data);
   proveKort(data);
   monsterKort(data);
@@ -1409,6 +1422,81 @@ function laasKort(data){
         ? " · " + (med.length - kanLaas.length) + " Android-enheter holdt utenfor: der har appen aldri hatt en lås"
         : "")
     + "</span></div>");
+}
+
+// Kom de tilbake? Av dem som aapnet appen, hvor mange var innom en annen
+// dag ogsaa - og hvor lang tid gikk det foer andre besoek.
+//
+// Kohorten krever at foerste aktive dag er minst ett doegn gammel. Uten det
+// teller enheter som nettopp lastet ned som «kom aldri tilbake», og
+// frafallet ser stoerre ut enn det er.
+// Alle maales over SAMME strekning. Uten en fast frist ligger det alltid et
+// ferskt lag i nevneren som ikke har rukket aa komme tilbake, og de kan bare
+// havne i «bare den ene dagen» - da synker andelen bare fordi det kommer nye
+// nedlastinger inn.
+const RETUR_VINDU = 7;
+function returKort(data){
+  const el = document.getElementById('cRetur');
+  const idag = new Date().toISOString().slice(0, 10);
+  const frist = new Date(Date.now() - RETUR_VINDU * 864e5).toISOString().slice(0, 10);
+  const med = [];
+  let utenDagbok = 0;
+  data.forEach(r => {
+    // Ankeret er NEDLASTINGSDATOEN, ikke eldste dagslinje. To grunner:
+    // dagboken kom med ota-142 og begynner derfor midt i historikken for
+    // eldre enheter, og en enhet uten dagslinjer i det hele tatt - typisk
+    // en som var innom kort og aldri kom igjen - ville falt ut av nevneren.
+    const start = nedlastet(r);
+    if (!start || start > frist) return;   // ikke gammel nok til aa svare
+    const grense = new Date(Date.parse(start + 'T00:00:00Z') + RETUR_VINDU * 864e5)
+      .toISOString().slice(0, 10);
+    // Fremtidige datoer forkastes: en telefon med feil klokke ville ellers
+    // gitt en «retur» som ikke har skjedd.
+    const dager = dagsLinjer(r).map(x => x.dato).filter(d => d <= idag).sort();
+    if (!dager.length) utenDagbok++;
+    const retur = dager.filter(d => d > start && d <= grense);
+    const gap = retur.length
+      ? Math.round((Date.parse(retur[0] + 'T00:00:00Z') - Date.parse(start + 'T00:00:00Z')) / 864e5)
+      : null;
+    // Dash-blitz ligger i sitt eget felt, ikke i rundeloggen. Uten dette
+    // telles en som spilte Dash-blitz som en som aldri kom i gang.
+    med.push({ r, gap, runder: (r.runder || []).length + dashAntall(r) });
+  });
+  if (!med.length) { el.innerHTML = "<div style='color:var(--muted);font-size:12px'>"
+    + "Ingen enheter er " + RETUR_VINDU + " dager gamle ennå.</div>"; return; }
+  const b = [
+    ['bare den ene dagen', 0], ['tilbake dagen etter', 0], ['innen 3 dager', 0],
+    ['innen ' + RETUR_VINDU + ' dager', 0],
+  ];
+  med.forEach(x => {
+    if (x.gap === null) b[0][1]++;
+    else b[x.gap <= 1 ? 1 : x.gap <= 3 ? 2 : 3][1]++;
+  });
+  liste('cRetur', b, Math.max(1, ...b.map(x => x[1])), true);
+  const kom = med.filter(x => x.gap !== null);
+  const enDag = med.filter(x => x.gap === null);
+  const utenRunde = enDag.filter(x => !x.runder).length;
+  const medianGap = (() => {
+    const g = kom.map(x => x.gap).sort((a, b2) => a - b2);
+    if (!g.length) return null;
+    // Ekte median: snitt av de to midterste ved partall. Med faa enheter gir
+    // oevre median et tall som ser typisk ut uten aa vaere det.
+    const m = Math.floor(g.length / 2);
+    return g.length % 2 ? g[m] : Math.round((g[m - 1] + g[m]) / 2);
+  })();
+  el.insertAdjacentHTML('beforeend',
+    "<div style='font-size:12px;margin-top:10px;line-height:1.8'>"
+    + "<b>" + kom.length + "</b> av " + med.length + " kom tilbake innen " + RETUR_VINDU + " dager"
+    + " <span style='color:var(--muted)'>(" + (100 * kom.length / med.length).toFixed(0)
+    + " %)</span>"
+    + (medianGap !== null ? ", typisk etter <b>" + medianGap + (medianGap === 1 ? " dag" : " dager")
+        + "</b>" : "")
+    + (enDag.length ? "<br><span style='color:var(--muted)'><b>" + utenRunde + "</b> av de "
+        + enDag.length + " som bare var innom én dag rakk aldri en runde eller en Dash-blitz</span>" : "")
+    + (utenDagbok ? "<br><span style='color:var(--muted)'>" + utenDagbok + " av dem har ingen"
+        + " dagslogg i det hele tatt - de teller som endagsbrukere, som er det mest sannsynlige</span>" : "")
+    + "<br><span style='color:var(--muted)'>Døgnskillet er UTC, altså kl. 02 norsk tid:"
+    + " en økt som krysser den telles som to dager</span></div>");
 }
 
 function traktKort(data){
