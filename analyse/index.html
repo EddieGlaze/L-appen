@@ -483,25 +483,36 @@ const NED_KILDE_NAVN = {
 const MS_GULV = Date.parse('2020-01-01T00:00:00Z');
 const gyldigMs = t => Number.isFinite(t) && t > MS_GULV && t < Date.now() + 864e5;
 function nedlastKilde(r){
-  let dato = null, kilde = null, mettet = false;
-  const bud = (d, k, full) => {
+  let dato = null, kilde = null, mettet = false, sort = null;
+  // full er et komplett tidspunkt der kilden faktisk HAR et. Det brukes bare
+  // til sortering, saa enheter fra samme doegn kommer i riktig rekkefoelge.
+  const bud = (d, k, mett, full) => {
     if (!d || d.length < 10) return;
     const dg = d.slice(0, 10);
     if (dato && dg >= dato) return;
-    dato = dg; kilde = k; mettet = !!full;
+    dato = dg; kilde = k; mettet = !!mett;
+    sort = full || (dg + 'T00:00:00.000Z');
   };
-  bud(r.foerste, 'foerste', false);
+  // Enhetens egen dato er full ISO med klokkeslett
+  bud(r.foerste, 'foerste', false, r.foerste && r.foerste.length > 10 ? r.foerste : null);
   const td = Object.keys(r.tidDager || {}).sort();
   if (td.length) bud(td[0], 'tid', td.length >= 45);
   const rd = (r.runder || []).filter(x => x && x.dato).map(x => x.dato).sort();
   if (rd.length) bud(rd[0], 'runde', rd.length >= 30);
   const lb = (r.lampeblitz || []).map(x => x && +x.d).filter(gyldigMs).sort((a, b) => a - b);
-  if (lb.length) bud(new Date(lb[0]).toISOString().slice(0, 10), 'blitz', lb.length >= 50);
+  // Blitz-stempelet er millisekunder, saa her er tidspunktet ekte
+  if (lb.length) bud(new Date(lb[0]).toISOString().slice(0, 10), 'blitz', lb.length >= 50,
+    new Date(lb[0]).toISOString());
   // Uten et eneste spor er sist aktiv det eneste vi vet
-  if (!dato) return { dato: r.oppdatert.slice(0, 10), kilde: null, mettet: false, anslag: true };
-  return { dato, kilde, mettet, anslag: kilde !== 'foerste' };
+  if (!dato) return { dato: r.oppdatert.slice(0, 10), kilde: null, mettet: false,
+    anslag: true, sort: r.oppdatert };
+  return { dato, kilde, mettet, anslag: kilde !== 'foerste', sort };
 }
 const nedlastet = r => nedlastKilde(r).dato;
+// Sorteringsnoekkelen: fullt tidspunkt der det finnes, midnatt ellers. Et
+// utledet spor har ikke noe klokkeslett, og aa dikte ett ville gitt en
+// rekkefoelge som ser maalt ut uten aa vaere det.
+const nedlastSort = r => nedlastKilde(r).sort || '';
 // Datoen enheten fikk versjonen den kjoerer naa. Kom med build-131 - eldre
 // enheter har ingen historikk, og faar null i stedet for en gjettet dato.
 function versjonFikk(r){
@@ -548,7 +559,7 @@ function sortVerdi(r, k){
   if (k === 'sprak') return sprakNavn(r.sprak || '');
   if (k === 'region') return region(r) || '';
   if (k === 'bygg') return nivaa(r).n;
-  if (k === 'foerste') return nedlastet(r);
+  if (k === 'foerste') return nedlastSort(r);
   if (k === 'fikkversj') { const f = versjonFikk(r); return f ? f.dato : ''; }
   if (k === 'hatt') return dagerHatt(r) ?? -1;
   if (k === 'oppdatert') return r.oppdatert;
