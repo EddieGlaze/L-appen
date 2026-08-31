@@ -266,7 +266,8 @@
        Edvard spurte om; runder og aktive enheter laa foer i egne kort. -->
   <div class="rute2">
     <div class="kort"><h2>Nedlastinger og kjøp per dag</h2>
-      <div class="hint">nedlasting = første oppstart. Kjøpsdatoen er utledet av utløpsdatoen
+      <div class="hint">nedlasting = eldste daterte spor enheten har, samme dato som i
+        tabellen. Kjøpsdatoen er utledet av utløpsdatoen
         minus 120 dager, så den er et anslag - stablede kjøp forskyver den</div>
       <div id="cNedlast"></div>
       <div id="cKjopDag" style="margin-top:14px"></div></div>
@@ -790,7 +791,7 @@ function tegn(){
   // som har sett laaseskjermen.
   const idag = new Date().toISOString().slice(0, 10);
   const uke = new Date(naa - 7 * 864e5).toISOString().slice(0, 10);
-  const ned = data.map(r => r.foerste ? r.foerste.slice(0, 10) : null).filter(Boolean);
+  const ned = data.map(r => nedlastKilde(r)).filter(n => n.kilde).map(n => n.dato);
   const nedIdag = ned.filter(d => d === idag).length;
   const ned7 = ned.filter(d => d >= uke).length;
   const kjopDager = data.map(r => kjopsInfo(r)).filter(k => k.betalt && k.dag).map(k => k.dag);
@@ -1147,7 +1148,10 @@ function nedlastKort(data){
   const nd = {}, kj = {};
   let utenDato = 0;
   data.forEach(r => {
-    if (r.foerste) nd[r.foerste.slice(0,10)] = (nd[r.foerste.slice(0,10)] || 0) + 1;
+    // Samme dato som tabellen viser. Uten spor i det hele tatt telles enheten
+    // ikke - sist aktiv er ingen nedlastingsdato.
+    const n = nedlastKilde(r);
+    if (n.kilde) nd[n.dato] = (nd[n.dato] || 0) + 1;
     const k = kjopsInfo(r);
     if (!k.betalt) return;
     if (k.dag) kj[k.dag] = (kj[k.dag] || 0) + 1; else utenDato++;
