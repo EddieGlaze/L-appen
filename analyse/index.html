@@ -316,8 +316,10 @@
   <div class="rute2">
     <div class="kort"><h2>Før låsing</h2>
       <div class="hint">hvor mange som bruker opp gratistiden, og hva de rakk først.
-        Android og kjøpere holdes utenfor: Android har hele appen gratis (Play-kjøp er
-        aldri koblet på) og kjøpere har full tilgang, så ingen av dem kan låses.
+        Android holdes utenfor: der er hele appen gratis (Play-kjøp er aldri koblet på),
+        så de enhetene har aldri hatt en lås å møte. Kjøpere blir derimot værende -
+        telleren er kumulativ, så en som ble låst og deretter kjøpte er en konvertering
+        og skal med.
         «Møtt låsen» er en kumulativ teller som kom med build-126 - derfor står
         nevneren som «av de N som kan måles». «Tom potte akkurat nå» leses av
         dagstelleren og gjelder alle buildene, men bare siste dagen enheten var inne:
@@ -445,16 +447,18 @@ const pottenTom = r => !!r.bruk && (+r.bruk.tidSekBrukt || 0)
 // Kan enheten i det hele tatt havne i laasen?
 //
 //   Android: hele appen er gratis der - Play-kjoep ble aldri koblet paa, saa
-//            harFull er sann for alle. En Android-enhet blir aldri tidLaast.
-//   kjoepere: erPro gir full tilgang, samme sak.
+//            harFull er sann for alle. En Android-enhet har ALDRI hatt en
+//            laas aa moete, og hoerer ikke hjemme i nevneren.
 //   foer 126: telleren laas_vist fantes ikke. Ikke det samme som null treff.
 //
-// Uten dette skillet ligger alle tre i nevneren og drar andelen ned - de to
-// foerste for alltid.
+// KJOEPERE BLIR VAERENDE. De har full tilgang naa, men laas_vist er kumulativ
+// - en som moette laasen og deretter kjoepte, har telleren staaende, og det er
+// nettopp den raden som er verdt noe. Tar man dem ut, forsvinner hver eneste
+// konvertering ut av tallet.
 const LAAS_BUILD = 126;   // build-126 innfoerte telleren 'laas_vist'
 const erAndroid = r => r.plattform === 'android';
-const kanLaases = r => !erAndroid(r) && !kjopsInfo(r).betalt;
-const kanMaaleLaas = r => kanLaases(r) && byggNr(r) >= LAAS_BUILD;
+const kanLaases = r => !erAndroid(r);
+const kanMaaleLaas = r => !erAndroid(r) && byggNr(r) >= LAAS_BUILD;
 // NEDLASTINGSDATOEN. stats.foerste settes foerste gang appen starter med en
 // versjon som setter den, og noekkelen kom med ota-141 - en enhet som hadde
 // appen fra foer fikk derfor datoen den OPPDATERTE, ikke datoen den lastet
@@ -1391,7 +1395,7 @@ function laasKort(data){
     + "<br><span style='color:var(--muted)'><b>" + utenRunde + "</b> av dem uten "
     + "én eneste fullført runde"
     + (kanLaas.length < med.length
-        ? " · " + (med.length - kanLaas.length) + " holdt utenfor: Android og kjøpere kan ikke låses"
+        ? " · " + (med.length - kanLaas.length) + " Android-enheter holdt utenfor: der har appen aldri hatt en lås"
         : "")
     + "</span></div>");
 }
@@ -1686,13 +1690,27 @@ function tabell(data){
       // Avbrutte runder star som eget tall - de finnes ikke i rundeloggen
       + (avbrutt(r) ? ' <span style="color:var(--critical)" title="startet, men forlatt underveis">-'
           + avbrutt(r) + '</span>' : '')
-      // Laasen: viser hvor mange ganger den slo inn, og om enheten kjoepte
-      // etterpaa. Uten treff staar det ingenting - en tom celle leses raskere
-      // enn en rad med nuller.
-      + '</td><td>' + (hend(r, 'laas_vist')
-          ? '<span class="merke" title="låseskjermen vist ' + hend(r, 'laas_vist') + ' ganger">'
-            + (kjopsInfo(r).betalt ? 'låst → kjøpte' : 'låst ×' + hend(r, 'laas_vist')) + '</span>'
-          : '')
+      // Laasen. Er raden IKKE markert, staar det hvorfor - «denne har jo nok
+      // tid til aa vaere laast» er det naturlige spoersmaalet, og en tom celle
+      // svarer ikke paa det.
+      + '</td><td>' + (function(){
+          const n = hend(r, 'laas_vist');
+          if (n) return '<span class="merke" title="låseskjermen vist ' + n + ' ganger">'
+            + (kjopsInfo(r).betalt ? 'låst → kjøpte' : 'låst ×' + n) + '</span>';
+          if (erAndroid(r)) return '<span style="color:var(--muted)" title="Android har hele'
+            + ' appen gratis - det finnes ingen lås å møte">gratis</span>';
+          if (byggNr(r) < LAAS_BUILD) return '<span style="color:var(--muted)" title="telleren'
+            + ' kom med build-' + LAAS_BUILD + ' - enheten kan ha vært låst uten at det ble talt">?</span>';
+          // Potten sist enheten talte tid. Brukstiden er VEKTET: lesing
+          // teller saktere enn oeving, og menyene teller ikke i det hele
+          // tatt - saa total brukstid sier lite om potten gikk tom.
+          if (!r.bruk) return '';
+          const brukt = +r.bruk.tidSekBrukt || 0;
+          const potte = r.tempoSek > 0 && r.tempoSek < 120 ? POTTE_RASK_SEK : POTTE_SEK;
+          return '<span style="color:var(--muted)" title="vektet gratistid brukt siste dagen'
+            + ' enheten var inne (' + (r.bruk.dag || 'ukjent') + '). Brukstid-kolonnen er uvektet">'
+            + Math.round(brukt / 60 * 10) / 10 + '/' + (potte / 60) + ' min</span>';
+        })()
       + '</td><td>' + (function(){
           const i2 = kjopsInfo(r);
           if (i2.kjopMs) { const iso = new Date(i2.kjopMs).toISOString(); return fmtDag(iso) + ' ' + iso.slice(11,16); }
