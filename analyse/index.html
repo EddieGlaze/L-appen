@@ -765,7 +765,7 @@ async function hent(){
       + 'hendelser:stats->hendelser,lampeblitz:stats->lampeblitz,bruk:stats->bruk,'
       + 'versjon:stats->>versjon,skjermSek:stats->skjermSek,oevetimer:stats->oevetimer,'
       + 'tempoSek:stats->>tempoSek,versjonlogg:stats->versjonlogg,'
-      + 'plattform:stats->>plattform');
+      + 'plattform:stats->>plattform,avbrutte:stats->avbrutte');
     // Sidevis henting. SIDE maa ligge under db-max-rows (1000), ellers
     // kutter tjeneren siden foer Range-vinduet er fylt og loekka tror den er
     // ferdig. Sorteringen maa vaere fast og entydig - uten den er
@@ -824,6 +824,9 @@ async function hent(){
         versjonlogg: Array.isArray(r.versjonlogg) ? r.versjonlogg : [],
         // Kom med build-132. null = enheten har ikke faatt den ennaa.
         plattform: r.plattform || null,
+        // Avbrutte runder med detaljer. Kom med build-134; foer det finnes
+        // bare hendelsestellerne, som ikke har dato.
+        avbrutte: Array.isArray(r.avbrutte) ? r.avbrutte : [],
         proUtlop: parseInt(r.proUtlop || '0', 10) || 0,
         kodeUtlop: parseInt(r.kodeUtlop || '0', 10) || 0,
         runder, forLansering: spor.some(d => d < LANSERT),
@@ -1430,6 +1433,13 @@ function avbruddKort(data){
     ['Prøvesimulering', sum('prove_start'), sum('prove_fullfort')],
   ];
   const avbProve = sum('prove_avbrutt');
+  // Detaljene fra build-134. Faa enheter har dem ennaa, saa de vises som et
+  // tillegg under tellerne - ikke i stedet for dem.
+  const detaljer = [];
+  data.forEach(r => (r.avbrutte || []).forEach(x => {
+    if (x && x.dato && x.av > 0) detaljer.push(x);
+  }));
+  const TYPENAVN = { ov: 'Øving', prove: 'Prøve', blitz: 'Skilt-blitz', dash: 'Dash-blitz' };
   el.innerHTML = rad.map(x => {
     const st = x[1], fu = x[2], av = Math.max(0, st - fu);
     return "<div style='margin:9px 0'><div style='display:flex;justify-content:space-between;"
@@ -1444,6 +1454,25 @@ function avbruddKort(data){
     + "<div style='font-size:11.5px;color:var(--muted);margin-top:8px'>grønt = fullført, "
     + "rødt = forlatt underveis" + (avbProve ? " · " + avbProve
     + " prøver avbrutt med bekreftelse" : "") + "</div>";
+  // Hvor langt kom de, og hvor lenge holdt de paa? Median, ikke snitt: ett
+  // avbrudd etter fem sekunder skal ikke dra hele bildet.
+  if (detaljer.length) {
+    const med2 = a => { const s2 = a.slice().sort((p, q) => p - q);
+      return s2.length ? s2[Math.floor(s2.length / 2)] : 0; };
+    const rader2 = Object.keys(TYPENAVN).map(t => {
+      const d = detaljer.filter(x => x.type === t);
+      if (!d.length) return null;
+      return TYPENAVN[t] + ": <b>" + d.length + "</b> avbrutt, typisk ved <b>"
+        + med2(d.map(x => +x.ved || 0)) + " av " + med2(d.map(x => +x.av || 0))
+        + "</b> etter " + minutter(med2(d.map(x => +x.sek || 0)));
+    }).filter(Boolean);
+    el.insertAdjacentHTML('beforeend',
+      "<div style='font-size:12px;margin-top:10px;line-height:1.8;border-top:1px solid "
+      + "var(--grid);padding-top:8px'>" + rader2.join("<br>")
+      + "<br><span style='color:var(--muted)'>fra " + detaljer.length + " loggede avbrudd"
+      + " på " + data.filter(r => (r.avbrutte || []).length).length + " enheter"
+      + " - krever build-134</span></div>");
+  }
 }
 
 // Foer laasing: hvor mange som faktisk moeter tidsgrensen, og hva de rakk.
@@ -1888,7 +1917,7 @@ function tabell(data){
       + '</td><td>' + dagStripe(r) + '</td></tr>';
     if (kanApnes) {
       const maks = Math.max(60, ...linjer.map(l => l.sek || 0));
-      s += '<tr id="det' + i + '" style="display:none"><td></td><td colspan="14" style="padding:4px 0 12px">'
+      s += '<tr id="det' + i + '" style="display:none"><td></td><td colspan="' + KOLONNER.length + '" style="padding:4px 0 12px">'
         + '<div style="display:flex;gap:9px;font-size:11px;color:var(--muted);margin-bottom:2px">'
         + '<span style="width:44px;flex:none">dato</span>'
         + '<span style="width:128px;flex:none">tid i appen</span><span>runder</span></div>'
