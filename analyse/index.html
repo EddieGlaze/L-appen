@@ -258,7 +258,8 @@
     <!-- Sto avkrysset som standard og skjulte alle over 10 t. For en teoriapp
          er ti timer en engasjert elev, ikke en testenhet - og det er nettopp
          de som kjøper. Står nå av. -->
-    <label class="bryter"><input type="checkbox" id="skjulTest">
+    <label class="bryter" title="Filteret er ute av drift: det bygde på registrert tid, som teller bakgrunnstid og kastet ut ekte kjøpere">
+      <input type="checkbox" id="skjulTest" disabled>
       skjul over 10 t brukstid</label>
     <label class="bryter"><input type="checkbox" id="visTest">
       vis enheter fra testperioden (før 14.08)</label>
@@ -413,7 +414,11 @@
 'use strict';
 const URL_BASE = 'https://kbhekpqyfduhdfoshdvl.supabase.co/rest/v1/fremdrift_enhet';
 let NOKKEL = null;   // settes av innloggingen
-const TEST_GRENSE_SEK = 36000; // 10 timer -> antas aa vaere utviklerenhet
+// TEST_GRENSE_SEK er fjernet (31.08). Den antok at over 10 timer registrert
+// tid betydde utviklerenhet - men tidSek teller ogsaa tiden appen ligger i
+// bakgrunn (feil i App.tsx:3639), saa filteret kastet ut 12 av 40 kjoepere,
+// sju av dem med ekte kvittering. Utviklerenheter fanges av UTVIKLER-lista,
+// og testperioden av LANSERT-datoen. Se butikk/bestilling-tidsmaaling-feil.md.
 const UTVIKLER = ['b9de0f22-8f80-4815-9d93-105a4e5d2cda',
                   'a986fd4c-f435-4ee5-b1e9-6b039936f54d'];
 // App Store-lansering (1.1.0). Enheter med aktivitet fra FOER denne datoen er
@@ -575,7 +580,7 @@ const KOLONNER = [
   { k: 'fikkversj', t: 'fikk versjon',    tall: 1 },
   { k: 'hatt',      t: 'hatt appen',      tall: 1, hoyre: 1 },
   { k: 'oppdatert', t: 'sist aktiv',      tall: 1 },
-  { k: 'tid',       t: 'app åpen',        tall: 1, hoyre: 1 },
+
   { k: 'spill',     t: 'i spill',         tall: 1, hoyre: 1 },
   { k: 'runder',    t: 'runder',          tall: 1, hoyre: 1 },
   { k: 'laast',     t: 'låst',            tall: 1 },
@@ -595,7 +600,7 @@ function sortVerdi(r, k){
   if (k === 'fikkversj') { const f = versjonFikk(r); return f ? f.dato : ''; }
   if (k === 'hatt') return dagerHatt(r) ?? -1;
   if (k === 'oppdatert') return r.oppdatert;
-  if (k === 'tid') return r.tid;
+
   if (k === 'spill') return spilltid(r);
   if (k === 'runder') return r.runder.length + dashAntall(r);
   if (k === 'laast') return hend(r, 'laas_vist');
@@ -835,7 +840,7 @@ function utvalg(){
   const visTest = document.getElementById('visTest').checked;
   return rader.filter(r => !r.erUtvikler
     && (visTest || !r.forLansering)
-    && (!skjul || r.tid < TEST_GRENSE_SEK));
+    );   // skjul-bryteren gjoer ingenting lenger - se TEST_GRENSE-notatet
 }
 // Hva som ble holdt utenfor, og hvorfor. Staar under tabellen - et tall som
 // ikke stemmer med App Store skal kunne forklares paa stedet, ikke gjettes.
@@ -851,7 +856,7 @@ function utelatt(){
   }
   if (skjul) {
     const st = rader.filter(r => !r.erUtvikler && (visTest || !r.forLansering)
-      && r.tid >= TEST_GRENSE_SEK).length;
+      && false).length;
     if (st) ut.push(st + ' med over 10 t brukstid');
   }
   return ut;
@@ -898,8 +903,7 @@ function tegn(){
   const oppbrukt = paaTid.filter(r => kanLaases(r) && pottenTom(r)).length;
 
   const forL = rader.filter(r => r.forLansering && !r.erUtvikler).length;
-  const testSkjult = rader.length - forL - data.length
-    - rader.filter(r => r.erUtvikler && !r.forLansering).length;
+  const testSkjult = 0;   // testfilteret er fjernet - ingenting skjules paa tid
   const skjultDeler = [];
   if (forL) skjultDeler.push(forL + ' fra testperioden');
   if (testSkjult > 0) skjultDeler.push(testSkjult + ' testenheter');
@@ -916,8 +920,20 @@ function tegn(){
         + (bekreftet + antatt ? ' · ' + bekreftet + ' kvittert, ' + antatt + ' antatt' : '')
         + (medKode ? ' · ' + medKode + ' m/kode' : ''),
       bekreftet + antatt > 0),
-    flis('Median brukstid', tider.length ? minutter(median) : '–',
-      tider.length + ' enheter med tid'),
+    (() => {
+      // «App aapen» er ubrukelig (bakgrunnstid). «I spill» er presis, men
+      // finnes bare fra build-126. Betalende oever naturlig nok mer, saa de
+      // maa staa for seg - ellers ser gratisbrukerne mer aktive ut enn de er.
+      const medSpill = data.filter(r => spilltid(r) > 0);
+      const gratis = medSpill.filter(r => !kjopsInfo(r).betalt).map(spilltid).sort((a,b) => a-b);
+      const betal = medSpill.filter(r => kjopsInfo(r).betalt).map(spilltid).sort((a,b) => a-b);
+      const m = a => a.length ? a[Math.floor(a.length / 2)] : 0;
+      return flis('Median i spill', gratis.length ? minutter(m(gratis)) : '–',
+        gratis.length
+          ? 'gratisbrukere (' + gratis.length + ')' +
+            (betal.length ? ' · betalende: ' + minutter(m(betal)) + ' (' + betal.length + ')' : '')
+          : 'krever build-126');
+    })(),
     flis('Bruksfrekvens', frek.length ? Math.round(medFrek * 100) + ' %' : '–',
       frek.length ? 'av dagene siden nedlasting, median av ' + frek.length
         : 'for kort eiertid ennå'),
@@ -1210,11 +1226,13 @@ function proveKort(data){
   // Median brukstid: proeve-takere mot resten
   const med = v => { const s = v.filter(x=>x>0).sort((a,b)=>a-b);
     return s.length ? s[Math.floor(s.length/2)] : 0; };
-  const mP = med(medProve.map(r => r.tid));
-  const mR = med(data.filter(r => !medProve.includes(r)).map(r => r.tid));
+  // Spilltid, ikke «app aapen» - den siste inneholder bakgrunnstid
+  const mP = med(medProve.map(spilltid));
+  const mR = med(data.filter(r => !medProve.includes(r)).map(spilltid));
   let s = '<div style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px">'
     + '<b>' + medProve.length + '</b> av ' + data.length + ' enheter har tatt prøven. '
-    + 'Median brukstid: <b>' + minutter(mP) + '</b> for dem, mot ' + minutter(mR) + ' for de andre.</div>';
+    + (mP || mR ? 'Median tid i spill: <b>' + minutter(mP) + '</b> for dem, mot '
+        + minutter(mR) + ' for de andre.' : '') + '</div>';
   medProve.forEach(r => {
     const linjer = dagsLinjer(r);
     const proveDato = r.runder.filter(x => x && x.prove).map(x => x.dato).sort().pop();
@@ -1754,7 +1772,7 @@ function tabell(data){
     const linjer = dagsLinjer(r);
     const kanApnes = linjer.length > 0;
     const soverInn = dagerSidenAktiv(r) > 5;
-    s += '<tr class="' + (r.tid >= TEST_GRENSE_SEK ? 'test ' : '')
+    s += '<tr class="' + ('')
       + (soverInn ? 'sovende' : '') + '"'
       + (kanApnes ? ' style="cursor:pointer" data-rad="' + i + '"' : '') + '>'
       + '<td style="width:14px;color:var(--muted)">' + (kanApnes ? '<span id="pil'+i+'">›</span>' : '') + '</td>'
@@ -1797,12 +1815,7 @@ function tabell(data){
         })()
       + '</td><td style="text-align:right">' + (dagerHatt(r) ? dagerHatt(r) + ' d' : '–')
       + '</td><td>' + fmtDag(r.oppdatert) + ' ' + r.oppdatert.slice(11,16)
-      + '</td><td style="text-align:right">' + (r.tid > 0
-          ? (tidTvilsom(r)
-              ? '<span class="tidtvil" title="minst én dag over 3 timer - inneholder nesten sikkert tid appen lå i bakgrunn">'
-                + minutter(r.tid) + '</span>'
-              : minutter(r.tid))
-          : '–')
+
       // Tid i spill, og hvor stor del av brukstiden det er. Er andelen lav
       // har enheten stort sett lest og navigert, ikke spilt.
       + '</td><td style="text-align:right"' + (spilltid(r)
@@ -1912,7 +1925,7 @@ addEventListener('resize', () => { if (rader.length) tegn(); });
 
 // Krypterte data. Uten riktig bruker+passord kan ikke Supabase-noekkelen
 // utledes, og siden har ingenting aa hente med.
-const KRYPT = { s: 'mWPrjlhDIWGeUPup8vaX6g==', i: 'smpLIWmvrBLEGv+W', d: 'OILk50SnuU69mANGKCQQHk/e27J1NQpzhtFg45VVTbM3eETxv2N5K2gfboZ/m8gojaAt9zoB/nBft+UXzQY=', it: 310000 };
+const KRYPT = { s: 'ILWqQ44sAQsEp8hkX6DAVg==', i: 'F6m+go2PrGE4JCVQ', d: 'bDQx8RqN/4qkVSHG9MDWvD8zrcGM3GauSiP0HQfEzSPMCeBIygPtVBlZoamRzCKTkUZwWeXlJtvSNI1F7qI=', it: 310000 };
 const fraB64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
 
 async function lasOppNokkel(bruker, passord) {
