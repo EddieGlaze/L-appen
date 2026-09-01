@@ -104,6 +104,12 @@
 
   /* Kortrutenett */
   .rute2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+  /* Et diagram skal aldri gjoere beholderen sin bredere. Soylekoden faller
+     tilbake paa 460 px naar den maaler et skjult element, og uten denne
+     regelen vokste grid-cella til 460 - som saa RAPPORTERTE 460 ved neste
+     tegning, saa feilen laaste seg selv fast og skjoev hele sida ut av
+     skjermen paa mobil. */
+  .kort svg { max-width:100%; }
   @media (max-width:760px){ .rute2 { grid-template-columns:1fr; } }
   .kort { background:var(--surface-1); border:1px solid var(--border);
           border-radius:12px; padding:15px 16px 10px; }
@@ -187,6 +193,15 @@
            padding:0 3px; font-variant-numeric:tabular-nums; }
   .feil { background:var(--surface-1); border:1px solid var(--critical);
           border-radius:12px; padding:14px 16px; font-size:13px; display:none; }
+/* Faner */
+  .faner { display:flex; gap:4px; margin:0 0 16px; border-bottom:1px solid var(--grid); }
+  .fane { font:inherit; font-size:13px; padding:8px 15px 9px; cursor:pointer;
+          background:none; border:none; border-bottom:2px solid transparent;
+          color:var(--text-secondary); margin-bottom:-1px; }
+  .fane:hover { color:var(--text-primary); }
+  .fane.valgt { color:var(--text-primary); font-weight:700;
+                border-bottom-color:var(--series-1); }
+  @media (max-width:640px) { .fane { padding:8px 11px 9px; font-size:12.5px; } }
 
   /* --- mobil ------------------------------------------------------- */
   @media (max-width: 640px) {
@@ -249,7 +264,12 @@
 </div>
 <div class="ramme">
   <div class="feil" id="feil"></div>
-  <div class="filtre" id="filtre" style="display:none">
+  <div class="faner" id="faner">
+    <button class="fane valgt" data-vis="brukerdata">Brukerdata</button>
+    <button class="fane" data-vis="statistikk">Statistikk</button>
+    <button class="fane" data-vis="okonomi">Økonomi</button>
+  </div>
+  <div class="filtre" id="filtre" style="display:none" data-fane="brukerdata statistikk">
     <button class="knapp" data-dager="7">Siste 7 dager</button>
     <button class="knapp valgt" data-dager="14">Siste 14 dager</button>
     <button class="knapp" data-dager="30">Siste 30 dager</button>
@@ -264,12 +284,12 @@
     <label class="bryter"><input type="checkbox" id="visTest">
       vis enheter fra testperioden (før 14.08)</label>
   </div>
-  <div id="byggInfo" class="bygglinje"></div>
-  <div class="fliser" id="fliser"></div>
+  <div id="byggInfo" class="bygglinje" data-fane="brukerdata statistikk"></div>
+  <div class="fliser" id="fliser" data-fane="brukerdata statistikk"></div>
 
   <!-- ENHETENE OEVERST. Dette er tabellen som faktisk brukes; alt annet er
        oppsummeringer av den. -->
-  <div class="kort"><h2>Enhetene</h2>
+  <div class="kort" data-fane="brukerdata"><h2>Enhetene</h2>
     <div class="hint">Én rad per enhet. Klikk en overskrift for å sortere, eller en rad for å se
       dager, runder og åpnede sider. Strøket rad = ikke aktiv på over 5 dager; kommer enheten
       tilbake blir raden normal igjen. <b>Modell</b> er hvilken gratisgrense enheten kjører -
@@ -291,7 +311,7 @@
 
   <!-- ETT doegnsdiagram i stedet for tre. Nedlastinger og kjoep er det
        Edvard spurte om; runder og aktive enheter laa foer i egne kort. -->
-  <div class="rute2">
+  <div class="rute2" data-fane="statistikk">
     <div class="kort"><h2>Nedlastinger og kjøp per dag</h2>
       <div class="hint">nedlasting = eldste daterte spor enheten har, samme dato som i
         tabellen. Kjøpsdatoen er utledet av utløpsdatoen
@@ -306,7 +326,7 @@
   </div>
 
   <!-- Modellsammenligningen: hele poenget med aa skille versjonene -->
-  <div class="kort"><h2>Modellene mot hverandre</h2>
+  <div class="kort" data-fane="statistikk"><h2>Modellene mot hverandre</h2>
     <div class="hint">5-minutters tidsmodellen mot dagsrasjonen den erstattet. Tallene er ikke
       sammenlignbare før nok enheter har fått den nye - en OTA trer i kraft først ved neste
       oppstart, så «aktiv i dag» sier ingenting om hvilken kode enheten kjører</div>
@@ -316,7 +336,7 @@
   </div>
 
   <!-- Spillene: hvor lenge de er inne, og hvor de gaar ut -->
-  <div class="rute2">
+  <div class="rute2" data-fane="statistikk">
     <div class="kort"><h2>Tid i hvert spill</h2>
       <div class="hint">faktiske sekunder per skjerm, uvektet - krever build-126</div>
       <div id="cSpilltid"></div></div>
@@ -327,7 +347,7 @@
   </div>
 
   <!-- Foer laasing og kjoep -->
-  <div class="rute2">
+  <div class="rute2" data-fane="statistikk">
     <div class="kort"><h2>Før låsing</h2>
       <div class="hint">hvor mange som bruker opp gratistiden, og hva de rakk først.
         Android holdes utenfor: der er hele appen gratis (Play-kjøp er aldri koblet på),
@@ -344,7 +364,7 @@
       <div id="cTrakt"></div></div>
   </div>
 
-  <div class="kort"><h2>Kom de tilbake?</h2>
+  <div class="kort" data-fane="statistikk"><h2>Kom de tilbake?</h2>
     <div class="hint">av dem som lastet ned appen for minst en uke siden, hvor mange var
       innom igjen i løpet av den første uka. Alle måles over samme strekning: yngre
       enheter er holdt utenfor helt til de har hatt sine sju dager, og retur som skjer
@@ -356,7 +376,7 @@
     <div id="cRetur"></div>
   </div>
 
-  <div class="kort fold" data-fold="monster">
+  <div class="kort fold" data-fold="monster" data-fane="statistikk">
     <h2><span class="fpil">›</span>Mønsteret før kjøp
         <span class="fant" id="antMonster"></span></h2>
     <div class="innhold">
@@ -365,7 +385,7 @@
         nedlastinger, siden de som aldri åpnet appen ikke sier noe om kjøpsterskelen</div>
       <div id="cMonster"></div>
     </div></div>
-  <div class="kort fold" data-fold="kjop">
+  <div class="kort fold" data-fold="kjop" data-fane="brukerdata">
     <h2><span class="fpil">›</span>Kjøperne
         <span class="fant" id="antKjop"></span></h2>
     <div class="innhold">
@@ -373,7 +393,7 @@
         overkant for dem som kjøpte samme dag</div>
       <div id="cKjop"></div>
     </div></div>
-  <div class="kort fold" data-fold="prove">
+  <div class="kort fold" data-fold="prove" data-fane="brukerdata">
     <h2><span class="fpil">›</span>Prøvesimulering – og hva som skjer etterpå
         <span class="fant" id="antProve"></span></h2>
     <div class="innhold">
@@ -383,7 +403,7 @@
     </div></div>
 
   <!-- Tre fordelinger over de samme enhetene, samlet i ett kort -->
-  <div class="rute2">
+  <div class="rute2" data-fane="brukerdata">
     <div class="kort"><h2>Brukerne</h2>
       <div class="hint">samlet brukstid, hvor lenge de har hatt appen, og hvor stor del av de
         dagene de faktisk åpnet den</div>
@@ -400,7 +420,7 @@
       <div id="cFrafall"></div></div>
   </div>
 
-  <div class="kort fold" data-fold="dash">
+  <div class="kort fold" data-fold="dash" data-fane="statistikk">
     <h2><span class="fpil">›</span>Dash-blitz i detalj
         <span class="fant" id="antDash"></span></h2>
     <div class="innhold">
@@ -408,6 +428,349 @@
       <div id="cDash"></div>
       <div id="cDashKlarte" style="margin-top:10px;font-size:12.5px;line-height:1.7"></div>
     </div></div>
+
+  <!-- ======================================================================
+     ØKONOMI - fanen
+     Bygget av okonomi/scripts/82-bygg-okonomifane.js. REDIGER MALEN, ikke
+     utdata: okonomi/scripts/mal-okonomi-fane.html. Tallene under er bakt
+     inn ved bygging, fordi analysesidens CSP er default-src 'none' - sida
+     kan ikke hente noe som helst utenfra, og RevenueCats secret-nøkkel
+     skal uansett aldri i en nettside.
+     ================================================================== -->
+<div data-fane="okonomi" style="display:none">
+
+  <div class="ok-stempel" id="okStempel"></div>
+
+  <div class="fliser" id="okFliser"></div>
+
+  <div class="rute2">
+    <div class="kort"><h2>Inntekten</h2>
+      <div class="hint">RevenueCat viser det <b>kundene betalte</b>. Det som havner på
+        konto er noe helt annet: Apple er merchant of record, krever inn den norske
+        momsen og tar sin provisjon før utbetaling. Begge tall står under - det
+        uthevede er det som skal føres</div>
+      <div id="okInntekt"></div>
+    </div>
+    <div class="kort"><h2>Kostnadene</h2>
+      <div class="hint">registrerte bilag, fordelt på leverandør. Alle beløp omregnet
+        til kroner</div>
+      <div id="okKostnad"></div>
+    </div>
+  </div>
+
+  <div class="kort"><h2>Måned for måned</h2>
+    <div class="hint">inntekt mot kostnad. Inntektssøylen bygger på Apples
+      finansrapport der den finnes, og på RevenueCat-anslaget der den ikke gjør det -
+      anslagene er skravert</div>
+    <div id="okMaaned"></div>
+  </div>
+
+  <div class="kort"><h2>Tåler annonsekronene seg selv?</h2>
+    <div class="hint">hva en ny bruker er verdt, mot hva en ny bruker koster. Ligger
+      kostnaden under verdien, tjener annonsekronen seg inn. Begge tall er per
+      bruker som faktisk åpnet appen - nedlastinger som aldri ble åpnet finnes ikke
+      i noen av tallene</div>
+    <div id="okBreakeven"></div>
+  </div>
+
+  <div class="rute2">
+    <div class="kort"><h2>MVA-stillingen</h2>
+      <div class="hint">hva som faktisk gir penger tilbake, og hva som bare går rundt</div>
+      <div id="okMva"></div>
+    </div>
+    <div class="kort"><h2>Innsamlingen</h2>
+      <div class="hint">hvor langt bilagene er hentet. Kjør
+        <code>node okonomi/scripts/81-okonomi-status.js</code> for hele lista</div>
+      <div id="okInnsamling"></div>
+    </div>
+  </div>
+
+</div>
+
+<style>
+  .ok-stempel { font-size:11.5px; color:var(--muted); margin:-4px 0 12px; }
+  .ok-rad { display:flex; justify-content:space-between; align-items:baseline;
+            gap:12px; padding:6px 0; border-bottom:1px solid var(--grid);
+            font-size:12.5px; color:var(--text-secondary); }
+  .ok-rad:last-child { border-bottom:none; }
+  .ok-rad .v { font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .ok-rad.sum { color:var(--text-primary); font-weight:700; border-top:1px solid var(--baseline);
+                border-bottom:none; margin-top:2px; padding-top:8px; }
+  .ok-rad.dempet { color:var(--muted); }
+  .ok-tom { font-size:12.5px; color:var(--muted); padding:10px 0 6px; }
+  .ok-note { font-size:11.5px; color:var(--muted); margin-top:10px; line-height:1.6; }
+  .ok-merke { display:inline-block; font-size:10.5px; padding:1px 7px; border-radius:9px;
+              border:1px solid var(--border); color:var(--muted); margin-left:6px; }
+  .ok-merke.god { color:var(--good-text); border-color:var(--good-text); }
+  .ok-merke.fare { color:var(--critical); border-color:var(--critical); }
+  .flis .tall.minus { color:var(--critical); }
+</style>
+
+<script>
+/* Økonomifanen. Alt ligger i en egen funksjon, så ingen navn lekker ut i
+   analysesidens eget navnerom. Kalles nederst, og på nytt ved fanebytte -
+   søylene måler bredden på beholderen sin, og den er 0 mens fanen er skjult. */
+(function () {
+'use strict';
+
+const OKONOMI_DATA = /*DATA*/{
+  "bygget": "2026-09-01",
+  "vindu": 28,
+  "revenuecat": {
+    "dato": "2026-09-01",
+    "kilde": "manuell",
+    "valuta": "USD",
+    "revenue28": 478,
+    "nye28": 715,
+    "aktive28": 726
+  },
+  "antallBilag": 0,
+  "harUtgifter": false,
+  "fortTilOgMed": null,
+  "perLeverandor": [],
+  "perMaaned": [
+    {
+      "maaned": "2026-09",
+      "kostnad": 0,
+      "inntekt": 3045.6248,
+      "inntektErAnslag": true
+    }
+  ],
+  "kilder": [
+    {
+      "navn": "Apple - faktisk utbetaling og finansrapport",
+      "hentetTilOgMed": null
+    },
+    {
+      "navn": "Meta - annonsefakturaer",
+      "hentetTilOgMed": null
+    },
+    {
+      "navn": "Apple Search Ads - annonsefakturaer",
+      "hentetTilOgMed": null
+    },
+    {
+      "navn": "Anthropic - Claude Code",
+      "hentetTilOgMed": null
+    },
+    {
+      "navn": "Apple Developer Program",
+      "hentetTilOgMed": null
+    },
+    {
+      "navn": "Google Play Console - registrering",
+      "hentetTilOgMed": null
+    },
+    {
+      "navn": "Supabase - database og backup",
+      "hentetTilOgMed": null
+    },
+    {
+      "navn": "Expo / EAS - byggetjeneste",
+      "hentetTilOgMed": null
+    },
+    {
+      "navn": "Domenet l-appen.app",
+      "hentetTilOgMed": null
+    },
+    {
+      "navn": "Kontoutdrag fra banken",
+      "hentetTilOgMed": null
+    }
+  ],
+  "tall": {
+    "brutto28": 4478.86,
+    "inntekt28Netto": 3045.6248,
+    "inntektErAnslag": true,
+    "kostnad28": 0,
+    "annonse28": 0,
+    "kostnadTotalt": 0,
+    "resultat28": 3045.6248,
+    "nye28": 715,
+    "verdiPerBruker": 4.259615104895105,
+    "kostPerBruker": 0,
+    "norskInngaaendeMva": 0
+  }
+}/*DATA*/;
+if (!OKONOMI_DATA) return;
+const D = OKONOMI_DATA;
+
+const kr = n => Math.round(n).toLocaleString('nb-NO') + ' kr';
+const kr2 = n => n.toLocaleString('nb-NO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' kr';
+const esc = s => String(s).replace(/[&<>]/g, t => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[t]));
+
+/* Enkel liggende søyle i sidens egen palett. Bredden leses av beholderen,
+   med samme fallback som resten av sida bruker. */
+function soyler(vert, rader, farge) {
+  if (!rader.length) return '<div class="ok-tom">ingen tall registrert ennå</div>';
+  const B = (vert.clientWidth || 460), hoy = 22, mellom = 6, navnB = Math.min(150, B * 0.38);
+  const maks = Math.max.apply(null, rader.map(r => Math.abs(r.verdi))) || 1;
+  const H = rader.length * (hoy + mellom);
+  let s = '<svg viewBox="0 0 ' + B + ' ' + H + '" width="100%" height="' + H + '">';
+  rader.forEach((r, i) => {
+    const y = i * (hoy + mellom);
+    const b = Math.max(1, (B - navnB - 78) * (Math.abs(r.verdi) / maks));
+    s += '<text x="0" y="' + (y + 15) + '" font-size="12" fill="var(--text-secondary)">'
+      + esc(r.navn) + '</text>'
+      + '<rect x="' + navnB + '" y="' + (y + 3) + '" width="' + b + '" height="' + (hoy - 6)
+      + '" rx="3" fill="' + (r.farge || farge || 'var(--series-1)') + '"'
+      + (r.skravert ? ' opacity=".45"' : '') + '></rect>'
+      + '<text x="' + (navnB + b + 7) + '" y="' + (y + 15) + '" font-size="11.5" '
+      + 'fill="var(--muted)" font-variant-numeric="tabular-nums">' + esc(r.tekst) + '</text>';
+  });
+  return s + '</svg>';
+}
+
+function flis(navn, tall, under, minus) {
+  return '<div class="flis"><div class="navn">' + esc(navn) + '</div>'
+    + '<div class="tall' + (minus ? ' minus' : '') + '">' + esc(tall) + '</div>'
+    + '<div class="under">' + (under || '') + '</div></div>';
+}
+function rad(navn, verdi, klasse) {
+  return '<div class="ok-rad ' + (klasse || '') + '"><span>' + navn
+    + '</span><span class="v">' + verdi + '</span></div>';
+}
+
+function tegnOkonomi() {
+  const t = D.tall;
+
+  /* --- stempel ----------------------------------------------------- */
+  const rc = D.revenuecat;
+  document.getElementById('okStempel').innerHTML =
+    'tallene er bygget ' + D.bygget
+    + (rc ? ' · RevenueCat lest ' + rc.dato + ' (' + (rc.kilde === 'api' ? 'API' : 'manuelt avlest') + ')'
+      : ' · RevenueCat ikke hentet')
+    + ' · ' + D.antallBilag + ' bilag registrert'
+    + (D.fortTilOgMed ? ' · ført i Fiken t.o.m. ' + D.fortTilOgMed : ' · ingenting ført i Fiken ennå');
+
+  /* --- fliser ------------------------------------------------------ */
+  document.getElementById('okFliser').innerHTML = [
+    flis('Inntekt siste 28 d', kr(t.inntekt28Netto),
+      t.inntektErAnslag ? 'anslag, netto etter mva og Apple' : 'netto, fra finansrapport'),
+    flis('Kostnad siste 28 d', kr(t.kostnad28), D.antallBilag ? 'registrerte bilag' : 'ingen bilag ennå'),
+    /* Uten et eneste utgiftsbilag er «overskudd» en løgn med desimaler.
+       Da sier flisa hva som mangler i stedet for å påstå noe. */
+    flis('Resultat siste 28 d', D.harUtgifter ? kr(t.resultat28) : '-',
+      D.harUtgifter ? (t.resultat28 < 0 ? 'underskudd' : 'overskudd')
+        : 'kostnadssiden er tom ennå',
+      D.harUtgifter && t.resultat28 < 0),
+    flis('Verdi per ny bruker', t.nye28 ? kr2(t.verdiPerBruker) : '-',
+      t.nye28 ? 'taket for hva en installasjon kan koste' : 'mangler brukertall'),
+    flis('Annonsekr. per ny bruker', t.nye28 && t.annonse28 ? kr2(t.kostPerBruker) : '-',
+      t.annonse28 ? (t.kostPerBruker <= t.verdiPerBruker ? 'under taket' : 'over taket')
+        : 'ingen annonsebilag ennå', t.annonse28 && t.kostPerBruker > t.verdiPerBruker),
+    flis('Investert totalt', kr(t.kostnadTotalt), 'alle registrerte utgifter'),
+  ].join('');
+
+  /* --- inntekten --------------------------------------------------- */
+  const inn = document.getElementById('okInntekt');
+  if (!rc) {
+    inn.innerHTML = '<div class="ok-tom">RevenueCat er ikke hentet. Kjør '
+      + '<code>node okonomi/scripts/80-hent-revenuecat.js</code></div>';
+  } else {
+    inn.innerHTML =
+      rad('Kundene betalte <span class="ok-merke">RevenueCat, 28 d</span>',
+        kr(t.brutto28) + ' <span style="color:var(--muted)">('
+        + rc.revenue28.toLocaleString('nb-NO') + ' ' + rc.valuta + ')</span>', 'dempet')
+      + rad('− norsk mva 25 % <span class="ok-merke">Apple krever inn og betaler</span>',
+        '−' + kr(t.brutto28 - t.brutto28 / 1.25), 'dempet')
+      + rad('− Apples provisjon 15 % <span class="ok-merke">Small Business</span>',
+        '−' + kr(t.brutto28 / 1.25 * 0.15), 'dempet')
+      + rad('Utbetalt til foretaket', kr(t.inntekt28Netto), 'sum')
+      + '<div class="ok-note">Andelen som blir igjen er 68 % av kundeprisen: kr 149 blir '
+      + 'kr 101,32. Bruker du RevenueCat-tallet som omsetning, ser den 47 % større ut enn '
+      + 'den er.<br>'
+      + (t.inntektErAnslag
+        ? '<b>Dette er et anslag.</b> Apples finansrapport er bilaget, og den ligger 4-6 uker '
+        + 'på etterskudd. Når den kommer, erstattes anslaget av det faktiske beløpet.'
+        : 'Basert på Apples finansrapport.')
+      + '</div>';
+  }
+
+  /* --- kostnadene -------------------------------------------------- */
+  const kost = document.getElementById('okKostnad');
+  kost.innerHTML = soyler(kost, D.perLeverandor.map(l => ({
+    navn: l.navn, verdi: l.sum, tekst: kr(l.sum),
+    farge: l.reklame ? 'var(--series-1)' : 'var(--seq-250)',
+  })));
+  if (D.perLeverandor.length) {
+    kost.innerHTML += '<div class="ok-note">Mørk søyle = annonsekroner (konto 7320). '
+      + 'Lys = drift og verktøy (konto 6810).</div>';
+  }
+
+  /* --- måned for måned --------------------------------------------- */
+  const maa = document.getElementById('okMaaned');
+  const mrad = [];
+  D.perMaaned.forEach(m => {
+    mrad.push({ navn: m.maaned + ' inn', verdi: m.inntekt, tekst: kr(m.inntekt),
+      farge: 'var(--good-text)', skravert: m.inntektErAnslag });
+    mrad.push({ navn: m.maaned + ' ut', verdi: m.kostnad, tekst: kr(m.kostnad),
+      farge: 'var(--critical)' });
+  });
+  maa.innerHTML = soyler(maa, mrad);
+
+  /* --- break-even -------------------------------------------------- */
+  const be = document.getElementById('okBreakeven');
+  if (!t.nye28) {
+    be.innerHTML = '<div class="ok-tom">mangler brukertall fra RevenueCat</div>';
+  } else {
+    const over = t.annonse28 && t.kostPerBruker > t.verdiPerBruker;
+    be.innerHTML =
+      soyler(be, [
+        { navn: 'verdi per bruker', verdi: t.verdiPerBruker, tekst: kr2(t.verdiPerBruker),
+          farge: 'var(--good-text)' },
+        { navn: 'kostnad per bruker', verdi: t.kostPerBruker, tekst: t.annonse28 ? kr2(t.kostPerBruker) : 'ingen annonsebilag',
+          farge: over ? 'var(--critical)' : 'var(--series-1)' },
+      ])
+      + '<div class="ok-note">Verdien er de siste 28 dagenes nettoinntekt delt på '
+      + t.nye28.toLocaleString('nb-NO') + ' nye brukere. Kostnaden er annonsebilagene i '
+      + 'samme periode delt på det samme tallet.'
+      + (t.annonse28
+        ? (over
+          ? ' <b>Over taket:</b> hver kjøpte bruker koster mer enn den gir tilbake i denne '
+          + 'perioden. Det kan likevel være riktig hvis målet er rangering og synlighet - '
+          + 'men da er det en investering, ikke en lønnsom transaksjon.'
+          : ' <b>Under taket:</b> annonsekronene tjener seg inn.')
+        : ' Legg inn annonsebilagene for å få kostnadssiden.')
+      + '<br>Merk at nye brukere her er enheter som faktisk åpnet appen. Nedlastinger som '
+      + 'aldri ble åpnet er ikke med i noen av tallene, så begge sider er målt likt.</div>';
+  }
+
+  /* --- mva --------------------------------------------------------- */
+  document.getElementById('okMva').innerHTML =
+    rad('Salg til Apple (Irland)', '0 % avgiftsfri utførsel', 'dempet')
+    + rad('Meta, Apple Search Ads, Anthropic, Supabase', 'snudd avregning', 'dempet')
+    + rad('Norske kjøp med norsk mva', kr(t.norskInngaaendeMva) + ' til gode', 'sum')
+    + '<div class="ok-note"><b>Snudd avregning gir ikke penger tilbake.</b> På kjøp fra '
+    + 'utlandet beregner du 25 % utgående og trekker fra de samme 25 % inngående - det går '
+    + 'i null, men må likevel med i mva-meldingen.<br>'
+    + 'Momsen du faktisk får igjen kommer fra <b>norske</b> kjøp med norsk mva på fakturaen: '
+    + 'utstyr, regnskapsprogram, telefon, det som kjøpes her hjemme. Salget til Apple er '
+    + 'avgiftsfritt, ikke unntatt - det gir fullt fradrag på kostnadssiden.<br>'
+    + 'Er noen av utenlandsfakturaene likevel fakturert med norsk mva, føres de som vanlig '
+    + 'inngående i stedet. Sjekk fakturaen før du velger kode.</div>';
+
+  /* --- innsamlingen ------------------------------------------------- */
+  const ins = document.getElementById('okInnsamling');
+  ins.innerHTML = D.kilder.map(k =>
+    rad(esc(k.navn), k.hentetTilOgMed
+      ? '<span class="ok-merke god">' + k.hentetTilOgMed + '</span>'
+      : '<span class="ok-merke fare">ikke hentet</span>',
+      k.hentetTilOgMed ? '' : 'dempet')).join('')
+    + '<div class="ok-note">Fasiten er <code>okonomi/innsamling/tilstand.json</code>. '
+    + 'Står en kilde som ikke hentet, mangler økonomifanen den kostnaden helt - og '
+    + 'resultattallet er da for godt.</div>';
+}
+
+/* Kjør ved lasting, og på nytt hver gang fanen vises: søylene måler
+   beholderen sin, og den er 0 px bred så lenge fanen står på display:none. */
+tegnOkonomi();
+window.addEventListener('fanebytte', function (e) {
+  if (!e.detail || e.detail === 'okonomi') tegnOkonomi();
+});
+})();
+</script>
+
 </div>
 <div id="tips"></div>
 <script>
@@ -2031,6 +2394,33 @@ function apne(nokkel) {
     }
   });
   document.getElementById('pbruker').focus();
+})();
+</script>
+<script>
+/* Faneskifte. Diagrammene maaler bredden paa beholderen sin, og den er 0 px
+   mens fanen staar paa display:none - derfor tegnes sida paa nytt etter
+   hvert bytte, og oekonomifanen faar et eget varsel den lytter paa. */
+(function () {
+  var faner = document.getElementById('faner');
+  if (!faner) return;
+  function vis(navn) {
+    document.querySelectorAll('#faner .fane').forEach(function (b) {
+      b.classList.toggle('valgt', b.dataset.vis === navn);
+    });
+    document.querySelectorAll('[data-fane]').forEach(function (el) {
+      el.style.display = el.dataset.fane.split(' ').indexOf(navn) > -1 ? '' : 'none';
+    });
+    try { localStorage.setItem('analysefane', navn); } catch (e) { }
+    if (typeof tegn === 'function' && navn !== 'okonomi') tegn();
+    window.dispatchEvent(new CustomEvent('fanebytte', { detail: navn }));
+  }
+  faner.addEventListener('click', function (e) {
+    var b = e.target.closest('.fane');
+    if (b) vis(b.dataset.vis);
+  });
+  var lagret = null;
+  try { lagret = localStorage.getItem('analysefane'); } catch (e) { }
+  vis(lagret || 'brukerdata');
 })();
 </script>
 </body>
