@@ -571,6 +571,16 @@ const spilltid = r => skjermTid(r, SPILLSKJERM);
 // Avbrutte runder per enhet: startet minus fullfort. Aldri under null - en
 // enhet kan ha fullfort runder som ble startet foer telleren fantes.
 const avbrutt = r => Math.max(0, hend(r, 'runde_start') - hend(r, 'runde_fullfort'));
+// Avbrutte proever teller for seg: proeven er et eget forsoek som brukes
+// opp selv om man avbryter, saa den som slutter etter 25 sekunder har brent
+// hele forsoeket sitt. Appen har egen teller (prove_avbrutt); for eldre
+// enheter utledes tallet av starter minus fullfoerte proeverunder.
+const avbruttProve = r => {
+  const eksplisitt = hend(r, 'prove_avbrutt');
+  if (eksplisitt) return eksplisitt;
+  const fullf = (r.runder || []).filter(x => x && x.prove).length;
+  return Math.max(0, hend(r, 'prove_start') - fullf);
+};
 const KOLONNER = [
   { k: 'id',        t: 'enhet' },
   { k: 'sprak',     t: 'språk' },
@@ -1181,10 +1191,26 @@ function dagsLinjer(r){
     const dato = new Date(+x.d).toISOString().slice(0,10);
     (kart[dato] = kart[dato] || { dato, sek: null, runder: [] }).runder.push({ dash: true, riktige: Number(x.r) || 0 });
   });
-  return Object.values(kart).sort((a,b) => b.dato.localeCompare(a.dato));
+  const linjer = Object.values(kart).sort((a,b) => b.dato.localeCompare(a.dato));
+  // Avbrutte runder har ingen dato i dataene - bare en teller. De legges
+  // paa nyeste linje, og bobla sier selv at dagen er ukjent.
+  const nAvb = avbrutt(r), nProve = avbruttProve(r);
+  if ((nAvb || nProve) && linjer.length) {
+    linjer[0].avbrutt = nAvb; linjer[0].avbruttProve = nProve;
+  }
+  return linjer;
 }
 
 // Merkelapp per runde
+// Avbrutt runde: samme boble som en fullfoert, men stiplet og uten
+// poengsum - den finnes ikke, siden runden aldri ble ferdig.
+function avbruttMerke(tekst, proeve){
+  const kant = proeve ? 'var(--series-1)' : 'var(--border)';
+  return '<span title="startet, men aldri fullfort - dagen er ukjent" '
+    + 'style="display:inline-block;font-size:11.5px;margin:0 5px 3px 0;'
+    + 'padding:2px 8px;border-radius:9px;border:1px dashed ' + kant + ';'
+    + 'color:var(--muted)">' + tekst + '</span>';
+}
 function rundeMerke(x){
   if (x.dash) {
     return '<span style="display:inline-block;font-size:11.5px;margin:0 5px 3px 0;'
@@ -1212,7 +1238,12 @@ function dagsRad(l, maksSek){
     + '<div style="width:52px;flex:none;text-align:right;font-size:11.5px;'
       + 'font-variant-numeric:tabular-nums;color:' + (har ? 'var(--text-primary)' : 'var(--muted)') + '">'
       + (har ? minutter(l.sek) : '–') + '</div>'
-    + '<div style="flex:1;padding-left:6px">' + l.runder.map(rundeMerke).join('') + '</div></div>';
+    + '<div style="flex:1;padding-left:6px">' + l.runder.map(rundeMerke).join('')
+      + (l.avbruttProve ? avbruttMerke('Prøve avbrutt'
+          + (l.avbruttProve > 1 ? ' x' + l.avbruttProve : ''), true) : '')
+      + (l.avbrutt ? avbruttMerke('Avbrutt'
+          + (l.avbrutt > 1 ? ' x' + l.avbrutt : ''), false) : '')
+      + '</div></div>';
 }
 
 function proveKort(data){
@@ -1925,7 +1956,7 @@ addEventListener('resize', () => { if (rader.length) tegn(); });
 
 // Krypterte data. Uten riktig bruker+passord kan ikke Supabase-noekkelen
 // utledes, og siden har ingenting aa hente med.
-const KRYPT = { s: 'ILWqQ44sAQsEp8hkX6DAVg==', i: 'F6m+go2PrGE4JCVQ', d: 'bDQx8RqN/4qkVSHG9MDWvD8zrcGM3GauSiP0HQfEzSPMCeBIygPtVBlZoamRzCKTkUZwWeXlJtvSNI1F7qI=', it: 310000 };
+const KRYPT = { s: 'dDoFyZBucfojyDFBe1l0+g==', i: 'szn8kujryZIDyr5q', d: 'HkwMCs1pxtcW6PvNXP8g1YSCisSgqN2Y99YPQJxB8AFTYdQCLcG8vdTMvReN2z2GcEL11OirM7dDBOI2YlA=', it: 310000 };
 const fraB64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
 
 async function lasOppNokkel(bruker, passord) {
