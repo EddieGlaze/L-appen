@@ -171,6 +171,9 @@
   /* Ett virkemiddel, ikke fire. Var --baseline mot --surface-1 - drygt 1,7:1
      kontrast - PLUSS nedtonede merker, ikoner og gjennomstreking, saa raden
      var i praksis usynlig. --text-secondary er dempet, men lesbart. */
+  .tidtvil { color:var(--muted); }
+  .tidtvil::after { content:'?'; font-size:9.5px; vertical-align:super;
+                    color:var(--critical); font-weight:700; margin-left:1px; }
   tr.sovende td { color:var(--text-secondary); }
   tr.sovende td .merke { opacity:.7; }
   tr.sovende td .tsprak, tr.sovende td .bygg { opacity:.75; }
@@ -269,8 +272,18 @@
     <div class="hint">Én rad per enhet. Klikk en overskrift for å sortere, eller en rad for å se
       dager, runder og åpnede sider. Strøket rad = ikke aktiv på over 5 dager; kommer enheten
       tilbake blir raden normal igjen. <b>Modell</b> er hvilken gratisgrense enheten kjører -
-      5 min vektet tid, gammel dagsrasjon, eller den gamle 8-minutterspotten. Tid per spill og
-      startede/fullførte runder finnes bare fra build-126.</div>
+      5 min vektet tid, gammel dagsrasjon, eller den gamle 8-minutterspotten.
+      <br><br><b>De to tidskolonnene måler ulike ting.</b>
+      <b>App åpen</b> er tiden appen har vært fremme på skjermen - også når brukeren
+      bare hadde den liggende uten å gjøre noe. Den er ikke aktiv bruk, og den er
+      forgiftet av en feil: på iOS bokføres også tiden appen lå i bakgrunn
+      (App.tsx:3639 - se butikk/bestilling-tidsmaaling-feil.md). Verdier der minst
+      én dag overstiger 3 timer er merket med <span class="tidtvil">?</span> og bør
+      ikke brukes til noe.
+      <b>I spill</b> er derimot presis: den summerer sekunder per skjerm (quiz,
+      fasit, begge blitz) og kommer fra build-126. Bruk den når du vil vite hvor
+      mye folk faktisk øver. Tid per spill og startede/fullførte runder finnes bare
+      fra build-126.</div>
     <div style="overflow-x:auto"><table id="tabell"></table></div>
     <div class="hint" id="tabellFot" style="margin:8px 0 0"></div>
   </div>
@@ -541,6 +554,13 @@ const dashAntall = r => (r.lampeblitz || []).filter(Boolean).length;
 // Tid i selve spillene: quiz, fasiten etterpaa og de to blitzene. Brukstid
 // teller ogsaa lesing og navigering, saa de to kolonnene svarer paa hver sin
 // ting - hvor lenge de var i appen, og hvor mye av det som var spilling.
+// Brukstiden er tiden appen har vaert FREMME, ikke aktiv bruk - og den er
+// forgiftet av en feil i App.tsx:3639: paa iOS kommer AppState 'inactive'
+// ogsaa naar skjermen laases OPP, saa hele bakgrunnsperioden bokfoeres som
+// brukstid. En enkeltdag over 3 timer er derfor nesten sikkert bakgrunn.
+const TID_TVIL_SEK = 3 * 3600;
+const tidTvilsom = r => Object.values(r.tidDager || {})
+  .some(v => (+v || 0) > TID_TVIL_SEK);
 const SPILLSKJERM = ['quiz', 'resultat', 'blitz', 'lampeblitz'];
 const spilltid = r => skjermTid(r, SPILLSKJERM);
 // Avbrutte runder per enhet: startet minus fullfort. Aldri under null - en
@@ -555,7 +575,7 @@ const KOLONNER = [
   { k: 'fikkversj', t: 'fikk versjon',    tall: 1 },
   { k: 'hatt',      t: 'hatt appen',      tall: 1, hoyre: 1 },
   { k: 'oppdatert', t: 'sist aktiv',      tall: 1 },
-  { k: 'tid',       t: 'brukstid',        tall: 1, hoyre: 1 },
+  { k: 'tid',       t: 'app åpen',        tall: 1, hoyre: 1 },
   { k: 'spill',     t: 'i spill',         tall: 1, hoyre: 1 },
   { k: 'runder',    t: 'runder',          tall: 1, hoyre: 1 },
   { k: 'laast',     t: 'låst',            tall: 1 },
@@ -1777,7 +1797,12 @@ function tabell(data){
         })()
       + '</td><td style="text-align:right">' + (dagerHatt(r) ? dagerHatt(r) + ' d' : '–')
       + '</td><td>' + fmtDag(r.oppdatert) + ' ' + r.oppdatert.slice(11,16)
-      + '</td><td style="text-align:right">' + (r.tid > 0 ? minutter(r.tid) : '–')
+      + '</td><td style="text-align:right">' + (r.tid > 0
+          ? (tidTvilsom(r)
+              ? '<span class="tidtvil" title="minst én dag over 3 timer - inneholder nesten sikkert tid appen lå i bakgrunn">'
+                + minutter(r.tid) + '</span>'
+              : minutter(r.tid))
+          : '–')
       // Tid i spill, og hvor stor del av brukstiden det er. Er andelen lav
       // har enheten stort sett lest og navigert, ikke spilt.
       + '</td><td style="text-align:right"' + (spilltid(r)
@@ -1887,7 +1912,7 @@ addEventListener('resize', () => { if (rader.length) tegn(); });
 
 // Krypterte data. Uten riktig bruker+passord kan ikke Supabase-noekkelen
 // utledes, og siden har ingenting aa hente med.
-const KRYPT = { s: 'E3wSzlDyHISLDndSjJUCNw==', i: 'kOGSevtEoJ7JGZUe', d: '+p1cEnM0fvxAahygdX4sm6cIStRWn33ffFgg31WRRVZORObhbPz4CsvPQ0BhYDTbjC10Wa51DyI7h67At1Y=', it: 310000 };
+const KRYPT = { s: 'mWPrjlhDIWGeUPup8vaX6g==', i: 'smpLIWmvrBLEGv+W', d: 'OILk50SnuU69mANGKCQQHk/e27J1NQpzhtFg45VVTbM3eETxv2N5K2gfboZ/m8gojaAt9zoB/nBft+UXzQY=', it: 310000 };
 const fraB64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
 
 async function lasOppNokkel(bruker, passord) {
