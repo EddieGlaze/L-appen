@@ -1365,13 +1365,22 @@ function tegn(){
     flis('Enheter', data.length, skjultDeler.length
       ? skjultDeler.join(' + ') + ' skjult' : 'alle vist'),
     flis('Aktive siste døgn', d1, d7 + ' siste 7 dager', d1 > 0),
-    flis('Kjøpere', bekreftet + antatt,
-      ((bekreftet + antatt)
-        ? (100 * (bekreftet + antatt) / Math.max(1, data.length)).toFixed(1) + ' % av brukerne'
-        : 'ingen kjøp påvist ennå')
-        + (bekreftet + antatt ? ' · ' + bekreftet + ' kvittert, ' + antatt + ' antatt' : '')
-        + (medKode ? ' · ' + medKode + ' m/kode' : ''),
-      bekreftet + antatt > 0),
+    (() => {
+      // Hovedtallet er de KVITTERTE. «Antatt» er utledet av oevingsrunder
+      // over 10 spoersmaal, som beviser full tilgang - men full tilgang
+      // kan like gjerne komme fra en innloest kode. kodeUtlop-feltet, som
+      // ville avsloert det, finnes bare paa nyere builds; av de antatte
+      // mangler flertallet feltet helt. De telles derfor ikke inn i
+      // hovedtallet, bare som et oevre anslag ved siden av.
+      const usikre = antatt;
+      return flis('Kjøpere', bekreftet,
+        (bekreftet
+          ? (100 * bekreftet / Math.max(1, data.length)).toFixed(1) + ' % med kvittering'
+          : 'ingen kvitterte kjøp ennå')
+          + (usikre ? ' · + ' + usikre + ' antatt (kan være innløst kode)' : '')
+          + (medKode ? ' · ' + medKode + ' m/kode' : ''),
+        bekreftet > 0);
+    })(),
     (() => {
       // «App aapen» er ubrukelig (bakgrunnstid). «I spill» er presis, men
       // finnes bare fra build-126. Betalende oever naturlig nok mer, saa de
@@ -2429,7 +2438,7 @@ addEventListener('resize', () => { if (rader.length) tegn(); });
 
 // Krypterte data. Uten riktig bruker+passord kan ikke Supabase-noekkelen
 // utledes, og siden har ingenting aa hente med.
-const KRYPT = { s: 'llbst8fk7q8+ODswhoz5Zw==', i: '7ZY7fsj7YRqzXsOy', d: 'Sc9L0o5Vfdz08+E7Jfv94ZfqUoCxRnxNA/6jWUEKPIbE2tHEiGdcpKU/u1d64X6MQIffZaZQk4zTm723DfI=', it: 310000 };
+const KRYPT = { s: 'R5Z5Eb2ThIssuD9IV3i5YA==', i: 'n6Q9ryhlmOItbXbO', d: 'ELcuinWKy7Y4KyGkRRYLmwU6Wtf9zrnh9/jVGylm0DDMROmNuyCpF9epNo8+UjHJXfqkCSzLfAxOj/LCUcA=', it: 310000 };
 const fraB64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
 
 async function lasOppNokkel(bruker, passord) {
