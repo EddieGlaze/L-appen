@@ -1,16 +1,32 @@
 <!doctype html>
 <!--
-  Bruksanalysen.
+  Bruksanalysen - nytt oppsett fra 02.09.2026.
 
     kilde:     butikk/analyse.html
-    publisert: nettsted-lastned/analyse/index.html
-    bygges:    node butikk/bygg-analyse-web.js <bruker> <passord>
+    forrige:   butikk/analyse-gammel.html   (oppsettet fram til 02.09.2026)
+    publisert: nettsted-lastned/analyse/index.html   (bygges av bygg-analyse-web.js)
 
-  Bygget legger paa innloggingsporten, den krypterte Supabase-noekkelen,
-  mobilstilen og CSP-hodet. Rediger alltid KILDEN - aldri den publiserte
-  fila. Neste bygg sletter endringer gjort i utdata. (Det skjedde 31.08:
-  to runder arbeid laa i utdata mens kilden var 526 linjer bak, og
-  ingenting sa fra.)
+  Hva som er nytt, og hvorfor:
+
+  EN TIDSMODELL. Dagens side viser fire tidsbegreper om hverandre: tidSek
+  (teller bakgrunnstid, App.tsx:3724), tidDager (samme feil, per dag),
+  skjermSek (sekunder per skjerm, uvektet, kappet paa en time per besoek)
+  og bruk.tidSekBrukt (VEKTET forbruk av gratispotten, bare siste dag).
+  Her brukes skjermSek som eneste maal paa tid: den maales ved skjermbytte og
+  naar appen gaar i bakgrunnen, saa en side som lukkes halvveis faar tiden
+  sin bokfoert. tidSek og tidDager brukes bare til aa si HVILKE dager enheten
+  var inne, aldri hvor lenge. Vektet forbruk vises for seg, merket som
+  oeyeblikksbilde.
+
+  REKKEFOELGEN foelger spoersmaalene: hva skjer foer kjoep (trakt), hvordan
+  ser veien til kjoep ut, hva gjoer de hver dag, hvor gaar tiden, og til slutt
+  nedlastinger mot kjoep mot reklamekroner. Enhetstabellen ligger nederst,
+  som oppslagsverk - alt over den er oppsummeringer av den.
+
+  DATAHULL er merket i teksten der de er, ikke gjemt: skjermSek finnes bare
+  fra build-126, laas_vist likesaa, Apple Search Ads har ingen bilag enda
+  (dagsbudsjett brukes som anslag), og butikkenes egne nedlastingstall finnes
+  ikke i basen - «nye enheter» er foerste oppstart, ikke nedlasting.
 -->
 <html lang="nb">
 <head>
@@ -20,195 +36,148 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src 'self' data:; connect-src https://kbhekpqyfduhdfoshdvl.supabase.co; base-uri 'none'; form-action 'none'">
 <title>L-appen · bruksanalyse</title>
 <style>
-  /* Palettroller (dataviz-referansepaletten). Lys er grunnfargene,
-     mørk er samme fargetoner trappet for mørk flate. */
   :root {
     color-scheme: light;
-    --plane:        #f9f9f7;
-    --surface-1:    #fcfcfb;
-    --text-primary: #0b0b0b;
-    --text-secondary:#52514e;
-    --muted:        #898781;
-    --grid:         #e1e0d9;
-    --baseline:     #c3c2b7;
-    --border:       rgba(11,11,11,0.10);
-    --series-1:     #2a78d6;
-    --seq-250:      #86b6ef;
-    --good-text:    #006300;
-    --critical:     #d03b3b;
+    --plane:#f9f9f7; --surface-1:#fcfcfb; --text-primary:#0b0b0b; --text-secondary:#52514e;
+    --muted:#898781; --grid:#e1e0d9; --baseline:#c3c2b7; --border:rgba(11,11,11,0.10);
+    --series-1:#2a78d6; --series-2:#d98a2b; --series-3:#5aa469; --seq-250:#86b6ef;
+    --good-text:#006300; --critical:#d03b3b;
   }
   @media (prefers-color-scheme: dark) {
     :root:where(:not([data-theme="light"])) {
       color-scheme: dark;
-      --plane:        #0d0d0d;
-      --surface-1:    #1a1a19;
-      --text-primary: #ffffff;
-      --text-secondary:#c3c2b7;
-      --muted:        #898781;
-      --grid:         #2c2c2a;
-      --baseline:     #383835;
-      --border:       rgba(255,255,255,0.10);
-      --series-1:     #3987e5;
-      --seq-250:      #1c5cab;
-      --good-text:    #0ca30c;
-      --critical:     #d03b3b;
+      --plane:#0d0d0d; --surface-1:#1a1a19; --text-primary:#fff; --text-secondary:#c3c2b7;
+      --muted:#898781; --grid:#2c2c2a; --baseline:#383835; --border:rgba(255,255,255,0.10);
+      --series-1:#3987e5; --series-2:#e59a3c; --series-3:#6cb87a; --seq-250:#1c5cab;
+      --good-text:#0ca30c; --critical:#d03b3b;
     }
   }
   :root[data-theme="dark"] {
     color-scheme: dark;
-    --plane:        #0d0d0d;
-    --surface-1:    #1a1a19;
-    --text-primary: #ffffff;
-    --text-secondary:#c3c2b7;
-    --muted:        #898781;
-    --grid:         #2c2c2a;
-    --baseline:     #383835;
-    --border:       rgba(255,255,255,0.10);
-    --series-1:     #3987e5;
-    --seq-250:      #1c5cab;
-    --good-text:    #0ca30c;
-    --critical:     #d03b3b;
+    --plane:#0d0d0d; --surface-1:#1a1a19; --text-primary:#fff; --text-secondary:#c3c2b7;
+    --muted:#898781; --grid:#2c2c2a; --baseline:#383835; --border:rgba(255,255,255,0.10);
+    --series-1:#3987e5; --series-2:#e59a3c; --series-3:#6cb87a; --seq-250:#1c5cab;
+    --good-text:#0ca30c; --critical:#d03b3b;
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   body { background:var(--plane); color:var(--text-primary);
-         font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
-         padding:22px 20px 48px; }
-  .topp { max-width:1060px; margin:0 auto 16px; display:flex; align-items:baseline;
+         font-family:system-ui,-apple-system,"Segoe UI",sans-serif; padding:22px 20px 48px; }
+  .topp { max-width:1100px; margin:0 auto 14px; display:flex; align-items:baseline;
           justify-content:space-between; gap:12px; flex-wrap:wrap; }
   h1 { font-size:19px; font-weight:700; }
   .stempel { font-size:12px; color:var(--muted); }
   .stempel button { font:inherit; color:var(--series-1); background:none; border:none;
                     cursor:pointer; padding:0 0 0 8px; }
-  .ramme { max-width:1060px; margin:0 auto; }
+  .ramme { max-width:1100px; margin:0 auto; }
+  .utkast { font-size:12px; color:var(--series-2); border:1px solid var(--series-2);
+            border-radius:8px; padding:6px 10px; margin-bottom:12px; }
 
-  /* Filterrad */
   .filtre { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
   .filtre .sep { flex:1; }
   .knapp { font-size:12.5px; padding:5px 11px; border-radius:8px; cursor:pointer;
-           border:1px solid var(--border); background:var(--surface-1);
-           color:var(--text-secondary); }
-  .knapp.valgt { color:var(--text-primary); font-weight:700;
-                 border-color:var(--series-1); }
-  label.bryter { font-size:12.5px; color:var(--text-secondary); display:flex;
-                 gap:6px; align-items:center; cursor:pointer; }
+           border:1px solid var(--border); background:var(--surface-1); color:var(--text-secondary); }
+  .knapp.valgt { color:var(--text-primary); font-weight:700; border-color:var(--series-1); }
+  label.bryter { font-size:12.5px; color:var(--text-secondary); display:flex; gap:6px;
+                 align-items:center; cursor:pointer; }
 
-  /* Stat-fliser */
   .fliser { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr));
             gap:10px; margin-bottom:14px; }
-  .flis { background:var(--surface-1); border:1px solid var(--border);
-          border-radius:12px; padding:13px 15px 11px; }
-  .flis .navn { font-size:11.5px; color:var(--muted); letter-spacing:.2px; }
+  .flis { background:var(--surface-1); border:1px solid var(--border); border-radius:12px;
+          padding:13px 15px 11px; }
+  .flis .navn { font-size:11.5px; color:var(--muted); }
   .flis .tall { font-size:27px; font-weight:700; margin-top:2px; line-height:1.15; }
   .flis .under { font-size:11.5px; color:var(--text-secondary); margin-top:2px; }
   .flis .under.god { color:var(--good-text); }
 
-  /* Kortrutenett */
+  .seksjon { margin:26px 0 8px; }
+  .seksjon h2 { font-size:15px; font-weight:700; }
+  .seksjon .sp { font-size:12.5px; color:var(--muted); margin-top:2px; }
   .rute2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
-  /* Et diagram skal aldri gjoere beholderen sin bredere. Soylekoden faller
-     tilbake paa 460 px naar den maaler et skjult element, og uten denne
-     regelen vokste grid-cella til 460 - som saa RAPPORTERTE 460 ved neste
-     tegning, saa feilen laaste seg selv fast og skjoev hele sida ut av
-     skjermen paa mobil. */
+  .rute3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:12px; }
   .kort svg { max-width:100%; }
-  @media (max-width:760px){ .rute2 { grid-template-columns:1fr; } }
-  .kort { background:var(--surface-1); border:1px solid var(--border);
-          border-radius:12px; padding:15px 16px 10px; }
-  .kort h2 { font-size:13.5px; font-weight:700; margin-bottom:2px; }
-  .kort .hint { font-size:11.5px; color:var(--muted); margin-bottom:10px; }
+  @media (max-width:760px){ .rute2, .rute3 { grid-template-columns:1fr; } }
+  .kort { background:var(--surface-1); border:1px solid var(--border); border-radius:12px;
+          padding:15px 16px 12px; margin-bottom:12px; }
+  .kort h3 { font-size:13.5px; font-weight:700; margin-bottom:2px; }
+  .kort .hint { font-size:11.5px; color:var(--muted); margin-bottom:10px; line-height:1.4; }
+  .kort .hint b { color:var(--text-secondary); }
   svg text { font-family:inherit; }
+  .hull { font-size:11.5px; color:var(--series-2); margin-top:6px; }
 
-  /* Tooltip */
-  #tips { position:fixed; pointer-events:none; background:var(--surface-1);
-          border:1px solid var(--border); border-radius:8px; padding:7px 10px;
-          font-size:12px; box-shadow:0 4px 14px rgba(0,0,0,.13); display:none;
-          z-index:9; color:var(--text-primary); }
-  #tips .l1 { color:var(--muted); font-size:11px; }
-  #tips .l2 { font-weight:700; }
+  /* Trakt */
+  .trakt { display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:6px; }
+  .tsteg { padding:10px 10px 8px; border-radius:10px; border:1px solid var(--border);
+           background:var(--plane); position:relative; }
+  .tsteg .n { font-size:22px; font-weight:700; line-height:1.1; }
+  .tsteg .l { font-size:11px; color:var(--muted); margin-top:2px; line-height:1.3; }
+  .tsteg .p { font-size:11.5px; color:var(--text-secondary); margin-top:4px; }
+  .tsteg .p b { color:var(--series-1); }
+  .tsteg .bar { height:5px; background:var(--grid); border-radius:3px; margin-top:6px; overflow:hidden; }
+  .tsteg .bar i { display:block; height:100%; background:var(--series-1); }
+
+  /* Liggende soeyler */
+  .lrad { display:flex; align-items:center; gap:8px; margin:4px 0; font-size:12px; }
+  .lrad .ln { width:150px; flex:none; color:var(--text-secondary); white-space:nowrap;
+              overflow:hidden; text-overflow:ellipsis; }
+  .lrad .lb { flex:1; height:11px; background:var(--grid); border-radius:3px; overflow:hidden;
+              position:relative; }
+  .lrad .lb i { position:absolute; left:0; top:0; bottom:0; background:var(--series-1); }
+  .lrad .lb i.b { background:var(--series-3); }
+  .lrad .lv { width:96px; flex:none; text-align:right; font-variant-numeric:tabular-nums;
+              color:var(--text-secondary); }
+  .vekt { font-size:10px; color:var(--muted); margin-left:4px; }
 
   /* Tabell */
   table { width:100%; border-collapse:collapse; font-size:12.5px; }
   th { text-align:left; color:var(--muted); font-weight:600; font-size:11.5px;
-       padding:5px 10px 7px 0; border-bottom:1px solid var(--grid); }
-  td { padding:6px 10px 6px 0; border-bottom:1px solid var(--grid);
-       color:var(--text-secondary); font-variant-numeric:tabular-nums; }
+       padding:5px 10px 7px 0; border-bottom:1px solid var(--grid); white-space:nowrap; }
+  td { padding:6px 10px 6px 0; border-bottom:1px solid var(--grid); color:var(--text-secondary);
+       font-variant-numeric:tabular-nums; vertical-align:top; }
   td:first-child { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:11.5px; }
-  tr.test td { opacity:.55; }
-  .merke { display:inline-block; font-size:10.5px; padding:1px 7px; border-radius:9px;
-           border:1px solid var(--border); color:var(--muted); margin-left:6px; }
-  .merke.betalt { color:var(--good-text); border-color:var(--good-text); }
-  .bygglinje { font-size:12.5px; color:var(--text-secondary); margin:2px 0 12px;
-               display:flex; flex-wrap:wrap; gap:4px 14px; align-items:baseline; }
-  .bygglinje b { color:var(--text-primary); }
-  .bygglinje .ny { color:var(--good-text); font-weight:700; }
-  /* Utledet dato: prikket understrek er den vanlige maaten aa si «dette er
-     et anslag, hold musepekeren her» uten aa rope. */
-  .anslag { border-bottom:1px dotted var(--muted); cursor:help; }
-  .bygg { font-size:10.5px; font-weight:700; padding:1px 6px; border-radius:9px;
-          border:1px solid var(--border); color:var(--muted); white-space:nowrap; }
-  .bygg.n3 { color:var(--good-text); border-color:var(--good-text); }
-  th.sorter { cursor:pointer; user-select:none; white-space:nowrap; }
+  .h { text-align:right; }
+  th.sorter { cursor:pointer; user-select:none; }
   th.sorter:hover { color:var(--text-primary); }
   th.sorter .pil { opacity:0; margin-left:3px; font-size:9px; }
   th.sorter.aktiv { color:var(--series-1); }
   th.sorter.aktiv .pil { opacity:1; }
-  .kort.fold > h2 { cursor:pointer; user-select:none; display:flex;
-                    align-items:center; gap:8px; margin:0; }
-  .kort.fold > h2 .fpil { color:var(--muted); font-size:13px; font-weight:700;
-                          transition:transform .15s; display:inline-block; }
-  .kort.fold.apen > h2 .fpil { transform:rotate(90deg); }
-  .kort.fold > h2 .fant { margin-left:auto; font-size:11.5px; font-weight:600;
-                          color:var(--muted); }
-  .kort.fold > .innhold { display:none; }
-  .kort.fold.apen > .innhold { display:block; padding-top:8px; }
-  .tsprak { font-size:11.5px; color:var(--muted); font-variant-numeric:tabular-nums; }
-  .tsprak.avvik { color:var(--series-1); font-weight:700; }
-  .detblokk { margin-top:10px; font-size:11.5px; }
-  .detblokk .tit { color:var(--muted); margin-bottom:3px; }
-  .dstripe { display:inline-flex; align-items:center; gap:3px; }
-  .dpunkt { width:8px; height:8px; border-radius:50%; flex:none;
-            background:var(--series-1); }
-  .dpunkt.av { background:transparent; box-shadow: inset 0 0 0 1.5px var(--baseline); }
-  .dpunkt.kjop { background:var(--critical); box-shadow:0 0 0 2px var(--surface-1),
-                 0 0 0 3.5px var(--critical); }
-  /* Enheter som har ligget stille i mer enn 5 dager paa rad tones ned,
-     saa de aktive skiller seg ut naar lista blir lang. */
-  /* Sovende = ikke sett paa over 5 dager. Tydelig nedtonet og strøket
-     over, saa lista kan skummes for dem som faktisk er i gang. */
-  /* Ett virkemiddel, ikke fire. Var --baseline mot --surface-1 - drygt 1,7:1
-     kontrast - PLUSS nedtonede merker, ikoner og gjennomstreking, saa raden
-     var i praksis usynlig. --text-secondary er dempet, men lesbart. */
-  /* Butikkmerke foran enhets-id: GP = Google Play, AS = App Store */
+  .merke { display:inline-block; font-size:10.5px; padding:1px 7px; border-radius:9px;
+           border:1px solid var(--border); color:var(--muted); margin-left:6px; }
+  .merke.betalt { color:var(--good-text); border-color:var(--good-text); }
+  .anslag { border-bottom:1px dotted var(--muted); cursor:help; }
   .pf { display:inline-block; font-size:9.5px; font-weight:700; letter-spacing:.03em;
         padding:1px 4px; border-radius:4px; margin-right:5px; vertical-align:1px; }
   .pf.gp { background:#E6F4EA; color:#1E7B34; }
   .pf.as { background:#EDEFF2; color:#4A4F57; }
-  .pf.ukjent { background:transparent; color:var(--baseline);
-               box-shadow:inset 0 0 0 1px var(--border); }
-  .tidtvil { color:var(--muted); }
-  .tidtvil::after { content:'?'; font-size:9.5px; vertical-align:super;
-                    color:var(--critical); font-weight:700; margin-left:1px; }
+  .pf.ukjent { background:transparent; color:var(--baseline); box-shadow:inset 0 0 0 1px var(--border); }
+  .bygg { font-size:10.5px; font-weight:700; padding:1px 6px; border-radius:9px;
+          border:1px solid var(--border); color:var(--muted); white-space:nowrap; }
+  .bygg.n3 { color:var(--good-text); border-color:var(--good-text); }
   tr.sovende td { color:var(--text-secondary); }
-  tr.sovende td .merke { opacity:.7; }
-  tr.sovende td .tsprak, tr.sovende td .bygg { opacity:.75; }
-  tr.sovende td:nth-child(2) { text-decoration:line-through;
-                               text-decoration-thickness:1.5px;
+  tr.sovende td:nth-child(2) { text-decoration:line-through; text-decoration-thickness:1.5px;
                                text-decoration-color:var(--baseline); }
-  /* prikkstripa beholder kontrasten - den er hele poenget med raden */
-  tr.sovende .dpunkt { opacity:.5; }
-  tr.sovende .dpunkt.kjop { opacity:1; }
-  .dhopp { font-size:10.5px; font-weight:700; color:var(--muted);
-           padding:0 3px; font-variant-numeric:tabular-nums; }
-  .feil { background:var(--surface-1); border:1px solid var(--critical);
-          border-radius:12px; padding:14px 16px; font-size:13px; display:none; }
-/* Faner */
+  .dstripe { display:inline-flex; align-items:center; gap:3px; }
+  .dpunkt { width:8px; height:8px; border-radius:50%; flex:none; background:var(--series-1); }
+  .dpunkt.av { background:transparent; box-shadow:inset 0 0 0 1.5px var(--baseline); }
+  .dpunkt.kjop { background:var(--critical); box-shadow:0 0 0 2px var(--surface-1), 0 0 0 3.5px var(--critical); }
+  .dhopp { font-size:10.5px; font-weight:700; color:var(--muted); padding:0 3px; }
+  .detblokk { margin-top:10px; font-size:11.5px; }
+  .detblokk .tit { color:var(--muted); margin-bottom:3px; }
+  .feil { background:var(--surface-1); border:1px solid var(--critical); border-radius:12px;
+          padding:14px 16px; font-size:13px; display:none; }
+  .fot { font-size:11.5px; color:var(--muted); margin-top:8px; line-height:1.5; }
+
+  /* Regimestripe under dagsdiagrammet */
+  .regime { display:flex; flex-wrap:wrap; gap:4px 10px; font-size:11px; color:var(--muted); margin-top:6px; }
+  .regime span b { color:var(--text-secondary); font-weight:600; }
+
   .faner { display:flex; gap:4px; margin:0 0 16px; border-bottom:1px solid var(--grid); }
-  .fane { font:inherit; font-size:13px; padding:8px 15px 9px; cursor:pointer;
-          background:none; border:none; border-bottom:2px solid transparent;
-          color:var(--text-secondary); margin-bottom:-1px; }
+  .fane { font:inherit; font-size:13px; padding:8px 15px 9px; cursor:pointer; background:none;
+          border:none; border-bottom:2px solid transparent; color:var(--text-secondary); margin-bottom:-1px; }
   .fane:hover { color:var(--text-primary); }
-  .fane.valgt { color:var(--text-primary); font-weight:700;
-                border-bottom-color:var(--series-1); }
-  @media (max-width:640px) { .fane { padding:8px 11px 9px; font-size:12.5px; } }
+  .fane.valgt { color:var(--text-primary); font-weight:700; border-bottom-color:var(--series-1); }
+  #tips { position:fixed; pointer-events:none; background:var(--surface-1); border:1px solid var(--border);
+          border-radius:8px; padding:7px 10px; font-size:12px; box-shadow:0 4px 14px rgba(0,0,0,.13);
+          display:none; z-index:9; color:var(--text-primary); }
 
   /* --- mobil ------------------------------------------------------- */
   @media (max-width: 640px) {
@@ -271,177 +240,146 @@
 </div>
 <div class="ramme">
   <div class="feil" id="feil"></div>
+  <div class="utkast">Nytt oppsett fra 2. september. Én tidsmodell, spørsmålene i rekkefølge, tabellen nederst.
+    Oransje tekst = datahull som er merket, ikke gjemt.</div>
   <div class="faner" id="faner">
-    <button class="fane valgt" data-vis="brukerdata">Brukerdata</button>
-    <button class="fane" data-vis="statistikk">Statistikk</button>
+    <button class="fane valgt" data-vis="bruk">Bruk og kjøp</button>
+    <button class="fane" data-vis="enheter">Enhetene</button>
     <button class="fane" data-vis="okonomi">Økonomi</button>
   </div>
-  <div class="filtre" id="filtre" style="display:none" data-fane="brukerdata statistikk">
+
+  <div class="filtre" id="filtre" style="display:none" data-fane="bruk enheter">
     <button class="knapp" data-dager="7">Siste 7 dager</button>
     <button class="knapp valgt" data-dager="14">Siste 14 dager</button>
     <button class="knapp" data-dager="30">Siste 30 dager</button>
-    <span style="font-size:11.5px;color:var(--muted)">· gjelder bare diagrammene, ikke tabellen</span>
+    <span style="font-size:11.5px;color:var(--muted)">· gjelder dagsdiagrammene</span>
     <span class="sep"></span>
-    <!-- Sto avkrysset som standard og skjulte alle over 10 t. For en teoriapp
-         er ti timer en engasjert elev, ikke en testenhet - og det er nettopp
-         de som kjøper. Står nå av. -->
-    <label class="bryter" title="Filteret er ute av drift: det bygde på registrert tid, som teller bakgrunnstid og kastet ut ekte kjøpere">
-      <input type="checkbox" id="skjulTest" disabled>
-      skjul over 10 t brukstid</label>
-    <label class="bryter"><input type="checkbox" id="visTest">
-      vis enheter fra testperioden (før 14.08)</label>
-    <label class="bryter" title="Google Play. Enheter uten plattformfelt (merket ?) faller utenfor">
-      <input type="checkbox" id="kunGP"> vis kun Android</label>
-    <label class="bryter" title="App Store. Enheter uten plattformfelt (merket ?) faller utenfor">
-      <input type="checkbox" id="kunAS"> vis kun Apple</label>
+    <label class="bryter" title="Enheter med aktivitet før lanseringen 14.08 er TestFlight og utvikling">
+      <input type="checkbox" id="visTest"> vis testperioden (før 14.08)</label>
+    <label class="bryter"><input type="checkbox" id="kunGP"> kun Android</label>
+    <label class="bryter"><input type="checkbox" id="kunAS"> kun Apple</label>
   </div>
-  <div id="byggInfo" class="bygglinje" data-fane="brukerdata statistikk"></div>
-  <div class="fliser" id="fliser" data-fane="brukerdata statistikk"></div>
+  <div class="fliser" id="fliser" data-fane="bruk enheter"></div>
 
-  <!-- ENHETENE OEVERST. Dette er tabellen som faktisk brukes; alt annet er
-       oppsummeringer av den. -->
-  <div class="kort" data-fane="brukerdata"><h2>Enhetene</h2>
-    <div class="hint">Én rad per enhet. Klikk en overskrift for å sortere, eller en rad for å se
-      dager, runder og åpnede sider. Strøket rad = ikke aktiv på over 5 dager; kommer enheten
-      tilbake blir raden normal igjen. <b>Modell</b> er hvilken gratisgrense enheten kjører -
-      5 min vektet tid, gammel dagsrasjon, eller den gamle 8-minutterspotten.
-      <br><br><b>De to tidskolonnene måler ulike ting.</b>
-      <b>App åpen</b> er tiden appen har vært fremme på skjermen - også når brukeren
-      bare hadde den liggende uten å gjøre noe. Den er ikke aktiv bruk, og den er
-      forgiftet av en feil: på iOS bokføres også tiden appen lå i bakgrunn
-      (App.tsx:3639 - se butikk/bestilling-tidsmaaling-feil.md). Verdier der minst
-      én dag overstiger 3 timer er merket med <span class="tidtvil">?</span> og bør
-      ikke brukes til noe.
-      <b>I spill</b> er derimot presis: den summerer sekunder per skjerm (quiz,
-      fasit, begge blitz) og kommer fra build-126. Bruk den når du vil vite hvor
-      mye folk faktisk øver. Tid per spill og startede/fullførte runder finnes bare
-      fra build-126.</div>
-    <div style="overflow-x:auto"><table id="tabell"></table></div>
-    <div class="hint" id="tabellFot" style="margin:8px 0 0"></div>
+  <!-- 0. STATUS FOR TALLENE -->
+  <div class="kort" data-fane="bruk enheter"><h3>Kan jeg stole på tallene?</h3>
+    <div class="hint">Hvert kort under måler på den delen av basen som HAR feltet. Her er nevnerne, så et tall aldri leses som «alle».</div>
+    <div id="cDekning"></div>
+    <div class="hull">Kilder utenfor basen: Meta-bilag hentet t.o.m. 02.09 · Apple Search Ads ingen bilag · RevenueCat manuelt avlest 01.09 · butikkenes nedlastingstall ikke hentet.</div>
   </div>
 
-  <!-- ETT doegnsdiagram i stedet for tre. Nedlastinger og kjoep er det
-       Edvard spurte om; runder og aktive enheter laa foer i egne kort. -->
-  <div class="rute2" data-fane="statistikk">
-    <div class="kort"><h2>Nedlastinger og kjøp per dag</h2>
-      <div class="hint">nedlasting = eldste daterte spor enheten har, samme dato som i
-        tabellen. Kjøpsdatoen er utledet av utløpsdatoen
-        minus 120 dager, så den er et anslag - stablede kjøp forskyver den</div>
-      <div id="cNedlast"></div>
-      <div id="cKjopDag" style="margin-top:14px"></div></div>
-    <div class="kort"><h2>Aktivitet per dag</h2>
-      <div class="hint">runder fra rundeloggen på hver enhet, og hvor mange enheter som var
-        aktive den dagen</div>
-      <div id="cRunder"></div>
-      <div id="cAktiv" style="margin-top:14px"></div></div>
+  <!-- 1. FOER KJOEP -->
+  <div class="seksjon" data-fane="bruk"><h2>1 · Hva skjer før kjøp</h2>
+    <div class="sp">Trakten fra første åpning til fullført kjøp, telt på enhetene som faktisk kan måles.</div></div>
+  <div class="kort" data-fane="bruk"><h3>Trakten</h3>
+    <div class="hint">Hvert steg er antall enheter med hendelsen, og prosenten er av steget før.
+      Nevneren er enheter som <b>kan låses</b>: iOS, eller Android etter at betaling ble slått på,
+      og med build-126 eller nyere - der tellerne finnes. Eldre enheter telles ikke, for der
+      er null ikke det samme som «skjedde ikke». Stegene er ikke strengt nøstet: kjøpsdialogen kan
+      også åpnes fra prøven eller antall-valget uten å ha møtt låsen, så prosenten «av forrige» er
+      veiledende der.</div>
+    <div class="trakt" id="cTrakt"></div>
+    <div class="hint" id="cTraktNote" style="margin-top:10px"></div>
+    <div class="hull" id="cTraktHull"></div>
+  </div>
+  <div class="kort" data-fane="bruk"><h3>Trakten per språk</h3>
+    <div class="hint">Samme trinn, én rad per appspråk, alle enheter i utvalget. Konvertering = kvitterte kjøp / enheter med språket.
+      Her leses «ikke bruk en krone på språk X» rett av.</div>
+    <div id="cSprakTrakt" style="overflow-x:auto"></div>
+  </div>
+  <div class="rute2" data-fane="bruk">
+    <div class="kort"><h3>Veien til kjøp</h3>
+      <div class="hint">Kjøperne med kvittering: hvor lenge de hadde appen, hvor mye de gjorde,
+        og hva de så - til og med kjøpsdagen. Median, med kvartiler i parentes.
+        En som sletter og laster ned på nytt før kjøpet ser ut som en fersk enhet: sky-gjenopprettingen
+        tar ikke med hendelser og sidetid, så nullene her er dels ekte, dels reinstallasjoner.</div>
+      <div id="cVei"></div>
+    </div>
+    <div class="kort"><h3>Kjøpere mot dem som ble værende gratis</h3>
+      <div class="hint">Samme mål for enheter på tidsmodellen som <b>ikke</b> har kjøpt, men har vært
+        inne minst to dager. Der de to skiller lag, ligger kjøpsviljen.</div>
+      <div id="cMot"></div>
+    </div>
   </div>
 
-  <!-- Modellsammenligningen: hele poenget med aa skille versjonene -->
-  <div class="kort" data-fane="statistikk"><h2>Modellene mot hverandre</h2>
-    <div class="hint">5-minutters tidsmodellen mot dagsrasjonen den erstattet.
-      <b>Uavklart</b> er ikke en modell: det er enheter som har brukt appen uten å ha
-      forbrukt en eneste rasjon, og da finnes det ingenting i backupen som daterer dem.
-      Butikkbinæren kjører dagsrasjonen, så de fleste av dem hører trolig dit. Tallene er ikke
-      sammenlignbare før nok enheter har fått den nye - en OTA trer i kraft først ved neste
-      oppstart, så «aktiv i dag» sier ingenting om hvilken kode enheten kjører</div>
-    <!-- Sju kolonner faar ikke plass paa en telefon. Tabellen ruller inni
-         sin egen boks, saa selve sida aldri blir bredere enn skjermen. -->
-    <div id="cModell" style="overflow-x:auto"></div>
+  <!-- 2. HVER DAG -->
+  <div class="seksjon" data-fane="bruk"><h2>2 · Hva de gjør hver dag</h2>
+    <div class="sp">Nye enheter, aktive enheter og kjøp per dag, med reklamekronene og regimeskiftene under.</div></div>
+  <div class="kort" data-fane="bruk"><h3>Dag for dag</h3>
+    <div class="hint">Søyler: <span style="color:var(--series-1)">■</span> nye enheter (første oppstart)
+      · <span style="color:var(--series-3)">■</span> kjøp med kvittering.
+      Linje: <span style="color:var(--series-2)">—</span> reklamekroner. Meta er <b>fakturert</b> den dagen
+      (terskelbelastninger, ikke daglig forbruk - derfor hopper linja), Apple Search Ads er dagsbudsjettet.
+      Regimestripa under sier hvilke regler som gjaldt.</div>
+    <svg id="cDag" width="100%" height="190"></svg>
+    <div class="regime" id="cRegime"></div>
+  </div>
+  <div class="rute3" data-fane="bruk">
+    <div class="kort"><h3>Aktive enheter per dag</h3>
+      <div class="hint">Enheter med minst ett spor den dagen: tid, runde eller Dash-blitz.</div>
+      <svg id="cAktiv" width="100%" height="120"></svg></div>
+    <div class="kort"><h3>Kom de tilbake?</h3>
+      <div class="hint">Av enhetene som hadde appen minst 7 dager: andel inne igjen dag 2, og noen dag i uke 1.</div>
+      <div id="cRetur"></div></div>
+    <div class="kort"><h3>Dager på rad</h3>
+      <div class="hint">Lengste rekke med aktivitet, per enhet. Fordeling.</div>
+      <div id="cRekke"></div></div>
   </div>
 
-  <!-- Spillene: hvor lenge de er inne, og hvor de gaar ut -->
-  <div class="rute2" data-fane="statistikk">
-    <div class="kort"><h2>Tid i hvert spill</h2>
-      <div class="hint">faktiske sekunder per skjerm, uvektet - krever build-126</div>
-      <div id="cSpilltid"></div></div>
-    <div class="kort"><h2>Hvor de avbryter</h2>
-      <div class="hint">startede mot fullførte runder. En avbrutt runde lagres ikke, så den er
-        usynlig i rundeloggen - dette er den eneste måten å se den på</div>
+  <!-- 3. HVOR TIDEN GAAR -->
+  <div class="seksjon" data-fane="bruk"><h2>3 · Hvor tiden går</h2>
+    <div class="sp">Sekunder per side, målt ved sidebytte og når appen legges bort - så sider som lukkes halvveis teller.
+      Besøk over en time forkastes, men en telefon som lå i lomma under en time slipper gjennom; derfor median, ikke snitt.</div></div>
+  <div class="rute2" data-fane="bruk">
+    <div class="kort"><h3>Tid per side, gratisbrukere</h3>
+      <div class="hint">Median sekunder på siden blant enheter som har vært der. Vekten bak navnet er
+        hvor fort gratistiden går der: 1 = full fart, 0,6 lesing, 0,3 oppslag, 0 = teller ikke.</div>
+      <div id="cSiderG"></div></div>
+    <div class="kort"><h3>Tid per side, kjøpere</h3>
+      <div class="hint">Samme mål for enheter med kvittering. Sammenlign radene: der kjøperne
+        ligger langt over, var det verdt å betale for.</div>
+      <div id="cSiderK"></div></div>
+  </div>
+  <div class="rute2" data-fane="bruk">
+    <div class="kort"><h3>Hvor de avbryter</h3>
+      <div class="hint">Runder som ble forlatt før fasit, med hvor langt de kom. Fra build-134.</div>
       <div id="cAvbrudd"></div></div>
+    <div class="kort"><h3>Når på døgnet de øver</h3>
+      <div class="hint">Rundestarter per klokketime hos gratisbrukere. Ikke tid - antall starter. Til varsler og kampanjetider.</div>
+      <svg id="cDogn" width="100%" height="120"></svg></div>
   </div>
 
-  <!-- Foer laasing og kjoep -->
-  <div class="rute2" data-fane="statistikk">
-    <div class="kort"><h2>Før låsing</h2>
-      <div class="hint">hvor mange som bruker opp gratistiden, og hva de rakk først.
-        Android holdes utenfor: der er hele appen gratis (Play-kjøp er aldri koblet på),
-        så de enhetene har aldri hatt en lås å møte. Kjøpere blir derimot værende -
-        telleren er kumulativ, så en som ble låst og deretter kjøpte er en konvertering
-        og skal med.
-        «Møtt låsen» er en kumulativ teller som kom med build-126 - derfor står
-        nevneren som «av de N som kan måles». «Tom potte akkurat nå» leses av
-        dagstelleren og gjelder alle buildene, men bare siste dagen enheten var inne:
-        kveldsbolken kl. 16 nullstiller den, så den undertelles også</div>
-      <div id="cLaas"></div></div>
-    <div class="kort"><h2>Kjøpstrakt</h2>
-      <div class="hint">fra betalingsdialog til fullført kjøp</div>
-      <div id="cTrakt"></div></div>
+  <!-- 4. NEDLASTING - KJOEP - REKLAME -->
+  <div class="seksjon" data-fane="bruk"><h2>4 · Nedlastinger, kjøp og reklamekroner</h2>
+    <div class="sp">Uke for uke. Dette er tallene som skal stå side om side når sperre, pris og annonser justeres.</div></div>
+  <div class="kort" data-fane="bruk"><h3>Uke for uke</h3>
+    <div class="hint"><b>Nye</b> = enheter med første oppstart i uka (ikke butikkens nedlastingstall - det
+      finnes ikke i basen). <b>Kjøp</b> = kvitteringer. <b>Konv.</b> = kjøp / nye samme uke - et grovt mål,
+      siden kjøpet ofte kommer en senere uke. <b>Reklame</b> = Meta betalt + Apple Search Ads anslag.
+      <b>Netto</b> = kjøp × 149 kr × 0,85 (etter butikkens andel, før mva).</div>
+    <div id="cUke" style="overflow-x:auto"></div>
+    <div class="hull" id="cUkeHull"></div>
+  </div>
+  <div class="kort" data-fane="bruk"><h3>Perioder mot hverandre</h3>
+    <div class="hint">Kohort etter <b>første oppstart</b> i hver regimeperiode, så tallene ikke smitter mellom perioder.
+      Konvertering = kvitterte kjøp noen gang / nye i perioden, med 95 %-intervall (Wilson) - overlapper
+      intervallene, er forskjellen ikke bevist. 16 av 26 kjøp skjer dag 1, så en fersk periode har nesten hele
+      sitt tall alt. Norsk og arabisk hver for seg, fordi trafikkmiksen endrer seg med annonsene.</div>
+    <div id="cPerioder" style="overflow-x:auto"></div>
   </div>
 
-  <div class="kort" data-fane="statistikk"><h2>Kom de tilbake?</h2>
-    <div class="hint">av dem som lastet ned appen for minst en uke siden, hvor mange var
-      innom igjen i løpet av den første uka. Alle måles over samme strekning: yngre
-      enheter er holdt utenfor helt til de har hatt sine sju dager, og retur som skjer
-      senere enn det telles ikke. Ellers ville andelen sunket bare fordi det kommer nye
-      nedlastinger inn.
-      <b>Merk:</b> de som lastet ned uten å åpne appen finnes ikke her i det hele tatt -
-      raden opprettes av appen ved første oppstart. Den forskjellen står bare i
-      App Store Connect (nedlastinger mot enheter som faktisk kjørte appen).</div>
-    <div id="cRetur"></div>
+  <!-- 5. ENHETENE -->
+  <div class="seksjon" data-fane="enheter"><h2>Enhetene</h2>
+    <div class="sp">Én rad per enhet. Klikk en rad for dager, sider og hendelser.</div></div>
+  <div class="kort" data-fane="enheter">
+    <div class="hint"><b>På skjerm</b> = sekunder på innholdssider, uvektet.
+      <b>I spill</b> = den delen som var quiz, fasit og blitz.
+      <b>Låst</b> = ganger låseskjermen ble vist.
+      Alt tre fra build-126 - eldre rader viser «–», ikke null.
+      Tid appen har ligget åpen i bakgrunnen er <b>ikke</b> med i noen kolonne.</div>
+    <div style="overflow-x:auto"><table id="tabell"></table></div>
+    <div class="fot" id="tabellFot"></div>
   </div>
-
-  <div class="kort fold" data-fold="monster" data-fane="statistikk">
-    <h2><span class="fpil">›</span>Mønsteret før kjøp
-        <span class="fant" id="antMonster"></span></h2>
-    <div class="innhold">
-      <div class="hint">hva kjøperne rakk å gjøre før de betalte, målt mot dem som ikke kjøpte.
-        Sammenligningsgruppen er enheter med minst én runde som ennå ikke har kjøpt - ikke alle
-        nedlastinger, siden de som aldri åpnet appen ikke sier noe om kjøpsterskelen</div>
-      <div id="cMonster"></div>
-    </div></div>
-  <div class="kort fold" data-fold="kjop" data-fane="brukerdata">
-    <h2><span class="fpil">›</span>Kjøperne
-        <span class="fant" id="antKjop"></span></h2>
-    <div class="innhold">
-      <div class="hint">tid før kjøp er akkumulert til og med kjøpsdagen, så tallet er en
-        overkant for dem som kjøpte samme dag</div>
-      <div id="cKjop"></div>
-    </div></div>
-  <div class="kort fold" data-fold="prove" data-fane="brukerdata">
-    <h2><span class="fpil">›</span>Prøvesimulering – og hva som skjer etterpå
-        <span class="fant" id="antProve"></span></h2>
-    <div class="innhold">
-      <div class="hint">de som tar 45-spørsmålsprøven, og om de kommer tilbake før neste forsøk
-        låses opp</div>
-      <div id="cProve"></div>
-    </div></div>
-
-  <!-- Tre fordelinger over de samme enhetene, samlet i ett kort -->
-  <div class="rute2" data-fane="brukerdata">
-    <div class="kort"><h2>Brukerne</h2>
-      <div class="hint">samlet brukstid, hvor lenge de har hatt appen, og hvor stor del av de
-        dagene de faktisk åpnet den</div>
-      <div id="cTid"></div>
-      <div class="hint" style="margin-top:14px">hatt appen</div>
-      <div id="cEiertid"></div>
-      <div class="hint" style="margin-top:14px">åpner den</div>
-      <div id="cFrek"></div></div>
-    <div class="kort"><h2>Språk og frafall</h2>
-      <div class="hint">valgt språk i appen</div>
-      <div id="cSprak"></div>
-      <div class="hint" style="margin-top:14px">tid siden sist aktiv. Rader slettes 90 dager
-        etter siste aktivitet, så «borte»-tallene er et gulv</div>
-      <div id="cFrafall"></div></div>
-  </div>
-
-  <div class="kort fold" data-fold="dash" data-fane="statistikk">
-    <h2><span class="fpil">›</span>Dash-blitz i detalj
-        <span class="fant" id="antDash"></span></h2>
-    <div class="innhold">
-      <div class="hint" id="cDashHint">fra lampeblitz-loggen – siste 50 runder per enhet</div>
-      <div id="cDash"></div>
-      <div id="cDashKlarte" style="margin-top:10px;font-size:12.5px;line-height:1.7"></div>
-    </div></div>
 
   <!-- ======================================================================
      ØKONOMI - fanen
@@ -798,392 +736,198 @@ window.addEventListener('fanebytte', function (e) {
 </script>
 
 </div>
-<div id="tips"></div>
+<div id="tips"><div class="l1"></div><div class="l2"></div></div>
+
 <script>
 'use strict';
 const URL_BASE = 'https://kbhekpqyfduhdfoshdvl.supabase.co/rest/v1/fremdrift_enhet';
 let NOKKEL = null;   // settes av innloggingen
-// TEST_GRENSE_SEK er fjernet (31.08). Den antok at over 10 timer registrert
-// tid betydde utviklerenhet - men tidSek teller ogsaa tiden appen ligger i
-// bakgrunn (feil i App.tsx:3639), saa filteret kastet ut 12 av 40 kjoepere,
-// sju av dem med ekte kvittering. Utviklerenheter fanges av UTVIKLER-lista,
-// og testperioden av LANSERT-datoen. Se butikk/bestilling-tidsmaaling-feil.md.
-const UTVIKLER = ['b9de0f22-8f80-4815-9d93-105a4e5d2cda',
-                  'a986fd4c-f435-4ee5-b1e9-6b039936f54d'];
-// App Store-lansering (1.1.0). Enheter med aktivitet fra FOER denne datoen er
-// TestFlight/utvikling og holdes helt utenfor. Juster datoen her ved behov.
+const UTVIKLER = ['b9de0f22-8f80-4815-9d93-105a4e5d2cda', 'a986fd4c-f435-4ee5-b1e9-6b039936f54d'];
 const LANSERT = '2026-08-14';
-// hentetTotal er antallet rader tjeneren SIER at den har. Er den stoerre enn
-// rader.length, mangler vi noe - og da skal det staa, ikke gjettes.
+const PRIS_KR = 149, BUTIKK_ANDEL = 0.85;
 let rader = [], dager = 14, hentetTotal = 0;
+
+// REKLAMEKRONER PER DAG. Meta er faktisk betalt (okonomi/data/meta-transaksjoner-
+// 2026.csv, status Betalt, paafyll holdt utenfor). Apple Search Ads har ingen
+// bilag enda: tre kampanjer paa til sammen EUR 15/dag fra 17.08, omregnet
+// med 11,60 - det er et BUDSJETT, ikke et forbruk, og staar derfor som anslag.
+// Google App Campaigns er ikke startet. Bygges inn ved bygging senere; her
+// ligger tallene direkte saa utkastet kan ses.
+const META_KR = {"2026-08-16":62,"2026-08-17":167.79,"2026-08-18":434.8,"2026-08-19":114.62,
+  "2026-08-20":390.46,"2026-08-21":827.4,"2026-08-22":1764.09,"2026-08-23":175.46,"2026-08-24":391.43,
+  "2026-08-25":261.57,"2026-08-26":185.57,"2026-08-27":7.96,"2026-08-29":589.78,"2026-08-30":1265.47,
+  "2026-08-31":894,"2026-09-01":894};
+const ASA_START = '2026-08-17', ASA_EUR_DAG = 15, EUR_NOK = 11.6;
+// KJOEPENE FRA REVENUECAT - fasiten. Backupen mangler kjoepere: kjoepsstatus
+// var ute av OTA-loeypa fra 20.08 (ota-146), og en som kjoepte, besto og la
+// appen fra seg fikk aldri et build som sendte proUtlop. Lista limes inn fra
+// RevenueCat Overview og parses av scripts/78-revenuecat-liste.js; ved bygging
+// byttes blokka mellom markoerene ut med data/kjop/<nyeste>.json.
+// {d: kjoepsdato (kan bomme med en dag), b: 'appstore'|'play', k: kunde-id, usd}
+const KJOP_RC = /*KJOP_RC*/[{"d":"2026-09-02","b":"appstore","k":"?","usd":15.97},{"d":"2026-09-02","b":"play","k":"e623..0572","usd":15.97},{"d":"2026-09-02","b":"appstore","k":"afcc..dff1","usd":15.97},{"d":"2026-09-01","b":"appstore","k":"5f42..da0c","usd":15.97},{"d":"2026-09-01","b":"appstore","k":"4c59..228e","usd":15.97},{"d":"2026-08-31","b":"appstore","k":"4dbf..f240","usd":15.97},{"d":"2026-08-31","b":"appstore","k":"fa51..df76","usd":15.91},{"d":"2026-08-31","b":"appstore","k":"adc5..6705","usd":15.91},{"d":"2026-08-30","b":"appstore","k":"5977..279d","usd":15.91},{"d":"2026-08-30","b":"appstore","k":"2a6f..5cee","usd":15.91},{"d":"2026-08-30","b":"appstore","k":"2a6f..5cee","usd":15.91},{"d":"2026-08-30","b":"appstore","k":"9e10..1ecd","usd":15.89},{"d":"2026-08-30","b":"appstore","k":"a296..d0ba","usd":15.89},{"d":"2026-08-29","b":"appstore","k":"67a7..b61c","usd":15.89},{"d":"2026-08-28","b":"appstore","k":"0211..91f8","usd":15.98},{"d":"2026-08-26","b":"appstore","k":"4ddd..da6c","usd":15.99},{"d":"2026-08-23","b":"appstore","k":"8191..ceb4","usd":16.02},{"d":"2026-08-23","b":"appstore","k":"12f0..f4d8","usd":16.03},{"d":"2026-08-23","b":"appstore","k":"90ac..2801","usd":16.03},{"d":"2026-08-23","b":"appstore","k":"6ad2..84d1","usd":16.03},{"d":"2026-08-22","b":"appstore","k":"ff97..b567","usd":16.03},{"d":"2026-08-22","b":"appstore","k":"1b48..2701","usd":16.03},{"d":"2026-08-21","b":"appstore","k":"188e..dff6","usd":15.95},{"d":"2026-08-21","b":"appstore","k":"d1ba..80df","usd":15.95},{"d":"2026-08-21","b":"appstore","k":"ce05..307d","usd":15.95},{"d":"2026-08-21","b":"appstore","k":"38a9..d8e7","usd":15.95},{"d":"2026-08-21","b":"appstore","k":"3641..6b1e","usd":15.95},{"d":"2026-08-20","b":"appstore","k":"df6d..b3c5","usd":0},{"d":"2026-08-20","b":"appstore","k":"616b..843b","usd":15.97},{"d":"2026-08-18","b":"appstore","k":"753f..f6f6","usd":15.82},{"d":"2026-08-18","b":"appstore","k":"211c..ac4b","usd":15.82},{"d":"2026-08-18","b":"appstore","k":"af31..3ecb","usd":15.82},{"d":"2026-08-18","b":"appstore","k":"829c..7eba","usd":15.82},{"d":"2026-08-18","b":"appstore","k":"258e..26fb","usd":15.82},{"d":"2026-08-17","b":"appstore","k":"7cfd..8251","usd":15.82},{"d":"2026-08-14","b":"appstore","k":"602c..abf2","usd":15.67}]/*KJOP_RC*/;
+const KJOP_RC_HENTET = /*KJOP_RC_HENTET*/"2026-09-02T18:30"/*KJOP_RC_HENTET*/;
+const rcPerDag = (() => { const p = {}; KJOP_RC.forEach(t => { p[t.d] = (p[t.d] || 0) + 1; }); return p; })();
+const rcKjop = (fra, til) => KJOP_RC.filter(t => t.d >= fra && t.d <= til).length;
+function reklameKr(dato){
+  const meta = META_KR[dato] || 0;
+  const asa = dato >= ASA_START ? ASA_EUR_DAG * EUR_NOK : 0;
+  return { meta, asa, sum: meta + asa };
+}
+// REGIMENE: naar reglene endret seg. Kilde: git-loggen i app-expo og konfig.
+const REGIMER = [
+  { d: '2026-08-14', t: 'lansering App Store' },
+  { d: '2026-08-16', t: 'Meta-annonser fra' },
+  { d: '2026-08-17', t: 'Apple Search Ads fra' },
+  { d: '2026-08-26', t: 'Play publisert' },
+  { d: '2026-08-30', t: 'b112: dagsrasjon → 5 min tid' },
+  { d: '2026-08-30', t: 'b123: 4 min for raske' },
+  { d: '2026-08-31', t: 'b125: lesing 0,6 · info 0,3' },
+  { d: '2026-08-31', t: 'b126: låsen telles' },
+  { d: '2026-09-02', t: 'Android-betaling på' },
+];
 
 function css(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
 const fmtDag = iso => iso.slice(8,10) + '.' + iso.slice(5,7);
-// De ti spraakene appen stotter, med norske navn.
-const SPRAK_NAVN = {
-  no: 'Norsk', en: 'Engelsk', ar: 'Arabisk', ckb: 'Sorani', tr: 'Tyrkisk',
-  so: 'Somali', ur: 'Urdu', uk: 'Ukrainsk', ti: 'Tigrinja', es: 'Spansk',
-};
+const idagIso = () => new Date().toISOString().slice(0,10);
+const SPRAK_NAVN = { no:'Norsk', en:'Engelsk', ar:'Arabisk', ckb:'Sorani', tr:'Tyrkisk', so:'Somali',
+  ur:'Urdu', uk:'Ukrainsk', ti:'Tigrinja', es:'Spansk' };
 const sprakNavn = k => SPRAK_NAVN[k] || k || '–';
-const sprakFullt = k => SPRAK_NAVN[k] ? SPRAK_NAVN[k] + ' (' + k + ')' : k;
-// Hvilken GRATISMODELL enheten kjoerer. Det er det eneste skillet som betyr
-// noe naar tall sammenlignes: 5-minutters tidsmodell og dagsrasjon gir helt
-// ulike grenser, og blander man dem blir hvert snitt meningsloest.
-//
-// Fra build-126 sier appen selv hvilken build den er. For eldre enheter
-// utledes modellen av hvilke felt backupen inneholder.
-const byggNr = r => {
-  const m = String(r.versjon || "").match(/build-(\d+)/);
-  return m ? +m[1] : 0;
-};
-// Rasjonstellerne slik butikkbinaeren faktisk skriver dem (type Rasjon i
-// app-expo/src/tilgang.ts). De er Partial: en noekkel finnes foerst naar noe
-// er forbrukt, saa en fersk enhet har ingen av dem.
-const RASJON_NOEKLER = ['quiz', 'skiltblitz', 'dashblitz', 'kort', 'lamper',
-                        'betjening', 'laer'];
+const byggNr = r => { const m = String(r.versjon || '').match(/build-(\d+)/); return m ? +m[1] : 0; };
+const RASJON_NOEKLER = ['quiz','skiltblitz','dashblitz','kort','lamper','betjening','laer'];
 const harRasjon = r => !!r.bruk && RASJON_NOEKLER.some(k => r.bruk[k] !== undefined);
 const MODELLER = [
-  { n: 3, kort: '5 min', navn: 'Tidsmodell · 5 minutter vektet',
-    test: r => byggNr(r) >= 112 || r.skjermSek || r.oevetimer
-      || (r.bruk && r.bruk.tidBolkDag !== undefined) },
-  { n: 2, kort: 'rasjon', navn: 'Dagsrasjon · runder og kort per dag',
-    test: harRasjon },
-  // IKKE en maaling. Enheten har brukt appen - den har dag og tidSekBrukt -
-  // men har aldri forbrukt en rasjon, og da finnes det ikke ett eneste felt
-  // som sier hvilken modell den kjoerer. Butikkbinaeren (build 24, bygget
-  // 23.08) kjoerer dagsrasjonen, saa de fleste her er rasjonsbrukere som
-  // ikke har rukket aa bruke noe. Boetta het foer «8 min», som var en ren
-  // gjetning - og gal for flertallet.
-  { n: 1, kort: 'uavklart', navn: 'Uavklart · har brukt appen, men ikke forbrukt noe',
-    test: r => r.bruk },
-  { n: 0, kort: 'eldre', navn: 'Har ikke roert gratisnivaaet', test: () => true },
+  { n:3, kort:'5 min', navn:'Tidsmodell · 5 minutter vektet',
+    test: r => byggNr(r) >= 112 || r.skjermSek || r.oevetimer || (r.bruk && r.bruk.tidBolkDag !== undefined) },
+  { n:2, kort:'rasjon', navn:'Dagsrasjon · runder og kort per dag', test: harRasjon },
+  { n:1, kort:'uavklart', navn:'Har brukt appen, men ikke forbrukt noe', test: r => r.bruk },
+  { n:0, kort:'eldre', navn:'Har ikke rørt gratisnivået', test: () => true },
 ];
 const nivaa = r => MODELLER.find(x => x.test(r));
-const BYGGKORT = { 3: '5 min', 2: 'rasjon', 1: '8 min', 0: 'eldre' };
-// Sekunder paa en gruppe skjermer, fra skjermSek (build-126+)
-const skjermTid = (r, liste) => (liste || []).reduce((a, k) => a + (+(r.skjermSek || {})[k] || 0), 0);
 const hend = (r, k) => +((r.hendelser || {})[k]) || 0;
-// POTTEN, slik den sto SIST enheten talte tid. tidSekBrukt er en dagsteller
-// knyttet til bruk.dag - den sier ingenting om enheten har naadd grensen paa
-// noen ANNEN dag. Og kveldsbolken kl. 16 nullstiller hele bruk-objektet, saa
-// den som brukte opp dagspotten foer 16 staar med 0 etterpaa.
-//
-// Duger altsaa som oeyeblikksbilde, ikke som historikk. Den eneste kumulative
-// telleren er laas_vist - men den finnes foerst fra build-126.
-// 300 sek er standard; 240 for den som svarer raskt (tempoGrenseSek).
-const POTTE_SEK = 300, POTTE_RASK_SEK = 240;
-// «Rask bruker» er tempoSek * 5 < tempoGrenseSek - altsaa under 24 sek
-// PER SPOERSMAAL, ikke under 120. tempoSek er sekunder per spoersmaal, og en
-// direkte sammenligning mot 120 gjorde nesten alle til raske.
-const TEMPO_GRENSE_SEK = 120;
-const erRask = r => r.tempoSek > 0 && r.tempoSek * 5 < TEMPO_GRENSE_SEK;
-const pottenTom = r => !!r.bruk && (+r.bruk.tidSekBrukt || 0)
-  >= (erRask(r) ? POTTE_RASK_SEK : POTTE_SEK);
-// Kan enheten i det hele tatt havne i laasen?
-//
-//   Android: hele appen er gratis der - Play-kjoep ble aldri koblet paa, saa
-//            harFull er sann for alle. En Android-enhet har ALDRI hatt en
-//            laas aa moete, og hoerer ikke hjemme i nevneren.
-//   foer 126: telleren laas_vist fantes ikke. Ikke det samme som null treff.
-//
-// KJOEPERE BLIR VAERENDE. De har full tilgang naa, men laas_vist er kumulativ
-// - en som moette laasen og deretter kjoepte, har telleren staaende, og det er
-// nettopp den raden som er verdt noe. Tar man dem ut, forsvinner hver eneste
-// konvertering ut av tallet.
-const LAAS_BUILD = 126;   // build-126 innfoerte telleren 'laas_vist'
 const erAndroid = r => r.plattform === 'android';
-const kanLaases = r => !erAndroid(r);
-const kanMaaleLaas = r => !erAndroid(r) && byggNr(r) >= LAAS_BUILD;
-// NEDLASTINGSDATOEN. stats.foerste settes foerste gang appen starter med en
-// versjon som setter den, og noekkelen kom med ota-141 - en enhet som hadde
-// appen fra foer fikk derfor datoen den OPPDATERTE, ikke datoen den lastet
-// ned. Derfor leter vi opp det eldste daterte sporet enheten har:
-//
-//   foerste   enhetens egen dato (best naar den finnes og er ekte)
-//   tidDager  dagboken over brukstid - maks 45 noekler
-//   runder    rundeloggen - maks 30 poster
-//   lampeblitz Dash-blitz - maks 50 runder
-//
-// Alle fire er kappet paa enheten. Er den vinnende kilden FULL, er datoen et
-// gulv og ikke en maaling: enheten kan ha hatt appen lenger enn sporene
-// rekker. Tabellen merker de tilfellene, saa tallet ikke leses som fasit.
-const NED_KILDE_NAVN = {
-  foerste: 'enhetens egen dato', tid: 'dagboken over brukstid',
-  runde: 'rundeloggen', blitz: 'Dash-blitz-loggen',
-};
-// Et ms-tidsstempel maa vaere et troverdig tidspunkt. Et sekundtall som har
-// sneket seg inn der millisekunder skulle staa peker paa 1970 og ville ellers
-// gjort enheten flere tiaar gammel; en soeppelverdi faar toISOString til aa
-// kaste og ville stoppet hele tegningen.
+const MAAL_BUILD = 126;             // skjermSek, laas_vist og skjerm_-tellerne kom her
+const ANDROID_BETALING = '2026-09-02';
+// Kan enheten laases? iOS alltid; Android bare etter at betaling ble slaatt paa.
+const kanLaases = r => !erAndroid(r) || r.oppdatert.slice(0,10) >= ANDROID_BETALING;
+const kanMaales = r => byggNr(r) >= MAAL_BUILD;
+const maalbar = r => kanLaases(r) && kanMaales(r);
+
+// EN TIDSMODELL. Alt som heter tid paa siden gaar gjennom disse.
+const SKJERM_VEKT = { quiz:1, resultat:1, blitz:1, lampeblitz:1, kapittel:.6, laer:.6, bilen:.6,
+  lamper:.6, betjening:.6, veien:.3, provinfo:.3, feller:.3, ordliste:.3, rundedetalj:.3 };
+const SKJERM_NAVN = { hjem:'Hjem', ov:'Øv', oppsett:'Øv (oppsett)', teori:'Veien', veien:'Veien (les)',
+  provinfo:'Praktisk info', lampeblitz:'Dash-blitz', feller:'Feller', ordliste:'Ordliste',
+  teoribok:'Pensum', kapittel:'Pensumkapittel', resultater:'Resultater', quiz:'Quiz', resultat:'Fasit',
+  profil:'Profil', rundedetalj:'Rundedetalj', laer:'Bla og lær', blitz:'Skilt-blitz', bilen:'Om bilen',
+  lamper:'Varsellamper', betjening:'Betjening', kilder:'Kilder' };
+const SPILLSKJERM = ['quiz','resultat','blitz','lampeblitz'];
+const LESESKJERM = ['kapittel','laer','bilen','lamper','betjening','veien','provinfo','feller','ordliste','rundedetalj'];
+const INNHOLD = Object.keys(SKJERM_VEKT);            // sider der gratistiden gaar
+const lesing = r => r.skjermSek ? skjermTid(r, LESESKJERM) : null;
+// Gjorde enheten NOE utover aa aapne: en runde, et avbrudd, et sveip i Bla og
+// laer, eller tid paa en innholdsside. Skiller «aapnet og gikk» fra proeving.
+const gjordeNoe = r => (r.runder || []).length > 0 || (r.avbrutte || []).length > 0
+  || (r.lampeblitz || []).length > 0 || (paaSkjerm(r) || 0) > 0;
+// Reinstallert: har runder i skyen, men tellerne som ikke gjenopprettes fra
+// sky (hendelser, skjermSek) er tomme. Da ser en gammel bruker fersk ut.
+const reinstallert = r => (r.runder || []).length > 0 && byggNr(r) >= MAAL_BUILD
+  && !hend(r, 'runde_start') && (paaSkjerm(r) || 0) < 60;
+const skjermTid = (r, liste) => (liste || []).reduce((a, k) => a + (+(r.skjermSek || {})[k] || 0), 0);
+const paaSkjerm = r => r.skjermSek ? skjermTid(r, INNHOLD) : null;   // null = kan ikke maales
+const iSpill = r => r.skjermSek ? skjermTid(r, SPILLSKJERM) : null;
+const minutter = s => s >= 5940 ? Math.round(s/3600) + ' t' : s >= 60 ? Math.round(s/60) + ' min' : Math.round(s) + ' s';
+const med = a => { const s = a.slice().sort((x,y) => x-y); return s.length ? s[Math.floor(s.length/2)] : 0; };
+const kvart = a => { const s = a.slice().sort((x,y) => x-y); const q = p => s.length ? s[Math.floor(s.length*p)] : 0;
+  return { n: s.length, q1: q(.25), m: q(.5), q3: q(.75) }; };
+const pct = (a, b) => b ? Math.round(100 * a / b) + ' %' : '–';
+// Vekten slik den skal leses: 1, 0,6, 0,3 eller 0 - ikke «00,6».
+const vektTekst = k => { const v = SKJERM_VEKT[k]; return v === undefined ? '0' : v === 1 ? '1' : ('0,' + String(v).slice(2)); };
+
 const MS_GULV = Date.parse('2020-01-01T00:00:00Z');
 const gyldigMs = t => Number.isFinite(t) && t > MS_GULV && t < Date.now() + 864e5;
 function nedlastKilde(r){
   let dato = null, kilde = null, mettet = false, sort = null;
-  // full er et komplett tidspunkt der kilden faktisk HAR et. Det brukes bare
-  // til sortering, saa enheter fra samme doegn kommer i riktig rekkefoelge.
   const bud = (d, k, mett, full) => {
     if (!d || d.length < 10) return;
-    const dg = d.slice(0, 10);
+    const dg = d.slice(0,10);
     if (dato && dg >= dato) return;
-    dato = dg; kilde = k; mettet = !!mett;
-    sort = full || (dg + 'T00:00:00.000Z');
+    dato = dg; kilde = k; mettet = !!mett; sort = full || (dg + 'T00:00:00.000Z');
   };
-  // Enhetens egen dato er full ISO med klokkeslett
   bud(r.foerste, 'foerste', false, r.foerste && r.foerste.length > 10 ? r.foerste : null);
   const td = Object.keys(r.tidDager || {}).sort();
   if (td.length) bud(td[0], 'tid', td.length >= 45);
   const rd = (r.runder || []).filter(x => x && x.dato).map(x => x.dato).sort();
   if (rd.length) bud(rd[0], 'runde', rd.length >= 30);
-  const lb = (r.lampeblitz || []).map(x => x && +x.d).filter(gyldigMs).sort((a, b) => a - b);
-  // Blitz-stempelet er millisekunder, saa her er tidspunktet ekte
-  if (lb.length) bud(new Date(lb[0]).toISOString().slice(0, 10), 'blitz', lb.length >= 50,
-    new Date(lb[0]).toISOString());
-  // Uten et eneste spor er sist aktiv det eneste vi vet
-  if (!dato) return { dato: r.oppdatert.slice(0, 10), kilde: null, mettet: false,
-    anslag: true, sort: r.oppdatert };
+  const lb = (r.lampeblitz || []).map(x => x && +x.d).filter(gyldigMs).sort((a,b) => a-b);
+  if (lb.length) bud(new Date(lb[0]).toISOString().slice(0,10), 'blitz', lb.length >= 50, new Date(lb[0]).toISOString());
+  if (!dato) return { dato: r.oppdatert.slice(0,10), kilde: null, mettet: false, anslag: true, sort: r.oppdatert };
   return { dato, kilde, mettet, anslag: kilde !== 'foerste', sort };
 }
 const nedlastet = r => nedlastKilde(r).dato;
-// Sorteringsnoekkelen: fullt tidspunkt der det finnes, midnatt ellers. Et
-// utledet spor har ikke noe klokkeslett, og aa dikte ett ville gitt en
-// rekkefoelge som ser maalt ut uten aa vaere det.
 const nedlastSort = r => nedlastKilde(r).sort || '';
-// Datoen enheten fikk versjonen den kjoerer naa. Kom med build-131 - eldre
-// enheter har ingen historikk, og faar null i stedet for en gjettet dato.
-function versjonFikk(r){
-  const l = (r.versjonlogg || []).filter(x => x && x.v && x.d);
-  if (!l.length) return null;
-  const siste = l[l.length - 1];
-  return { dato: String(siste.d).slice(0, 10), versjon: String(siste.v), logg: l };
-}
-
-// Kolonnene i enhetstabellen. tall=1 gir hoyrestilt celle og synkende
-// foerstesortering; ellers sorteres tekst stigende foerste gang.
-// Dash-blitz-runder per enhet (fra lampeblitz-loggen, siste 50)
-const dashAntall = r => (r.lampeblitz || []).filter(Boolean).length;
-// Tid i selve spillene: quiz, fasiten etterpaa og de to blitzene. Brukstid
-// teller ogsaa lesing og navigering, saa de to kolonnene svarer paa hver sin
-// ting - hvor lenge de var i appen, og hvor mye av det som var spilling.
-// Brukstiden er tiden appen har vaert FREMME, ikke aktiv bruk - og den er
-// forgiftet av en feil i App.tsx:3639: paa iOS kommer AppState 'inactive'
-// ogsaa naar skjermen laases OPP, saa hele bakgrunnsperioden bokfoeres som
-// brukstid. En enkeltdag over 3 timer er derfor nesten sikkert bakgrunn.
-const TID_TVIL_SEK = 3 * 3600;
-const tidTvilsom = r => Object.values(r.tidDager || {})
-  .some(v => (+v || 0) > TID_TVIL_SEK);
-// Butikkmerket. Enheter uten plattformfelt har ikke faatt build-134 enda -
-// de vises med en tom ramme i stedet for aa gjettes til iOS.
-function pfMerke(r){
-  if (r.plattform === 'android') return '<span class="pf gp" title="Google Play">GP</span>';
-  if (r.plattform === 'ios') return '<span class="pf as" title="App Store">AS</span>';
-  return '<span class="pf ukjent" title="rapporterer ikke plattform enda (eldre enn build-134)">?</span>';
-}
-const SPILLSKJERM = ['quiz', 'resultat', 'blitz', 'lampeblitz'];
-const spilltid = r => skjermTid(r, SPILLSKJERM);
-// Avbrutte runder per enhet: startet minus fullfort. Aldri under null - en
-// enhet kan ha fullfort runder som ble startet foer telleren fantes.
-const avbrutt = r => Math.max(0, hend(r, 'runde_start') - hend(r, 'runde_fullfort'));
-// Avbrutte proever teller for seg: proeven er et eget forsoek som brukes
-// opp selv om man avbryter, saa den som slutter etter 25 sekunder har brent
-// hele forsoeket sitt. Appen har egen teller (prove_avbrutt); for eldre
-// enheter utledes tallet av starter minus fullfoerte proeverunder.
-const avbruttProve = r => {
-  const eksplisitt = hend(r, 'prove_avbrutt');
-  if (eksplisitt) return eksplisitt;
-  const fullf = (r.runder || []).filter(x => x && x.prove).length;
-  return Math.max(0, hend(r, 'prove_start') - fullf);
-};
-const KOLONNER = [
-  { k: 'id',        t: 'enhet' },
-  { k: 'sprak',     t: 'språk' },
-  { k: 'region',    t: 'region' },
-  { k: 'bygg',      t: 'modell',          tall: 1 },
-  { k: 'foerste',   t: 'lastet ned',      tall: 1 },
-  { k: 'fikkversj', t: 'fikk versjon',    tall: 1 },
-  { k: 'hatt',      t: 'hatt appen',      tall: 1, hoyre: 1 },
-  { k: 'oppdatert', t: 'sist aktiv',      tall: 1 },
-
-  { k: 'spill',     t: 'i spill',         tall: 1, hoyre: 1 },
-  { k: 'runder',    t: 'runder',          tall: 1, hoyre: 1 },
-  { k: 'laast',     t: 'låst',            tall: 1 },
-  { k: 'kjopt',     t: 'kjøpt',           tall: 1 },
-  { k: 'aktiv',     t: 'aktivitet',       tall: 1 },
-];
-// Nyeste nedlasting oeverst. Sist aktiv sto her foer, og skjoev alt som ikke
-// var brukt i dag ned i bunnen av en lang tabell.
-let tabSort = { kol: 'foerste', ned: true };
-// Verdien hver kolonne sorteres paa. Manglende verdi sorteres alltid sist.
-function sortVerdi(r, k){
-  if (k === 'id') return r.id;
-  if (k === 'sprak') return sprakNavn(r.sprak || '');
-  if (k === 'region') return region(r) || '';
-  if (k === 'bygg') return nivaa(r).n;
-  if (k === 'foerste') return nedlastSort(r);
-  if (k === 'fikkversj') { const f = versjonFikk(r); return f ? f.dato : ''; }
-  if (k === 'hatt') return dagerHatt(r) ?? -1;
-  if (k === 'oppdatert') return r.oppdatert;
-
-  if (k === 'spill') return spilltid(r);
-  if (k === 'runder') return r.runder.length + dashAntall(r);
-  if (k === 'laast') return hend(r, 'laas_vist');
-  if (k === 'kjopt') { const i2 = kjopsInfo(r); return i2.kjopMs || (i2.kilde === 'antatt' && i2.dag ? Date.parse(i2.dag) : 0); }
-  if (k === 'aktiv') return dagsLinjer(r).length;
-  return 0;
-}
-// telSprak gir IKKE telefonens spraak: spraakdelen er alltid "en" fordi den
-// leses fra JS-motorens locale, ikke fra systemet. Regionen bak bindestreken
-// er derimot ekte, og sier hvilket land telefonen er satt til.
-const region = r => {
-  const v = String(r.telSprak || "");
-  const i = v.indexOf("-");
-  return i > 0 ? v.slice(i + 1) : null;
-};
-// Region utenfor Norge er et hint om nylig ankomst - verdt aa markere.
-const utenlandsk = r => { const k = region(r); return k && k !== "NO"; };
-const minutter = s => s >= 5940 ? Math.round(s/3600)+' t' : Math.round(s/60)+' min';
-// Dager enheten har hatt appen: foerste oppstart til i dag, begge medregnet.
-// null naar foerste mangler (enheter fra foer ota-141).
 function dagerHatt(r){
-  // Fra den REKONSTRUERTE nedlastingsdatoen. Med r.foerste alene ble
-  // enheter som hadde appen foer ota-141 systematisk yngre enn de er.
-  const nd = nedlastet(r);
-  if (!nd) return null;
-  const d0 = Date.parse(nd + 'T00:00:00Z');
-  const idag = Date.parse(new Date().toISOString().slice(0,10) + 'T00:00:00Z');
-  return Math.max(1, Math.round((idag - d0) / 864e5) + 1);
+  const nd = nedlastet(r); if (!nd) return null;
+  return Math.max(1, Math.round((Date.parse(idagIso()) - Date.parse(nd)) / 864e5) + 1);
 }
-// Aktive dager, med andel av eiertiden naar den sier noe (>= 2 dager eid).
-// Kjopsdeteksjon: gratis oevingsrunder er kappet paa 10 sporsmaal, saa en
-// oevingsrunde over 10 krever full tilgang. Proven er unntatt - den kan tas
-// gratis hver 5. dag. Blir eksakt naar ota-144 har naadd enhetene.
-function kjopsInfo(r){
-  // Tre kilder, i fallende sikkerhet:
-  //   kjop   - kvitteringen rapporterer proUtlop (stemmer mot RevenueCat)
-  //   kode   - kodeUtlop satt: full tilgang via innloest kode, IKKE kjoep
-  //   antatt - bare store runder (>10 sporsmaal) beviser full tilgang, men
-  //            kan ikke skille kjoep fra kode paa eldre builds
-  // Eksakt naar enheten er paa nyeste build og har rapportert kjop.
-  // Kjoepstidspunktet regnes BAKOVER fra utloepet: hvert kjoep gir 120
-  // dager, saa proUtlop - 120 d er kjoepsoyeblikket paa minuttet for
-  // enkeltkjoep. For forleng-stablere blir det et estimat som ligger
-  // etter foerste kjoep - aldri foer.
-  if (r.proUtlop > 0) {
-    let kjopMs = r.proUtlop - 120 * 864e5;
-    // Utloepet er ikke alltid 120 dager: den foerste Play-kjoeperen fikk
-    // 240 (transaksjonen ser ut til aa telles to ganger), og da havnet den
-    // utledede kjoepsdagen flere maaneder FRAM i tid - utenfor stripa, saa
-    // den roede prikken forsvant. Datoen klemmes derfor til vinduet
-    // enheten faktisk har eksistert i. Klemt dato er et anslag, ikke en
-    // maaling - men en kjoeper skal alltid vaere synlig som kjoeper.
-    const start = r.foerste ? Date.parse(r.foerste.slice(0,10)) : 0;
-    const naa = Date.parse(new Date().toISOString().slice(0,10));
-    const utenfor = (start && kjopMs < start) || kjopMs > naa;
-    if (utenfor) kjopMs = Math.min(naa, Math.max(start || naa, kjopMs));
-    const dag = new Date(kjopMs).toISOString().slice(0,10);
-    return { betalt: true, kilde: 'kjop', kjopMs, dag, klemt: utenfor,
-      foerRunder: (r.runder || []).length, foerTid: 0, eksakt: !utenfor };
-  }
-  if (r.kodeUtlop > 0) {
-    return { betalt: false, kilde: 'kode' };
-  }
-  const store = (r.runder || []).filter(x => x && !x.prove && (x.av || 0) > 10)
-    .filter(x => x.dato).sort((a,b) => a.dato.localeCompare(b.dato));
-  if (!store.length) return { betalt:false };
-  const dag = store[0].dato;
-  // Teller ogsaa rundene samme dag som ikke selv er fulle runder - de fleste
-  // kjoepte samme dag, saa uten dette blir tallet alltid 0.
-  const foerRunder = (r.runder || []).filter(x => x && x.dato && (x.dato < dag ||
-    (x.dato === dag && !(!x.prove && (x.av || 0) > 10)))).length;
-  const foerTid = Object.entries(r.tidDager || {})
-    .filter(([k]) => k <= dag).reduce((a,[,v]) => a + (+v || 0), 0);
-  return { betalt:true, kilde: 'antatt', dag, foerRunder, foerTid };
-}
-
-// Dager siden enheten sist var aktiv. Dette - ikke lengste hull
-// noensinne - avgjoer om raden er sovende, saa en som har vaert borte
-// og kommet tilbake igjen teller som aktiv.
-function dagerSidenAktiv(r){
-  const aktive = [
+// Aktive dager: dager med spor. tidDager brukes bare som «var inne» - ikke hvor lenge.
+function aktiveDager(r){
+  const s = new Set([
     ...Object.keys(r.tidDager || {}).filter(k => +r.tidDager[k] > 0),
-    ...r.runder.filter(x => x && x.dato).map(x => x.dato),
-  ].sort();
-  const sist = aktive.length ? aktive[aktive.length - 1]
-    : (r.foerste ? r.foerste.slice(0,10) : r.oppdatert.slice(0,10));
-  const idag = new Date().toISOString().slice(0,10);
-  return Math.round((Date.parse(idag) - Date.parse(sist)) / 864e5);
-}
-
-// Lengste sammenhengende strekk uten aktivitet, i dager.
-function lengsteHull(r){
-  const start = r.foerste ? r.foerste.slice(0,10)
-    : (r.runder.filter(x => x && x.dato).map(x => x.dato).sort()[0] || null);
-  if (!start) return 0;
-  const idag = new Date().toISOString().slice(0,10);
-  const aktive = new Set([
-    ...Object.keys(r.tidDager || {}).filter(k => +r.tidDager[k] > 0),
-    ...r.runder.filter(x => x && x.dato).map(x => x.dato),
+    ...(r.runder || []).filter(x => x && x.dato).map(x => x.dato),
+    ...(r.lampeblitz || []).map(x => x && +x.d).filter(gyldigMs).map(t => new Date(t).toISOString().slice(0,10)),
   ]);
-  let mest = 0, naa = 0;
-  for (let t = Date.parse(start); t <= Date.parse(idag); t += 864e5) {
-    const d = new Date(t).toISOString().slice(0,10);
-    if (aktive.has(d)) naa = 0; else { naa++; if (naa > mest) mest = naa; }
+  return [...s].sort();
+}
+function lengsteRekke(r){
+  const d = aktiveDager(r); let mest = d.length ? 1 : 0, naa = 1;
+  for (let i = 1; i < d.length; i++) {
+    if (Date.parse(d[i]) - Date.parse(d[i-1]) === 864e5) { naa++; if (naa > mest) mest = naa; } else naa = 1;
   }
   return mest;
 }
-
-// Prikkstripe fra foerste oppstart til i dag: fylt = aktiv, aapen = ikke.
-// Fire eller flere inaktive paa rad vises som tall i stedet.
-function dagStripe(r){
-  // Stripa skal dekke ALL kjent aktivitet. foerste-feltet kom med ota-141
-  // og ble satt den dagen enheten oppdaterte, saa det kan ligge etter
-  // runder og dagslogg som er eldre. Tidligste spor vinner.
-  const spor = [
-    r.foerste ? r.foerste.slice(0,10) : null,
-    ...r.runder.filter(x => x && x.dato).map(x => x.dato),
-    ...Object.keys(r.tidDager || {}),
-  ].filter(Boolean).sort();
-  const start = spor[0] || null;
-  if (!start) return '<span style="color:var(--muted)">–</span>';
-  const idag = new Date().toISOString().slice(0,10);
-  const aktive = new Set([
-    ...Object.keys(r.tidDager || {}).filter(k => +r.tidDager[k] > 0),
-    ...r.runder.filter(x => x && x.dato).map(x => x.dato),
-  ]);
-  // Kjoepsdagen markeres uansett om den ellers ser aktiv ut.
-  const ki = kjopsInfo(r);
-  const kjopsdag = ki.betalt ? (ki.kjopMs
-    ? new Date(ki.kjopMs).toISOString().slice(0,10) : ki.dag) : null;
-  const dager = [];
-  for (let t = Date.parse(start); t <= Date.parse(idag); t += 864e5) {
-    const d = new Date(t).toISOString().slice(0,10);
-    dager.push({ d, paa: aktive.has(d), kjop: d === kjopsdag });
-  }
-  let ut = '', i = 0;
-  while (i < dager.length) {
-    if (dager[i].kjop) {
-      ut += '<span class="dpunkt kjop" title="' + dager[i].d + ' - kjøp"></span>'; i++;
-    } else if (dager[i].paa) {
-      ut += '<span class="dpunkt" title="' + dager[i].d + '"></span>'; i++;
-    } else {
-      let j = i; while (j < dager.length && !dager[j].paa && !dager[j].kjop) j++;
-      const n = j - i;
-      if (n > 3) {
-        ut += '<span class="dhopp" title="' + n + ' dager uten aktivitet">' + n + '</span>';
-      } else {
-        for (let k = i; k < j; k++) ut += '<span class="dpunkt av" title="' + dager[k].d + '"></span>';
-      }
-      i = j;
-    }
-  }
-  const ant = dager.filter(x => x.paa).length;
-  return '<span class="dstripe" title="' + ant + ' aktive av ' + dager.length
-    + ' dager">' + ut + '</span>';
+function dagerSidenAktiv(r){
+  const d = aktiveDager(r);
+  const sist = d.length ? d[d.length-1] : (r.foerste ? r.foerste.slice(0,10) : r.oppdatert.slice(0,10));
+  return Math.round((Date.parse(idagIso()) - Date.parse(sist)) / 864e5);
 }
-function andelTekst(aktive, hatt){
-  if (!aktive) return '–';
-  if (!hatt || hatt < 2) return String(aktive);
-  const pct = Math.round(100 * Math.min(1, aktive / hatt));
-  return aktive + ' <span style="color:var(--muted)">· ' + pct + ' %</span>';
+// KJOEP. Kvittering = proUtlop. Kjoepsdagen regnes bakover fra utloepet (120 d).
+// Utloep over 150 dager fram er det doble (regnefeilen rettet i build-136) -
+// da trekkes 240. Kode holdes helt adskilt.
+function kjopsInfo(r){
+  if (r.proUtlop > 0) {
+    const igjen = (r.proUtlop - Date.now()) / 864e5;
+    let kjopMs = r.proUtlop - (igjen > 150 ? 240 : 120) * 864e5;
+    const start = Date.parse(nedlastet(r)), naa = Date.now();
+    const utenfor = kjopMs < start - 864e5 || kjopMs > naa;
+    if (utenfor) kjopMs = Math.min(naa, Math.max(start, kjopMs));
+    return { betalt: true, kilde: 'kjop', kjopMs, dag: new Date(kjopMs).toISOString().slice(0,10), klemt: utenfor };
+  }
+  if (r.kodeUtlop > 0) return { betalt: false, kilde: 'kode' };
+  const store = (r.runder || []).filter(x => x && !x.prove && (x.av || 0) > 10 && x.dato).map(x => x.dato).sort();
+  if (store.length) return { betalt: true, kilde: 'antatt', dag: store[0] };
+  return { betalt: false };
+}
+const kvittert = r => kjopsInfo(r).kilde === 'kjop';
+// SPERRESPOR foer telleren fantes: tidstelleren stopper ved harFull, saa
+// bruk-feltet er et frosset oeyeblikksbilde av kjoepsdagen. En kjoeper med
+// tidSekBrukt = 479 (den gamle 8-min-potten full, 480 minus det usparte
+// sekundet), 300 eller 240 (ny pott full), eller quizrasjonen paa maks, hadde
+// moett sperren da hen kjoepte - uansett om laas_vist fantes. Funnet av
+// verifiseringspanelet 02.09; se butikk/analyse-utkast-LESMEG.md.
+const sperrespor = r => {
+  if (hend(r, 'laas_vist') > 0) return 'laas_vist';
+  const b = r.bruk || {}, t = +b.tidSekBrukt || 0;
+  if (t >= 479 && t <= 480) return 'pott 8 min full';
+  if (t >= 300 || (erRaskTempo(r) && t >= 240)) return 'pott 5 min full';
+  if (harRasjon(r) && (+b.quiz || 0) >= 3) return 'rasjon brukt opp';
+  return null;
+};
+const erRaskTempo = r => r.tempoSek > 0 && r.tempoSek * 5 < 120;
+const region = r => { const v = String(r.telSprak || ''); const i = v.indexOf('-'); return i > 0 ? v.slice(i+1) : null; };
+function pfMerke(r){
+  if (r.plattform === 'android') return '<span class="pf gp" title="Google Play">GP</span>';
+  if (r.plattform === 'ios') return '<span class="pf as" title="App Store">AS</span>';
+  return '<span class="pf ukjent" title="rapporterer ikke plattform (eldre enn build-134)">?</span>';
 }
 
 async function hent(){
@@ -1191,1250 +935,500 @@ async function hent(){
   try {
     const sel = encodeURIComponent('device_id,oppdatert,sprak:stats->>sprak,foerste:stats->>foerste,'
       + 'tid:stats->>tidSek,tidDager:stats->tidDager,telSprak:stats->>telSprak,runder,'
-      + 'proUtlop:stats->>proUtlop,kodeUtlop:stats->>kodeUtlop,'
-      + 'hendelser:stats->hendelser,lampeblitz:stats->lampeblitz,bruk:stats->bruk,'
-      + 'versjon:stats->>versjon,skjermSek:stats->skjermSek,oevetimer:stats->oevetimer,'
-      + 'tempoSek:stats->>tempoSek,versjonlogg:stats->versjonlogg,'
+      + 'proUtlop:stats->>proUtlop,kodeUtlop:stats->>kodeUtlop,hendelser:stats->hendelser,'
+      + 'lampeblitz:stats->lampeblitz,bruk:stats->bruk,versjon:stats->>versjon,skjermSek:stats->skjermSek,'
+      + 'oevetimer:stats->oevetimer,tempoSek:stats->>tempoSek,versjonlogg:stats->versjonlogg,'
       + 'plattform:stats->>plattform,avbrutte:stats->avbrutte');
-    // Sidevis henting. SIDE maa ligge under db-max-rows (1000), ellers
-    // kutter tjeneren siden foer Range-vinduet er fylt og loekka tror den er
-    // ferdig. Sorteringen maa vaere fast og entydig - uten den er
-    // raderekkefoelgen udefinert i Postgres, og sidene kan overlappe.
-    const SIDE = 500;
-    const raa = [];
-    let total = null;
+    const SIDE = 500, raa = []; let total = null;
     for (let fra = 0; ; fra += SIDE) {
-      const res = await fetch(URL_BASE + '?select=' + sel + '&order=oppdatert.desc,device_id.asc',
-        { headers: {
-          apikey: NOKKEL, Authorization: 'Bearer ' + NOKKEL,
-          Range: fra + '-' + (fra + SIDE - 1), 'Range-Unit': 'items',
-          Prefer: 'count=exact',
-        } });
+      const res = await fetch(URL_BASE + '?select=' + sel + '&order=oppdatert.desc,device_id.asc', { headers: {
+        apikey: NOKKEL, Authorization: 'Bearer ' + NOKKEL,
+        Range: fra + '-' + (fra + SIDE - 1), 'Range-Unit': 'items', Prefer: 'count=exact' } });
       if (!res.ok && res.status !== 206) throw new Error('HTTP ' + res.status);
-      const bit = await res.json();
-      raa.push(...bit);
-      // Content-Range er «0-499/1234». Nevneren er totalen; «*» betyr ukjent.
-      const cr = res.headers.get('Content-Range') || '';
-      const n = Number((cr.split('/')[1] || '').trim());
+      const bit = await res.json(); raa.push(...bit);
+      const n = Number(((res.headers.get('Content-Range') || '').split('/')[1] || '').trim());
       if (Number.isFinite(n)) total = n;
-      if (bit.length < SIDE) break;
-      if (total !== null && raa.length >= total) break;
-      // Sikring mot en tjener som ignorerer Range: uten den ville loekka
-      // hentet den samme foerste siden i det uendelige.
-      if (fra > 100000) break;
+      if (bit.length < SIDE || (total !== null && raa.length >= total) || fra > 100000) break;
     }
     hentetTotal = total === null ? raa.length : total;
+    // RLS-fella: en sperret tabell svarer [] med HTTP 200. Null rader er
+    // aldri et resultat her - basen har hundrevis - saa det skal si fra.
+    if (!raa.length) throw new Error('0 rader fra tjeneren - tabellen svarer tomt, sjekk leserett');
     rader = raa.map(r => {
       const runder = Array.isArray(r.runder) ? r.runder : [];
-      // Alle daterte spor enheten har satt: runde-datoer, foerste oppstart,
-      // sist aktiv. Ett eneste spor foer lanseringsdatoen = testperiode-enhet.
       const spor = runder.filter(x => x && x.dato).map(x => x.dato);
       if (r.foerste) spor.push(r.foerste.slice(0,10));
       spor.push(r.oppdatert.slice(0,10));
-      return {
-        id: r.device_id, oppdatert: r.oppdatert, sprak: r.sprak,
-        foerste: r.foerste, tid: parseInt(r.tid || '0', 10) || 0,
+      return { id: r.device_id, oppdatert: r.oppdatert, sprak: r.sprak, foerste: r.foerste,
+        tid: parseInt(r.tid || '0', 10) || 0,
         tidDager: (r.tidDager && typeof r.tidDager === 'object') ? r.tidDager : {},
-        telSprak: r.telSprak || null,
-        // Kjopsstatus kommer med ota-144. null = enheten har ikke fatt den
-        // ennaa, og maa ikke forveksles med "har ikke betalt".
-        erUtvikler: UTVIKLER.includes(r.device_id),
-        // 'ios' | 'android' | null. Feltet kom med build-134, saa eldre
-        // enheter staar som ukjent til de har faatt koden og synket.
+        telSprak: r.telSprak || null, erUtvikler: UTVIKLER.includes(r.device_id),
         plattform: r.plattform || null,
-        harKjopsfelt: r.proUtlop != null,
         hendelser: (r.hendelser && typeof r.hendelser === 'object') ? r.hendelser : null,
         lampeblitz: Array.isArray(r.lampeblitz) ? r.lampeblitz : null,
         bruk: (r.bruk && typeof r.bruk === 'object') ? r.bruk : null,
-        // Fra build-126: appen sier selv hvilken build den kjoerer. Foer det
-        // maa modellen utledes av hvilke felt enheten sender.
         versjon: r.versjon || null,
         skjermSek: (r.skjermSek && typeof r.skjermSek === 'object') ? r.skjermSek : null,
         oevetimer: Array.isArray(r.oevetimer) ? r.oevetimer : null,
         tempoSek: parseInt(r.tempoSek || '0', 10) || 0,
-        // Naar hver versjon kom til enheten. Kom med build-131; eldre
-        // enheter har ingen historikk og faar tom liste.
         versjonlogg: Array.isArray(r.versjonlogg) ? r.versjonlogg : [],
-        // Kom med build-132. null = enheten har ikke faatt den ennaa.
-        plattform: r.plattform || null,
-        // Avbrutte runder med detaljer. Kom med build-134; foer det finnes
-        // bare hendelsestellerne, som ikke har dato.
         avbrutte: Array.isArray(r.avbrutte) ? r.avbrutte : [],
-        proUtlop: parseInt(r.proUtlop || '0', 10) || 0,
-        kodeUtlop: parseInt(r.kodeUtlop || '0', 10) || 0,
-        runder, forLansering: spor.some(d => d < LANSERT),
-      };
+        proUtlop: parseInt(r.proUtlop || '0', 10) || 0, kodeUtlop: parseInt(r.kodeUtlop || '0', 10) || 0,
+        runder, forLansering: spor.some(d => d < LANSERT) };
     });
-    document.getElementById('stempel').textContent =
-      'oppdatert ' + new Date().toLocaleTimeString('nb-NO').slice(0,5)
-      + ' · ' + rader.length + ' rader'
-      + (rader.length < hentetTotal ? ' av ' + hentetTotal + ' (!)' : '');
+    document.getElementById('stempel').textContent = 'oppdatert ' + new Date().toLocaleTimeString('nb-NO').slice(0,5)
+      + ' · ' + rader.length + ' rader' + (rader.length < hentetTotal ? ' av ' + hentetTotal + ' (!)' : '');
     document.getElementById('filtre').style.display = 'flex';
     tegn();
   } catch (e) {
-    const f = document.getElementById('feil');
-    f.style.display = 'block';
+    const f = document.getElementById('feil'); f.style.display = 'block';
     f.textContent = 'Fikk ikke hentet data (' + e.message + '). Sjekk nettforbindelsen og prøv igjen.';
     document.getElementById('stempel').textContent = 'feilet';
   }
 }
-
-// Enhetene som faktisk vises. Utviklerenhetene er de eneste som alltid er
-// ute - de er kjent stoey. Alt annet kan slaas paa.
 function utvalg(){
   const visTest = document.getElementById('visTest').checked;
-  const kunGP = document.getElementById('kunGP').checked;
-  const kunAS = document.getElementById('kunAS').checked;
-  // Begge avkrysset betyr «begge butikkene», ikke «ingen» - da faller bare
-  // enhetene uten plattformfelt ut.
-  const pfOk = r => (!kunGP && !kunAS)
-    || (kunGP && r.plattform === 'android')
-    || (kunAS && r.plattform === 'ios');
-  return rader.filter(r => !r.erUtvikler
-    && (visTest || !r.forLansering)
-    && pfOk(r));
-}
-// Hva som ble holdt utenfor, og hvorfor. Staar under tabellen - et tall som
-// ikke stemmer med App Store skal kunne forklares paa stedet, ikke gjettes.
-function utelatt(){
-  const skjul = document.getElementById('skjulTest').checked;
-  const visTest = document.getElementById('visTest').checked;
-  const ut = [];
-  const utv = rader.filter(r => r.erUtvikler).length;
-  if (utv) ut.push(utv + ' utviklerenhet' + (utv > 1 ? 'er' : ''));
-  if (!visTest) {
-    const t = rader.filter(r => !r.erUtvikler && r.forLansering).length;
-    if (t) ut.push(t + ' fra testperioden før 14.08');
-  }
-  if (skjul) {
-    const st = rader.filter(r => !r.erUtvikler && (visTest || !r.forLansering)
-      && false).length;
-    if (st) ut.push(st + ' med over 10 t brukstid');
-  }
-  return ut;
+  const kunGP = document.getElementById('kunGP').checked, kunAS = document.getElementById('kunAS').checked;
+  const pfOk = r => (!kunGP && !kunAS) || (kunGP && r.plattform === 'android') || (kunAS && r.plattform === 'ios');
+  return rader.filter(r => !r.erUtvikler && (visTest || !r.forLansering) && pfOk(r));
 }
 
 function tegn(){
-  const data = utvalg();
-  const naa = Date.now();
-  const d1 = data.filter(r => naa - Date.parse(r.oppdatert) < 864e5).length;
-  const d7 = data.filter(r => naa - Date.parse(r.oppdatert) < 7*864e5).length;
-  const borte14 = data.filter(r => naa - Date.parse(r.oppdatert) >= 14*864e5).length;
-  const medOta = data.filter(r => r.sprak).length;
-  const tider = data.map(r => r.tid).filter(t => t > 0).sort((a,b) => a-b);
-  const median = tider.length ? tider[Math.floor(tider.length/2)] : 0;
-  const runderTot = data.reduce((a,r) => a + r.runder.length, 0);
-  // Bruksfrekvens = aktive dager / dager eid. Bare enheter med minst 2
-  // dagers eiertid OG faktisk dagslogg - ellers blir alle trivielt 100 %.
-  const frek = data.map(r => ({ h: dagerHatt(r), a: dagsLinjer(r).length }))
-    .filter(x => x.h >= 2 && x.a > 0)
-    .map(x => Math.min(1, x.a / x.h)).sort((a,b) => a - b);
-  const medFrek = frek.length ? frek[Math.floor(frek.length / 2)] : 0;
-  // Betalt = kjop via Apple. Innloest kode teller ikke som betalende.
-  const medKjopsfelt = data.filter(r => r.harKjopsfelt).length;
-  const kilder = data.map(r => kjopsInfo(r).kilde);
-  const bekreftet = kilder.filter(k => k === 'kjop').length;
-  const antatt = kilder.filter(k => k === 'antatt').length;
-  const medKode = kilder.filter(k => k === 'kode').length;
+  const data = utvalg(), naa = Date.now(), idag = idagIso();
+  const uke = new Date(naa - 7*864e5).toISOString().slice(0,10);
+  const nye = data.map(r => nedlastet(r));
+  // Kjoep per dato fra RevenueCat naar lista finnes; ellers fra backupen
+  const kjop = KJOP_RC.length ? KJOP_RC.map(t => t.d) : data.filter(kvittert).map(r => kjopsInfo(r).dag);
+  const aktivIdag = data.filter(r => aktiveDager(r).includes(idag)).length;
+  const maal = data.filter(maalbar);
+  const laast = maal.filter(r => hend(r, 'laas_vist') > 0).length;
+  const kjopMaal = maal.filter(kvittert).length;
 
-  // Nedlastinger og kjoep i doegnet og uka, og hvor mange paa tidsmodellen
-  // som har sett laaseskjermen.
-  const idag = new Date().toISOString().slice(0, 10);
-  const uke = new Date(naa - 7 * 864e5).toISOString().slice(0, 10);
-  const ned = data.map(r => nedlastKilde(r)).filter(n => n.kilde).map(n => n.dato);
-  const nedIdag = ned.filter(d => d === idag).length;
-  const ned7 = ned.filter(d => d >= uke).length;
-  const kjopDager = data.map(r => kjopsInfo(r)).filter(k => k.betalt && k.dag).map(k => k.dag);
-  const kjopIdag = kjopDager.filter(d => d === idag).length;
-  const kjop7 = kjopDager.filter(d => d >= uke).length;
-  const paaTid = data.filter(r => nivaa(r).n === 3);
-  // Nevneren er de som KAN maales, ikke alle paa modellen
-  const kanMaale = paaTid.filter(kanMaaleLaas);
-  const laastN = kanMaale.filter(r => hend(r, 'laas_vist') > 0).length;
-  // Potten tom gjelder hele tidsmodellen og er det egentlige spoersmaalet
-  const oppbrukt = paaTid.filter(r => kanLaases(r) && pottenTom(r)).length;
-
-  const forL = rader.filter(r => r.forLansering && !r.erUtvikler).length;
-  const testSkjult = 0;   // testfilteret er fjernet - ingenting skjules paa tid
-  const skjultDeler = [];
-  if (forL) skjultDeler.push(forL + ' fra testperioden');
-  if (testSkjult > 0) skjultDeler.push(testSkjult + ' testenheter');
-  const utv = rader.filter(r => r.erUtvikler).length;
-  if (utv) skjultDeler.push(utv + ' utviklerenhet' + (utv > 1 ? 'er' : ''));
   document.getElementById('fliser').innerHTML = [
-    flis('Enheter', data.length, skjultDeler.length
-      ? skjultDeler.join(' + ') + ' skjult' : 'alle vist'),
-    flis('Aktive siste døgn', d1, d7 + ' siste 7 dager', d1 > 0),
-    (() => {
-      // Hovedtallet er de KVITTERTE. «Antatt» er utledet av oevingsrunder
-      // over 10 spoersmaal, som beviser full tilgang - men full tilgang
-      // kan like gjerne komme fra en innloest kode. kodeUtlop-feltet, som
-      // ville avsloert det, finnes bare paa nyere builds; av de antatte
-      // mangler flertallet feltet helt. De telles derfor ikke inn i
-      // hovedtallet, bare som et oevre anslag ved siden av.
-      const usikre = antatt;
-      return flis('Kjøpere', bekreftet,
-        (bekreftet
-          ? (100 * bekreftet / Math.max(1, data.length)).toFixed(1) + ' % med kvittering'
-          : 'ingen kvitterte kjøp ennå')
-          + (usikre ? ' · + ' + usikre + ' antatt (kan være innløst kode)' : '')
-          + (medKode ? ' · ' + medKode + ' m/kode' : ''),
-        bekreftet > 0);
-    })(),
-    (() => {
-      // «App aapen» er ubrukelig (bakgrunnstid). «I spill» er presis, men
-      // finnes bare fra build-126. Betalende oever naturlig nok mer, saa de
-      // maa staa for seg - ellers ser gratisbrukerne mer aktive ut enn de er.
-      const medSpill = data.filter(r => spilltid(r) > 0);
-      const gratis = medSpill.filter(r => !kjopsInfo(r).betalt).map(spilltid).sort((a,b) => a-b);
-      const betal = medSpill.filter(r => kjopsInfo(r).betalt).map(spilltid).sort((a,b) => a-b);
-      const m = a => a.length ? a[Math.floor(a.length / 2)] : 0;
-      return flis('Median i spill', gratis.length ? minutter(m(gratis)) : '–',
-        gratis.length
-          ? 'gratisbrukere (' + gratis.length + ')' +
-            (betal.length ? ' · betalende: ' + minutter(m(betal)) + ' (' + betal.length + ')' : '')
-          : 'krever build-126');
-    })(),
-    flis('Bruksfrekvens', frek.length ? Math.round(medFrek * 100) + ' %' : '–',
-      frek.length ? 'av dagene siden nedlasting, median av ' + frek.length
-        : 'for kort eiertid ennå'),
-    flis('Runder logget', runderTot, 'siste 30 per enhet'),
-    // Nedlastinger og kjoep siste doegn: de to tallene Edvard leser hver dag.
-    flis('Nedlastet i dag', nedIdag,
-      ned7 + ' siste 7 dager', nedIdag > 0),
-    flis('Kjøpt i dag', kjopIdag,
-      kjop7 + ' siste 7 dager', kjopIdag > 0),
-    // Moett laasen: gjelder bare tidsmodellen, saa telleren maa staa mot
-    // antallet paa den modellen - ikke mot alle enheter.
-    // Den ekte, kumulative telleren. Krever build-126, saa nevneren er de
-    // som kan maale den - ikke alle paa modellen.
-    flis('Møtt låsen', laastN,
-      kanMaale.length
-        ? (100 * laastN / kanMaale.length).toFixed(0) + ' % av de ' + kanMaale.length
-          + ' som kan måles (av ' + paaTid.length + ' på 5-min)'
-        : 'ingen kan måle den ennå - krever build-' + LAAS_BUILD,
-      laastN > 0),
-    // Oeyeblikksbilde, ikke historikk: gjelder bare siste talte dag
-    flis('Tom potte akkurat nå', oppbrukt,
-      'av ' + paaTid.length + ' på 5-min, målt på siste dag de var inne',
-      oppbrukt > 0),
+    flis('Enheter', data.length, 'i utvalget'),
+    flis('Aktive i dag', aktivIdag, data.filter(r => aktiveDager(r).some(d => d >= uke)).length + ' siste 7 dager', aktivIdag > 0),
+    flis('Nye i dag', nye.filter(d => d === idag).length, nye.filter(d => d >= uke).length + ' siste 7 dager'),
+    flis('Kjøpt i dag', kjop.filter(d => d === idag).length, kjop.filter(d => d >= uke).length + ' siste 7 dager · ' + kjop.length + ' i alt' + (KJOP_RC.length ? ' (RevenueCat)' : ''), kjop.length > 0),
+    flis('Møtt låsen', laast, pct(laast, maal.length) + ' av ' + maal.length + ' målbare'),
+    flis('Konvertering', pct(kjopMaal, maal.length), kjopMaal + ' kjøp av ' + maal.length + ' som kan låses og måles', kjopMaal > 0),
   ].join('');
 
-  // Runder per dag (ekte historikk fra rundeloggene)
-  const perDagR = {};
-  data.forEach(r => r.runder.forEach(x => {
-    if (x && x.dato) perDagR[x.dato] = (perDagR[x.dato] || 0) + 1;
-  }));
-  stolper('cRunder', sisteDager(perDagR), 'runder');
-
-  // Dash-blitz per dag (fra lampeblitz-loggen; d er ms-tidsstempel)
-  const perDagL = {};
-  let lbTot = 0, lbEnheter = 0;
-  data.forEach(r => {
-    if (!r.lampeblitz || !r.lampeblitz.length) return;
-    lbEnheter++;
-    r.lampeblitz.forEach(x => {
-      // Ugyldig stempel forkastes stille. Uten dette kaster toISOString og
-      // hele tegningen stopper paa én raadden rad.
-      if (!x || !gyldigMs(+x.d)) return;
-      lbTot++;
-      const dg = new Date(+x.d).toISOString().slice(0,10);
-      perDagL[dg] = (perDagL[dg] || 0) + 1;
-    });
-  });
-  stolper('cDash', sisteDager(perDagL), 'runder');
-  document.getElementById('cDashHint').textContent =
-    lbTot + ' runder fra ' + lbEnheter + ' enheter (siste 50 per enhet, kun nyeste build)';
-
-  // Typisk resultat per rundelengde: median riktige og bom. Median, ikke
-  // snitt - en enkelt avbrutt runde skal ikke dra tallet ned.
-  const perTid = {};
-  data.forEach(r => (r.lampeblitz || []).forEach(x => {
-    if (!x) return;
-    const n = Number(x.tid) || 0;
-    (perTid[n] = perTid[n] || []).push(x);
-  }));
-  const med = a => { const s2 = a.slice().sort((x,y) => x-y); return s2.length ? s2[Math.floor(s2.length/2)] : 0; };
-  const rekkeflg = Object.keys(perTid).map(Number).sort((a,b) => (a||9999) - (b||9999));
-  document.getElementById('cDashKlarte').innerHTML = rekkeflg.map(t => {
-    const rn = perTid[t];
-    const navn = t ? t + ' sek' : 'Uten klokke';
-    return '<div><b>' + navn + '</b> · ' + rn.length + ' runder · typisk <b>'
-      + med(rn.map(x => Number(x.r) || 0)) + ' riktige</b>'
-      + ' <span style="color:var(--muted)">og ' + med(rn.map(x => Number(x.bom) || 0)) + ' bom</span></div>';
-  }).join('') || '<span style="color:var(--muted)">ingen runder logget ennå</span>';
-
-  // Sist aktiv per dag
-  const perDagA = {};
-  data.forEach(r => { const d = r.oppdatert.slice(0,10); perDagA[d] = (perDagA[d]||0)+1; });
-  stolper('cAktiv', sisteDager(perDagA), 'enheter');
-
-  // Spraak (liggende liste)
-  const spr = {};
-  data.forEach(r => { const s = r.sprak || '\u2014'; spr[s] = (spr[s]||0)+1; });
-  liste('cSprak', Object.entries(spr).sort((a,b) => b[1]-a[1])
-    .map(([k,v]) => [k === '\u2014' ? 'Ukjent (eldre versjon)' : sprakFullt(k), v]), data.length);
-
-  // Frafalls-boetter: tid siden sist aktiv, fra ferskt til borte
-  const frafallB = [['aktiv i dag',0],['2–7 dager',0],['8–14 dager',0],['15–30 dager',0],['31–90 dager (på vei ut)',0]];
-  data.forEach(r => {
-    const d = (naa - Date.parse(r.oppdatert)) / 864e5;
-    frafallB[d < 1 ? 0 : d < 7 ? 1 : d < 14 ? 2 : d < 30 ? 3 : 4][1]++;
-  });
-  liste('cFrafall', frafallB, Math.max(1, ...frafallB.map(x => x[1])), true);
-
-  // Brukstid-boetter
-  const b = [['under 1 min',0],['1–5 min',0],['5–20 min',0],['20–60 min',0],['over 1 t',0]];
-  data.forEach(r => { const t = r.tid;
-    if (t <= 0) return;
-    b[t < 60 ? 0 : t < 300 ? 1 : t < 1200 ? 2 : t < 3600 ? 3 : 4][1]++; });
-  liste('cTid', b, Math.max(1, ...b.map(x => x[1])), true);
-
-  // Enhetstabellen foerst: den er det Edvard faktisk leser, og alt annet paa
-  // sida er oppsummeringer av den.
-  tabell(data);
-  // Hvor mange som ikke er med, og hvorfor. Uten dette ser tabellen ut som
-  // om den er alle brukerne - og er det ikke.
-  const skjult = utelatt();
-  document.getElementById('tabellFot').innerHTML =
-    "<b>" + data.length + "</b> av " + rader.length + " enheter i basen"
-    + (skjult.length
-      ? " · utelatt: " + skjult.join(", ")
-        + " <span style='color:var(--muted)'>(se bryterne øverst)</span>"
-      : " · ingen utelatt")
-    + (rader.length < hentetTotal
-      ? " · <b style='color:var(--critical)'>tjeneren har " + hentetTotal
-        + " rader - ikke alle ble hentet</b>" : "")
-    + " · rader slettes 90 dager etter siste aktivitet, så de eldste er borte for godt";
-  nedlastKort(data);
-  modellKort(data);
-  spilltidKort(data);
-  avbruddKort(data);
-  laasKort(data);
+  dekningKort(data);
+  traktKort(maal, data);
+  sprakTraktKort(data);
+  veiKort(data);
+  dognKort(data);
+  dagKort(data);
+  aktivKort(data);
   returKort(data);
-  traktKort(data);
-  proveKort(data);
-  monsterKort(data);
-  kjoperKort(data);
-  // Naar kortet er lukket skal overskriften likevel baere tallet.
-  const nProve = data.filter(r => r.runder.some(x => x && x.prove)).length;
-  const nKjop = data.filter(r => kjopsInfo(r).betalt).length;
-  document.getElementById('antProve').textContent = nProve + ' enheter';
-  document.getElementById('antKjop').textContent = nKjop + ' kjøpere';
-  document.getElementById('antMonster').textContent = nKjop + ' mot ' +
-    data.filter(r => r.runder.length && !kjopsInfo(r).betalt).length + ' uten kjøp';
-  document.getElementById('antDash').textContent = lbEnheter + ' enheter';
-  // Hvor lenge enhetene har hatt appen
-  const eb = [['i dag',0],['2–3 dager',0],['4–7 dager',0],['over en uke',0]];
-  data.forEach(r => { const h = dagerHatt(r); if (!h) return;
-    eb[h <= 1 ? 0 : h <= 3 ? 1 : h <= 7 ? 2 : 3][1]++; });
-  liste('cEiertid', eb, Math.max(1, ...eb.map(x => x[1])), true);
-  // ... og hvor stor del av de dagene de faktisk aapnet den
-  const fb = [['nesten hver dag',0],['de fleste dagene',0],
-              ['omtrent halvparten',0],['sjeldnere',0]];
-  frek.forEach(a => fb[a >= 0.9 ? 0 : a >= 0.6 ? 1 : a >= 0.35 ? 2 : 3][1]++);
-  liste('cFrek', fb, Math.max(1, ...fb.map(x => x[1])), true);
+  rekkeKort(data);
+  siderKort(data);
+  avbruddKort(data);
+  ukeKort(data);
+  perioderKort(data);
+  tabell(data);
+  const utv = rader.filter(r => r.erUtvikler).length, forL = rader.filter(r => r.forLansering && !r.erUtvikler).length;
+  document.getElementById('tabellFot').innerHTML = '<b>' + data.length + '</b> av ' + rader.length + ' enheter i basen'
+    + (utv ? ' · ' + utv + ' utviklerenheter utelatt' : '')
+    + (forL && !document.getElementById('visTest').checked ? ' · ' + forL + ' fra testperioden utelatt' : '')
+    + (rader.length < hentetTotal ? ' · <b style="color:var(--critical)">tjeneren har ' + hentetTotal + ' rader, ikke alle ble hentet</b>' : '')
+    + ' · rader slettes 90 dager etter siste aktivitet';
 }
-
 function flis(navn, tall, under, god){
-  return '<div class="flis"><div class="navn">' + navn + '</div><div class="tall">'
-    + tall + '</div><div class="under' + (god ? ' god' : '') + '">' + under + '</div></div>';
+  return '<div class="flis"><div class="navn">' + navn + '</div><div class="tall">' + tall
+    + '</div><div class="under' + (god ? ' god' : '') + '">' + under + '</div></div>';
 }
 
-function sisteDager(kart){
-  const ut = [];
-  for (let i = dager - 1; i >= 0; i--) {
-    const d = new Date(Date.now() - i*864e5).toISOString().slice(0,10);
-    ut.push([d, kart[d] || 0]);
-  }
-  return ut;
+// 0. DEKNING
+function dekningKort(data){
+  const n = data.length;
+  const felt = [
+    ['sidetid (skjermSek)', data.filter(r => r.skjermSek).length, 'build-126+'],
+    ['hendelser', data.filter(r => r.hendelser).length, 'fra 22.08'],
+    ['avbrudd', data.filter(r => (r.avbrutte||[]).length).length, 'build-134+'],
+    ['plattform', data.filter(r => r.plattform).length, 'build-132+'],
+    ['dagbok (tidDager)', data.filter(r => Object.keys(r.tidDager||{}).length).length, 'fra 17.08'],
+    ['kvittering (proUtlop)', data.filter(r => r.proUtlop > 0).length, 'kjøpere i backupen'],
+    ['reinstallert (anslag)', data.filter(reinstallert).length, 'runder i sky, tellere tomme'],
+  ];
+  const rcN = KJOP_RC.length, rcK = new Set(KJOP_RC.map(t => t.k)).size, bN = data.filter(r => r.proUtlop > 0).length;
+  document.getElementById('cDekning').innerHTML = felt.map(([navn, v, note]) =>
+    lrad(navn, v, n, v + ' <span style="color:var(--muted)">· ' + pct(v, n) + ' · ' + note + '</span>')).join('')
+    + '<div class="hint" style="margin-top:10px"><b>Kjøp: RevenueCat ' + rcN + ' transaksjoner / ' + rcK + ' kunder</b> (hentet ' + (KJOP_RC_HENTET || '?').replace('T', ' ') + ') mot <b>' + bN
+    + ' med kvittering i backupen</b>. De ' + Math.max(0, rcK - bN) + ' som mangler kjøpte for det meste 17.–30.08, da kjøpsstatus var ute av backupen. '
+    + 'Kjøpstallene under bruker RevenueCat der det er per dato, og backupen der det må være per enhet.</div>';
 }
 
-// Stolpediagram: tynne stolper, 4px avrundet datatopp mot grunnlinjen,
-// 2px mellomrom, hårlinje-rutenett, verdier kun i tooltip (+ maks-etikett).
-function stolper(mål, par, enhet){
-  const el = document.getElementById(mål);
-  const B = el.clientWidth || 460, H = 190, mV = 6, mB = 22, mT = 8;
-  const maks = Math.max(1, ...par.map(p => p[1]));
-  const bw = Math.max(3, (B - mV*2) / par.length - 2);
-  let s = '<svg width="' + B + '" height="' + H + '" role="img">';
-  for (let g = 1; g <= 3; g++) {
-    const y = mT + (H - mB - mT) * (1 - g/3);
-    s += '<line x1="' + mV + '" x2="' + (B-mV) + '" y1="' + y + '" y2="' + y
-      + '" stroke="' + css('--grid') + '" stroke-width="1"/>';
-  }
-  const grunnY = H - mB;
-  par.forEach((p, i) => {
-    const x = mV + i * ((B - mV*2) / par.length) + 1;
-    const h = Math.round((H - mB - mT) * p[1] / maks);
-    const y = grunnY - h;
-    if (p[1] > 0) {
-      const r = Math.min(4, bw/2, h);
-      s += '<path d="M' + x + ',' + grunnY + ' V' + (y+r) + ' Q' + x + ',' + y + ' '
-        + (x+r) + ',' + y + ' H' + (x+bw-r) + ' Q' + (x+bw) + ',' + y + ' '
-        + (x+bw) + ',' + (y+r) + ' V' + grunnY + ' Z" fill="' + css('--series-1') + '"/>';
-    }
-    // Treffflate stoerre enn stolpen (hele kolonnen)
-    s += '<rect x="' + (x-1) + '" y="' + mT + '" width="' + (bw+2) + '" height="'
-      + (H - mB - mT) + '" fill="transparent" data-tt="' + fmtDag(p[0]) + '|' + p[1]
-      + ' ' + enhet + '"/>';
-    if (par.length <= 16 || i % 2 === 0) {
-      s += '<text x="' + (x + bw/2) + '" y="' + (H-7) + '" text-anchor="middle" font-size="10"'
-        + ' fill="' + css('--muted') + '" style="font-variant-numeric:tabular-nums">'
-        + fmtDag(p[0]).slice(0,2) + '</text>';
-    }
-  });
-  s += '<line x1="' + mV + '" x2="' + (B-mV) + '" y1="' + grunnY + '" y2="' + grunnY
-    + '" stroke="' + css('--baseline') + '" stroke-width="1"/>';
-  s += '<text x="' + mV + '" y="' + (mT+9) + '" font-size="10" fill="' + css('--muted')
-    + '">maks ' + maks + '</text></svg>';
-  el.innerHTML = s;
-  kobleTips(el);
+// 1. TRAKTEN
+function traktKort(maal, alle){
+  const steg = [
+    ['Åpnet appen', r => true, 'målbare enheter'],
+    ['Gjorde noe', gjordeNoe, 'runde, avbrudd, blitz eller sidetid'],
+    ['Startet en runde', r => hend(r,'runde_start') + hend(r,'prove_start') + hend(r,'blitz_start') > 0, 'quiz, prøve eller blitz'],
+    ['Møtte låsen', r => hend(r,'laas_vist') > 0, 'låseskjermen vist'],
+    ['Så kjøpsdialogen', r => Object.keys(r.hendelser || {}).some(k => k.startsWith('betaldialog_')), 'fra lås, prøve eller antall'],
+    ['Startet kjøp', r => hend(r,'kjop_start') > 0, 'trykket kjøp'],
+    ['Fullførte kjøp', r => hend(r,'kjop_fullfort') > 0 || kvittert(r), 'kvittering'],
+  ];
+  let forrige = null;
+  const html = steg.map(([navn, test, l]) => {
+    const n = maal.filter(test).length;
+    const p = forrige === null ? '' : '<div class="p">' + pct(n, forrige) + ' av forrige · <b>' + pct(n, maal.length) + '</b> av alle</div>';
+    const bredde = maal.length ? Math.round(100 * n / maal.length) : 0;
+    forrige = n;
+    return '<div class="tsteg"><div class="n">' + n + '</div><div class="l">' + navn + '<br><span style="opacity:.75">' + l + '</span></div>'
+      + p + '<div class="bar"><i style="width:' + bredde + '%"></i></div></div>';
+  }).join('');
+  document.getElementById('cTrakt').innerHTML = html;
+  // Det trakten skjuler: hvor mange av kjoeperne som faktisk hadde moett laasen.
+  // Maalt 02.09: 3 av 23. Kjoepet kommer for de fleste FOER sperren, samme dag
+  // som foerste oppstart - saa laasen er ikke det som utloeser det.
+  // Kjoepsveien maa regnes paa dem som KUNNE ha logget laasen FOER kjoepet:
+  // enheten maa ha hatt build-126+ senest paa kjoepsdagen (versjonlogg), paa
+  // iOS. «Har 126 naa» holder ikke - 14 av 26 kjoepere fikk 126 etter kjoepet
+  // (maalt 02.09), og de kan umulig ha logget en laas de moette.
+  const alleKj = alle.filter(kvittert);
+  const kunne = alleKj.filter(r => { if (erAndroid(r)) return false; const dag = kjopsInfo(r).dag;
+    const fikk = (r.versjonlogg || []).filter(x => x && x.v && x.d && byggNr({ versjon: x.v }) >= MAAL_BUILD).map(x => String(x.d).slice(0,10)).sort()[0];
+    return fikk ? fikk <= dag : (byggNr(r) >= MAAL_BUILD && dag >= '2026-09-01'); });
+  const kjLaast = kunne.filter(r => hend(r, 'laas_vist') > 0).length;
+  const kjDialog = kunne.filter(r => !hend(r, 'laas_vist') && Object.keys(r.hendelser || {}).some(k => k.startsWith('betaldialog_'))).length;
+  const kjProfil = kunne.length - kjLaast - kjDialog;
+  const kjDag1 = alleKj.filter(r => foerKjop(r, kjopsInfo(r).dag).dagerTil === 0).length;
+  const spor = {}; alleKj.forEach(r => { const sp = sperrespor(r) || 'ingen'; spor[sp] = (spor[sp] || 0) + 1; });
+  const medSpor = alleKj.length - (spor.ingen || 0);
+  document.getElementById('cTraktNote').innerHTML = '<b>Sperrespor på kjøpsdagen</b>, alle ' + alleKj.length + ' kjøpere i backupen: <b>' + medSpor + '</b> hadde møtt en sperre ('
+    + Object.entries(spor).filter(([k]) => k !== 'ingen').map(([k, v]) => v + ' ' + k).join(', ') + '), <b>' + (spor.ingen || 0) + '</b> ikke. '
+    + 'Tidstelleren stopper ved kjøp, så bruk-feltet er frosset på kjøpsdagen - det ser sperren også der telleren ikke fantes.<br>'
+    + '<b>Kjøpsveien etter telleren</b>: av ' + alleKj.length + ' kjøpere hadde bare <b>' + kunne.length
+    + '</b> build-126 på iOS <i>før</i> kjøpsdagen, og kan ha logget låsen. Av dem: <b>' + kjLaast + '</b> fra låsen · <b>'
+    + kjDialog + '</b> fra kjøpsdialogen uten lås · <b>' + kjProfil + '</b> uten noen av delene. De øvrige ' + (alleKj.length - kunne.length)
+    + ' kjøpte før telleren fantes på enheten, eller på Android. <b>' + kjDag1 + ' av ' + alleKj.length + '</b> kjøpte samme dag som første oppstart. '
+    + 'Nevneren er for liten til å si hva som utløser kjøpet.'
+    + '<br><b>Merk om «møtt låsen»:</b> telleren slår først når låseskjermen faktisk vises. Går potten tom midt i en runde, venter låsen til runden er over, og lukker brukeren appen før det, logges ingenting. '
+    + 'Kveldspotten kl. 16 kan også gi ny tid før låsen rakk å vise seg. Enheter med tom potte uten logget lås er derfor «traff grensen», ikke «så låsen».';
+  const ikke = alle.length - maal.length;
+  document.getElementById('cTraktHull').textContent = ikke
+    ? ikke + ' av ' + alle.length + ' enheter er holdt utenfor trakten: Android før betaling ble slått på (' + alle.filter(r => !kanLaases(r)).length
+      + ') og builds eldre enn ' + MAAL_BUILD + ' (' + alle.filter(r => kanLaases(r) && !kanMaales(r)).length + ') har ikke tellerne.'
+    : '';
 }
 
-// Liggende etikett+stolpe-liste (for faa kategorier til aa trenge akser)
-function liste(mål, par, maksTall, erBoetter){
-  const el = document.getElementById(mål);
-  const maks = erBoetter ? maksTall : Math.max(1, ...par.map(p => p[1]));
+function sprakTraktKort(data){
+  const per = {};
+  data.forEach(r => { const s = r.sprak || '?'; const p = per[s] = per[s] || { n:0, noe:0, runde:0, laas:0, kjop:0, maal:0 };
+    p.n++; if (gjordeNoe(r)) p.noe++; if ((r.runder||[]).length || (r.lampeblitz||[]).length) p.runde++;
+    if (maalbar(r)) { p.maal++; if (hend(r,'laas_vist')) p.laas++; } if (kvittert(r)) p.kjop++; });
+  const rader2 = Object.entries(per).sort((a,b) => b[1].n - a[1].n);
+  document.getElementById('cSprakTrakt').innerHTML = '<table><tr><th>språk</th><th class="h">enheter</th><th class="h">gjorde noe</th><th class="h">tok runde</th><th class="h">møtt låsen</th><th class="h">kjøp</th><th class="h">konv.</th></tr>'
+    + rader2.map(([s, p]) => '<tr><td>' + (s === '?' ? '<span style="color:var(--muted)">ukjent</span>' : sprakNavn(s)) + '</td><td class="h">' + p.n + '</td><td class="h">' + pct(p.noe, p.n)
+      + '</td><td class="h">' + pct(p.runde, p.n) + '</td><td class="h" title="av ' + p.maal + ' målbare">' + (p.maal ? pct(p.laas, p.maal) : '–') + '</td><td class="h">' + p.kjop + '</td><td class="h"' + (p.kjop ? ' style="color:var(--good-text)"' : '') + '>' + pct(p.kjop, p.n) + '</td></tr>').join('') + '</table>';
+}
+// oevetimer er 24 tellere - rundestarter per klokketime - ikke en liste av
+// klokkeslett. 115 enheter har den fylt (02.09); tomme lister hoppes over.
+function dognKort(data){
+  const timer = new Array(24).fill(0); let n = 0;
+  data.filter(r => !kjopsInfo(r).betalt && Array.isArray(r.oevetimer) && r.oevetimer.length === 24).forEach(r => {
+    n++; r.oevetimer.forEach((v, h) => { timer[h] += +v || 0; }); });
+  const svg = document.getElementById('cDogn');
+  const hintEl = svg.parentNode && svg.parentNode.querySelector ? svg.parentNode.querySelector('.hint') : null;
+  if (hintEl) hintEl.textContent = 'Rundestarter per klokketime hos ' + n + ' gratisbrukere. Ikke tid - antall starter. Til varsler og kampanjetider.';
+  const W = Math.max(280, svg.getBoundingClientRect().width || 340), H = 120, L = 26, T = 8, B = 20, iw = W - L - 6, ih = H - T - B, bw = iw / 24, maks = Math.max(1, ...timer);
+  let s = '<line x1="' + L + '" x2="' + (W-6) + '" y1="' + (T+ih) + '" y2="' + (T+ih) + '" stroke="' + css('--grid') + '"/>';
+  timer.forEach((v, h) => { const hh = ih*v/maks; s += '<rect x="' + (L+h*bw+1) + '" y="' + (T+ih-hh) + '" width="' + Math.max(1, bw-2) + '" height="' + hh + '" fill="' + css('--series-1') + '" rx="2"><title>kl. ' + h + ': ' + v + '</title></rect>';
+    if (h % 4 === 0) s += '<text x="' + (L+h*bw+bw/2) + '" y="' + (H-6) + '" font-size="10" text-anchor="middle" fill="' + css('--muted') + '">' + h + '</text>'; });
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.innerHTML = timer.some(x => x) ? s : '<text x="10" y="40" font-size="12" fill="' + css('--muted') + '">ingen øvetimer logget</text>';
+}
+
+// VEIEN TIL KJOEP. Alt maales FOER kjoepsdagen.
+// «Foer» betyr til og med kjoepsdagen: de fleste kjoeper samme dag som de
+// begynner, og kjoepsdagen er selv et anslag (utloep minus 120 d). Med streng
+// «foer» ble alle tallene 0 for flertallet - som er sant paa papiret og
+// verdiloest i praksis.
+function foerKjop(r, dag){
+  const d = aktiveDager(r).filter(x => x <= dag);
+  const runder = (r.runder || []).filter(x => x && x.dato && x.dato <= dag).length;
+  const fra = nedlastet(r);
+  const dagerTil = Math.max(0, Math.round((Date.parse(dag) - Date.parse(fra)) / 864e5));
+  return { dagerTil, aktiveDager: d.length, runder,
+    sider: r.hendelser ? Object.keys(r.hendelser).filter(k => k.startsWith('skjerm_')).length : null,
+    laast: hend(r, 'laas_vist'), paaSkjerm: paaSkjerm(r), prove: (r.runder || []).some(x => x && x.prove && x.dato <= dag),
+    klemt: !!kjopsInfo(r).klemt };
+}
+function veiRader(liste, medDag){
+  const v = liste.map(r => foerKjop(r, medDag(r)));
+  const rad = (navn, arr, fmt) => { const k = kvart(arr); return '<div class="lrad"><span class="ln">' + navn + '</span>'
+    + '<span style="flex:1;font-size:12px;color:var(--text-primary)"><b>' + fmt(k.m) + '</b> <span style="color:var(--muted)">(' + fmt(k.q1) + ' – ' + fmt(k.q3) + ')</span></span></div>'; };
+  const tall = x => String(x), dg = x => x + ' d';
+  const medSkjerm = v.filter(x => x.paaSkjerm !== null);
+  const klemt = v.filter(x => x.klemt).length;
+  return rad('Dager fra første oppstart', v.map(x => x.dagerTil), dg)
+    + rad('Aktive dager t.o.m. kjøpsdagen', v.map(x => x.aktiveDager), tall)
+    + rad('Runder t.o.m. kjøpsdagen', v.map(x => x.runder), tall)
+    + (medSkjerm.length ? rad('På skjerm (hele levetiden)', medSkjerm.map(x => x.paaSkjerm), minutter) : '')
+    + rad('Ganger låst før', v.map(x => x.laast), tall)
+    + '<div class="lrad"><span class="ln">Tok prøven før</span><span style="flex:1;font-size:12px"><b>' + pct(v.filter(x => x.prove).length, v.length) + '</b></span></div>'
+    + '<div class="hull" style="margin-top:8px">' + v.length + ' enheter. Kjøpsdagen er regnet bakover fra utløpet (utløp minus 120 dager), ikke lest fra kvitteringen'
+    + (klemt ? ' - for ' + klemt + ' av dem lå den utenfor enhetens levetid og er klemt inn' : '')
+    + '. Tid på skjerm er kumulativ for hele levetiden, ikke bare før kjøp - per-dag-tid finnes ikke uten bakgrunnsfeilen.</div>';
+}
+function veiKort(data){
+  const k = data.filter(kvittert);
+  document.getElementById('cVei').innerHTML = k.length ? veiRader(k, r => kjopsInfo(r).dag)
+    : '<span style="color:var(--muted)">ingen kvitterte kjøp i utvalget</span>';
+  const g = data.filter(r => !kjopsInfo(r).betalt && nivaa(r).n === 3 && aktiveDager(r).length >= 2);
+  document.getElementById('cMot').innerHTML = g.length ? veiRader(g, r => idagIso())
+    : '<span style="color:var(--muted)">for få gratisbrukere med to dager</span>';
+}
+
+// 2. HVER DAG
+function sisteDager(n){ const ut = []; for (let i = n-1; i >= 0; i--) ut.push(new Date(Date.now() - i*864e5).toISOString().slice(0,10)); return ut; }
+function dagKort(data){
+  const dg = sisteDager(dager);
+  const nye = {}, kjop = KJOP_RC.length ? rcPerDag : {};
+  data.forEach(r => { const d = nedlastet(r); nye[d] = (nye[d]||0)+1; if (!KJOP_RC.length && kvittert(r)) { const k = kjopsInfo(r).dag; kjop[k] = (kjop[k]||0)+1; } });
+  const svg = document.getElementById('cDag');
+  const W = Math.max(320, svg.getBoundingClientRect().width || 700), H = 190, L = 34, R = 44, T = 10, B = 26;
+  const iw = W - L - R, ih = H - T - B, bw = iw / dg.length;
+  const maksN = Math.max(1, ...dg.map(d => nye[d] || 0)), maksKr = Math.max(1, ...dg.map(d => reklameKr(d).sum));
   let s = '';
-  par.forEach(p => {
-    const pct = Math.round(100 * p[1] / maks);
-    s += '<div style="display:flex;align-items:center;gap:10px;margin:7px 0">'
-      + '<div style="width:132px;font-size:12px;color:var(--text-secondary);flex:none">' + p[0] + '</div>'
-      + '<div style="flex:1;height:14px;position:relative">'
-      + (p[1] > 0 ? '<div style="position:absolute;left:0;top:0;bottom:0;width:' + Math.max(2,pct)
-        + '%;background:var(--series-1);border-radius:0 4px 4px 0"></div>' : '')
-      + '</div>'
-      + '<div style="width:30px;text-align:right;font-size:12px;font-weight:700;'
-      + 'font-variant-numeric:tabular-nums">' + p[1] + '</div></div>';
+  // aksenett
+  [0, .5, 1].forEach(f => { const y = T + ih - f*ih; s += '<line x1="' + L + '" x2="' + (W-R) + '" y1="' + y + '" y2="' + y + '" stroke="' + css('--grid') + '"/>'
+    + '<text x="' + (L-4) + '" y="' + (y+4) + '" font-size="10" text-anchor="end" fill="' + css('--muted') + '">' + Math.round(maksN*f) + '</text>'
+    + '<text x="' + (W-R+4) + '" y="' + (y+4) + '" font-size="10" fill="' + css('--muted') + '">' + Math.round(maksKr*f) + ' kr</text>'; });
+  dg.forEach((d, i) => {
+    const x = L + i*bw, n = nye[d] || 0, k = kjop[d] || 0;
+    const hN = ih * n / maksN, hK = ih * k / maksN;
+    s += '<rect x="' + (x+2) + '" y="' + (T+ih-hN) + '" width="' + Math.max(1, bw*.55-2) + '" height="' + hN + '" fill="' + css('--series-1') + '" rx="2"><title>' + fmtDag(d) + ': ' + n + ' nye</title></rect>';
+    s += '<rect x="' + (x+2+bw*.55) + '" y="' + (T+ih-hK) + '" width="' + Math.max(1, bw*.35-2) + '" height="' + hK + '" fill="' + css('--series-3') + '" rx="2"><title>' + fmtDag(d) + ': ' + k + ' kjøp</title></rect>';
+    if (i % Math.ceil(dg.length/10) === 0) s += '<text x="' + (x+bw/2) + '" y="' + (H-8) + '" font-size="10" text-anchor="middle" fill="' + css('--muted') + '">' + fmtDag(d) + '</text>';
   });
-  el.innerHTML = s + '<div style="height:6px"></div>';
+  const pts = dg.map((d, i) => (L + i*bw + bw/2) + ',' + (T + ih - ih * reklameKr(d).sum / maksKr));
+  s += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + css('--series-2') + '" stroke-width="2"/>';
+  dg.forEach((d, i) => { const rk = reklameKr(d); s += '<circle cx="' + (L + i*bw + bw/2) + '" cy="' + (T + ih - ih*rk.sum/maksKr) + '" r="2.5" fill="' + css('--series-2') + '"><title>' + fmtDag(d) + ': ' + Math.round(rk.sum) + ' kr (Meta ' + Math.round(rk.meta) + ' + ASA ~' + Math.round(rk.asa) + ')</title></circle>'; });
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.innerHTML = s;
+  document.getElementById('cRegime').innerHTML = REGIMER.filter(x => x.d >= dg[0] && x.d <= dg[dg.length-1])
+    .map(x => '<span><b>' + fmtDag(x.d) + '</b> ' + x.t + '</span>').join('') || '<span>ingen regimeskifter i vinduet</span>';
 }
-
-// Rundetype fra loggen: proeve er eget flagg, blitz kjennes paa temanavnet
-function rundeType(x){
-  if (x.prove) return 'Prøve';
-  if ((x.temaer||[]).some(t => /Skiltblitz/.test(t))) return 'Blitz';
-  return 'Øving';
+function aktivKort(data){
+  const dg = sisteDager(dager), per = {};
+  data.forEach(r => aktiveDager(r).forEach(d => { per[d] = (per[d]||0)+1; }));
+  stolper('cAktiv', dg.map(d => [d, per[d] || 0]), 120);
 }
-// Runder gruppert per dato, nyeste foerst
-function perDato(runder){
-  const kart = {};
-  runder.forEach(x => { if (x && x.dato) (kart[x.dato] = kart[x.dato] || []).push(x); });
-  return Object.entries(kart).sort((a,b) => b[0].localeCompare(a[0]));
+function stolper(id, par, H){
+  const svg = document.getElementById(id);
+  const W = Math.max(280, svg.getBoundingClientRect().width || 340), L = 26, T = 8, B = 20;
+  const iw = W - L - 6, ih = H - T - B, bw = iw / par.length, maks = Math.max(1, ...par.map(x => x[1]));
+  let s = '<line x1="' + L + '" x2="' + (W-6) + '" y1="' + (T+ih) + '" y2="' + (T+ih) + '" stroke="' + css('--grid') + '"/>'
+    + '<text x="' + (L-3) + '" y="' + (T+8) + '" font-size="10" text-anchor="end" fill="' + css('--muted') + '">' + maks + '</text>';
+  par.forEach(([d, v], i) => { const h = ih*v/maks; s += '<rect x="' + (L+i*bw+1) + '" y="' + (T+ih-h) + '" width="' + Math.max(1, bw-2) + '" height="' + h + '" fill="' + css('--series-1') + '" rx="2"><title>' + fmtDag(d) + ': ' + v + '</title></rect>';
+    if (i % Math.ceil(par.length/6) === 0) s += '<text x="' + (L+i*bw+bw/2) + '" y="' + (H-6) + '" font-size="10" text-anchor="middle" fill="' + css('--muted') + '">' + fmtDag(d) + '</text>'; });
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.innerHTML = s;
 }
-
-// Dagslinjer: slaar sammen tidsdagboken (ota-142) og rundeloggen, saa en dag
-// dukker opp selv om bare en av delene finnes. Nyeste foerst.
-function dagsLinjer(r){
-  const kart = {};
-  Object.entries(r.tidDager || {}).forEach(([d, sek]) => {
-    kart[d] = { dato: d, sek: +sek || 0, runder: [] };
-  });
-  (r.runder || []).forEach(x => {
-    if (!x || !x.dato) return;
-    (kart[x.dato] = kart[x.dato] || { dato: x.dato, sek: null, runder: [] }).runder.push(x);
-  });
-  // Dash-blitz-rundene hoerer hjemme i samme dagslinjer - d er ms-stempel.
-  // En dag med bare dash teller dermed ogsaa som aktiv dag, som er riktig.
-  (r.lampeblitz || []).forEach(x => {
-    if (!x || !gyldigMs(+x.d)) return;
-    const dato = new Date(+x.d).toISOString().slice(0,10);
-    (kart[dato] = kart[dato] || { dato, sek: null, runder: [] }).runder.push({ dash: true, riktige: Number(x.r) || 0 });
-  });
-  const linjer = Object.values(kart).sort((a,b) => b.dato.localeCompare(a.dato));
-  // Avbrutte runder har ingen dato i dataene - bare en teller. De legges
-  // paa nyeste linje, og bobla sier selv at dagen er ukjent.
-  const nAvb = avbrutt(r), nProve = avbruttProve(r);
-  if ((nAvb || nProve) && linjer.length) {
-    linjer[0].avbrutt = nAvb; linjer[0].avbruttProve = nProve;
-  }
-  return linjer;
-}
-
-// Merkelapp per runde
-// Avbrutt runde: samme boble som en fullfoert, men stiplet og uten
-// poengsum - den finnes ikke, siden runden aldri ble ferdig.
-function avbruttMerke(tekst, proeve){
-  const kant = proeve ? 'var(--series-1)' : 'var(--border)';
-  return '<span title="startet, men aldri fullfort - dagen er ukjent" '
-    + 'style="display:inline-block;font-size:11.5px;margin:0 5px 3px 0;'
-    + 'padding:2px 8px;border-radius:9px;border:1px dashed ' + kant + ';'
-    + 'color:var(--muted)">' + tekst + '</span>';
-}
-function rundeMerke(x){
-  if (x.dash) {
-    return '<span style="display:inline-block;font-size:11.5px;margin:0 5px 3px 0;'
-      + 'padding:2px 8px;border-radius:9px;border:1px solid var(--border);'
-      + 'color:var(--text-secondary)">&#x26A1; ' + x.riktige + '</span>';
-  }
-  const t = rundeType(x), pr = t === 'Prøve';
-  return '<span style="display:inline-block;font-size:11.5px;margin:0 5px 3px 0;'
-    + 'padding:2px 8px;border-radius:9px;border:1px solid '
-    + (pr ? 'var(--series-1)' : 'var(--border)') + ';'
-    + (pr ? 'color:var(--series-1);font-weight:700' : 'color:var(--text-secondary)')
-    + '">' + t + ' ' + x.poeng + '/' + x.av + '</span>';
-}
-
-// En dagslinje: dato · tidsstolpe · minutter · rundemerker
-function dagsRad(l, maksSek){
-  const har = l.sek !== null && l.sek > 0;
-  const bredde = har ? Math.max(3, Math.round(100 * l.sek / Math.max(60, maksSek))) : 0;
-  return '<div style="display:flex;gap:9px;align-items:center;margin:5px 0">'
-    + '<div style="width:44px;font-size:11.5px;color:var(--muted);flex:none;'
-      + 'font-variant-numeric:tabular-nums">' + fmtDag(l.dato) + '</div>'
-    + '<div style="width:70px;flex:none;height:10px;position:relative">'
-      + (har ? '<div style="position:absolute;left:0;top:0;bottom:0;width:' + bredde
-        + '%;background:var(--series-1);border-radius:0 4px 4px 0"></div>' : '') + '</div>'
-    + '<div style="width:52px;flex:none;text-align:right;font-size:11.5px;'
-      + 'font-variant-numeric:tabular-nums;color:' + (har ? 'var(--text-primary)' : 'var(--muted)') + '">'
-      + (har ? minutter(l.sek) : '–') + '</div>'
-    + '<div style="flex:1;padding-left:6px">' + l.runder.map(rundeMerke).join('')
-      + (l.avbruttProve ? avbruttMerke('Prøve avbrutt'
-          + (l.avbruttProve > 1 ? ' x' + l.avbruttProve : ''), true) : '')
-      + (l.avbrutt ? avbruttMerke('Avbrutt'
-          + (l.avbrutt > 1 ? ' x' + l.avbrutt : ''), false) : '')
-      + '</div></div>';
-}
-
-function proveKort(data){
-  const el = document.getElementById('cProve');
-  const medProve = data.filter(r => r.runder.some(x => x && x.prove));
-  if (!medProve.length) {
-    el.innerHTML = '<div style="font-size:12.5px;color:var(--text-secondary);padding:4px 0 10px">'
-      + 'Ingen har tatt prøvesimulering ennå.</div>';
-    return;
-  }
-  // Median brukstid: proeve-takere mot resten
-  const med = v => { const s = v.filter(x=>x>0).sort((a,b)=>a-b);
-    return s.length ? s[Math.floor(s.length/2)] : 0; };
-  // Spilltid, ikke «app aapen» - den siste inneholder bakgrunnstid
-  const mP = med(medProve.map(spilltid));
-  const mR = med(data.filter(r => !medProve.includes(r)).map(spilltid));
-  let s = '<div style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px">'
-    + '<b>' + medProve.length + '</b> av ' + data.length + ' enheter har tatt prøven. '
-    + (mP || mR ? 'Median tid i spill: <b>' + minutter(mP) + '</b> for dem, mot '
-        + minutter(mR) + ' for de andre.' : '') + '</div>';
-  medProve.forEach(r => {
-    const linjer = dagsLinjer(r);
-    const proveDato = r.runder.filter(x => x && x.prove).map(x => x.dato).sort().pop();
-    // Aktivitet ETTER siste proeve = kom de tilbake for aa oeve?
-    const etter = r.runder.filter(x => x && x.dato > proveDato);
-    const sisteAktivDag = r.oppdatert.slice(0,10);
-    const dagerSiden = Math.round((Date.parse(sisteAktivDag) - Date.parse(proveDato)) / 864e5);
-    let dom;
-    if (etter.length) dom = '<span style="color:var(--good-text)">kom tilbake og øvde ('
-      + etter.length + ' ' + (etter.length === 1 ? 'runde' : 'runder') + ')</span>';
-    else if (dagerSiden >= 1) dom = 'åpnet appen ' + dagerSiden + ' d senere, men øvde ikke';
-    else dom = 'ikke sett igjen ennå';
-    s += '<div style="border-top:1px solid var(--grid);padding:10px 0 4px">'
-      + '<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">'
-      + '<div style="font-family:ui-monospace,Menlo,monospace;font-size:12px">' + r.id.slice(0,8)
-      + '<span class="merke">' + minutter(r.tid) + '</span></div>'
-      + '<div style="font-size:12px;color:var(--text-secondary)">' + dom + '</div></div>';
-    const maks = Math.max(60, ...linjer.map(l => l.sek || 0));
-    s += linjer.map(l => dagsRad(l, maks)).join('') + '</div>';
-  });
-  el.innerHTML = s;
-}
-
-
-
-// Nedlastinger og kjoep per dag.
-//
-// Nedlasting = foerste oppstart. Enheter fra foer ota-141 mangler feltet og
-// er ikke med - de er alle eldre enn 14-dagersvinduet uansett.
-//
-// Kjoepsdatoen er UTLEDET: proUtlop minus 120 dager. For et enkeltkjoep er
-// det riktig paa minuttet; for den som har forlenget flere ganger peker den
-// paa siste forlengelse, ikke foerste kjoep. Antatte kjoep (uten kvittering)
-// dateres til foerste store runde. Begge deler er anslag, og staar som det.
-function nedlastKort(data){
-  const nd = {}, kj = {};
-  let utenDato = 0;
-  data.forEach(r => {
-    // Samme dato som tabellen viser. Uten spor i det hele tatt telles enheten
-    // ikke - sist aktiv er ingen nedlastingsdato.
-    const n = nedlastKilde(r);
-    if (n.kilde) nd[n.dato] = (nd[n.dato] || 0) + 1;
-    const k = kjopsInfo(r);
-    if (!k.betalt) return;
-    if (k.dag) kj[k.dag] = (kj[k.dag] || 0) + 1; else utenDato++;
-  });
-  stolper('cNedlast', sisteDager(nd), 'nedlastinger');
-  stolper('cKjopDag', sisteDager(kj), 'kjøp');
-  const grense = sisteDager({})[0][0];
-  const sum = o => Object.entries(o).filter(([d]) => d >= grense)
-    .reduce((a, kv) => a + kv[1], 0);
-  const n = sum(nd), k2 = sum(kj);
-  document.getElementById('cKjopDag').insertAdjacentHTML('beforeend',
-    "<div style='font-size:11.5px;color:var(--muted);margin-top:6px'>siste " + dager
-    + " dager: <b>" + n + "</b> nedlastinger og <b>" + k2 + "</b> kjøp"
-    + (n ? " – " + (100 * k2 / n).toFixed(1) + " %" : "")
-    + (utenDato ? " · " + utenDato + " kjøp uten dato" : "") + "</div>");
-}
-
-// Modellene mot hverandre. Ett tall per modell i samme rad, saa det gaar an
-// aa se om 5-minutters tidsmodellen faktisk selger bedre enn dagsrasjonen.
-//
-// FELLE: en enhet som fikk OTAen i dag har brukt appen i ukevis under den
-// GAMLE modellen, og all den tiden ligger fortsatt i tallene. Kjoepsraten per
-// modell er derfor ikke et rent forsoek - den maa leses sammen med hvor lenge
-// gruppen har hatt appen, som er siste kolonne.
-function modellKort(data){
-  const g = {};
-  data.forEach(r => { const n = nivaa(r); (g[n.n] = g[n.n] || { m: n, r: [] }).r.push(r); });
-  const nokler = Object.keys(g).map(Number).sort((a, b) => b - a);
-  const med = a => { const x = a.slice().sort((p, q) => p - q);
-    return x.length ? x[Math.floor(x.length / 2)] : 0; };
-  const rad = nokler.map(k => {
-    const rs = g[k].r;
-    const kjop = rs.filter(r => kjopsInfo(r).betalt).length;
-    const runder = rs.reduce((a, r) => a + r.runder.length, 0);
-    // Tom potte akkurat naa. Gjelder alle buildene, men bare siste talte dag -
-    // se pottenTom. Android og kjoepere holdes utenfor: de kan aldri laases.
-    const laast = rs.filter(r => kanLaases(r) && pottenTom(r)).length;
-    return { navn: g[k].m.navn, n: rs.length, kjop, laast,
-      tid: med(rs.map(r => r.tid).filter(t => t > 0)),
-      runder: rs.length ? runder / rs.length : 0,
-      // Bare tidsmodellen har en potte aa bruke opp
-      n3: k === 3,
-      hatt: med(rs.map(r => dagerHatt(r)).filter(Boolean)) };
-  });
-  const c = (t, fet) => "<td style='text-align:right;padding:5px 8px"
-    + (fet ? ";font-weight:600" : "") + "'>" + t + "</td>";
-  const th = t => "<th style='padding:5px 8px;font-weight:500'>" + t + "</th>";
-  document.getElementById('cModell').innerHTML =
-    "<table style='width:100%;min-width:460px;border-collapse:collapse;font-size:12.5px'>"
-    + "<tr style='color:var(--muted);text-align:right'>"
-    + "<th style='text-align:left;padding:5px 8px;font-weight:500'>modell</th>"
-    + th("enheter") + th("kjøp") + th("kjøpsrate") + th("median tid")
-    + th("runder/enhet") + th("tom potte nå") + th("median dager eid") + "</tr>"
-    + rad.map(x => "<tr style='border-top:1px solid var(--grid)'>"
-      + "<td style='padding:5px 8px'>" + x.navn + "</td>"
-      + c(x.n) + c(x.kjop)
-      + c(x.n ? (100 * x.kjop / x.n).toFixed(1) + " %" : "–", true)
-      + c(x.tid ? minutter(x.tid) : "–") + c(x.runder.toFixed(1))
-      + c(x.n3 ? x.laast : "–") + c(x.hatt || "–") + "</tr>").join("") + "</table>";
-  // Infolinja over flisene: hvor langt utrullingen er kommet
-  const ny = (g[3] || { r: [] }).r.length;
-  document.getElementById('byggInfo').innerHTML =
-    "<span><span class='ny'>" + ny + "</span> på 5-minuttersmodellen"
-    + " <span style='color:var(--muted)'>(" + (100 * ny / Math.max(1, data.length)).toFixed(1)
-    + " %)</span></span>"
-    + nokler.filter(k => k !== 3).map(k => "<span><b>" + g[k].r.length + "</b> "
-      + g[k].m.kort + "</span>").join("")
-    + "<span style='color:var(--muted)'>en OTA slår først inn ved neste oppstart</span>";
-}
-
-// Sekunder per spill, ikke antall aapninger. Dette er det eneste maalet som
-// sier hvor lenge noen faktisk BLIR i et spill - hendelsestellerne sa bare
-// hvor mange ganger siden ble aapnet.
-//
-// Snittet regnes over enhetene som har vaert i spillet i det hele tatt, ikke
-// over alle: ellers drar de som aldri aapnet blitz snittet mot null, og
-// spillene blir usammenlignbare.
-const SPILL = [
-  ['Quiz', ['quiz']],
-  ['Fasit etter runden', ['resultat']],
-  ['Skilt-blitz', ['blitz']],
-  ['Dash-blitz', ['lampeblitz']],
-  ['Pensum', ['kapittel', 'teoribok', 'laer']],
-  ['Bilen og lampene', ['bilen', 'lamper', 'betjening']],
-  ['Praktisk info', ['veien', 'provinfo', 'feller', 'ordliste']],
-  ['Meny og profil', ['hjem', 'ov', 'teori', 'profil', 'oppsett', 'resultater', 'rundedetalj']],
-];
-function spilltidKort(data){
-  const med = data.filter(r => r.skjermSek && Object.keys(r.skjermSek).length);
-  const el = document.getElementById('cSpilltid');
-  if (!med.length) { el.innerHTML = "<div style='color:var(--muted);font-size:12px'>"
-    + "Ingen enheter har fått build-126 ennå.</div>"; return; }
-  const rad = SPILL.map(par => {
-    const tall = med.map(r => skjermTid(r, par[1])).filter(t => t > 0);
-    const sum = tall.reduce((a, b) => a + b, 0);
-    return { navn: par[0], n: tall.length, sum, snitt: tall.length ? sum / tall.length : 0 };
-  }).sort((a, b) => b.sum - a.sum);
-  const maks = Math.max(1, ...rad.map(x => x.sum));
-  el.innerHTML = rad.map(x =>
-    "<div style='margin:7px 0'><div style='display:flex;justify-content:space-between;"
-    + "font-size:12.5px;margin-bottom:3px'><span>" + x.navn + "</span>"
-    + "<span style='color:var(--muted)'>" + minutter(Math.round(x.snitt))
-    + " snitt · " + x.n + " enheter</span></div>"
-    + "<div style='height:7px;background:var(--grid);border-radius:4px;overflow:hidden'>"
-    + "<div style='height:100%;width:" + (100 * x.sum / maks).toFixed(1)
-    + "%;background:var(--series-1);border-radius:4px'></div></div></div>").join("")
-    + "<div style='font-size:11.5px;color:var(--muted);margin-top:8px'>stolpen er samlet "
-    + "tid, tallet er snitt per enhet som var innom · " + med.length + " enheter</div>";
-}
-
-// Hvor de avbryter. En avbrutt runde lagres ALDRI i rundeloggen, saa den er
-// usynlig der - hendelsestellerne er eneste spor. Differansen mellom startet
-// og fullfoert er frafallet inne i runden.
-function avbruddKort(data){
-  const nye = data.filter(r => r.hendelser);
-  const el = document.getElementById('cAvbrudd');
-  if (!nye.length) { el.innerHTML = "<div style='color:var(--muted);font-size:12px'>"
-    + "Krever nyeste build.</div>"; return; }
-  const sum = k => nye.reduce((a, r) => a + hend(r, k), 0);
-  const rad = [
-    ['Quizrunde', sum('runde_start'), sum('runde_fullfort')],
-    ['Prøvesimulering', sum('prove_start'), sum('prove_fullfort')],
-  ];
-  const avbProve = sum('prove_avbrutt');
-  // Detaljene fra build-134. Faa enheter har dem ennaa, saa de vises som et
-  // tillegg under tellerne - ikke i stedet for dem.
-  const detaljer = [];
-  data.forEach(r => (r.avbrutte || []).forEach(x => {
-    if (x && x.dato && x.av > 0) detaljer.push(x);
-  }));
-  const TYPENAVN = { ov: 'Øving', prove: 'Prøve', blitz: 'Skilt-blitz', dash: 'Dash-blitz' };
-  el.innerHTML = rad.map(x => {
-    const st = x[1], fu = x[2], av = Math.max(0, st - fu);
-    return "<div style='margin:9px 0'><div style='display:flex;justify-content:space-between;"
-      + "font-size:12.5px;margin-bottom:3px'><span>" + x[0] + "</span><span><b>" + av
-      + "</b> av " + st + " avbrutt <span style='color:var(--muted)'>("
-      + (st ? (100 * av / st).toFixed(0) : 0) + " %)</span></span></div>"
-      + "<div style='height:9px;background:var(--grid);border-radius:5px;overflow:hidden;display:flex'>"
-      + "<div style='height:100%;width:" + (st ? 100 * fu / st : 0).toFixed(1)
-      + "%;background:var(--good-text)'></div>"
-      + "<div style='height:100%;flex:1;background:var(--critical);opacity:.75'></div></div></div>";
-  }).join("")
-    + "<div style='font-size:11.5px;color:var(--muted);margin-top:8px'>grønt = fullført, "
-    + "rødt = forlatt underveis" + (avbProve ? " · " + avbProve
-    + " prøver avbrutt med bekreftelse" : "") + "</div>";
-  // Hvor langt kom de, og hvor lenge holdt de paa? Median, ikke snitt: ett
-  // avbrudd etter fem sekunder skal ikke dra hele bildet.
-  if (detaljer.length) {
-    const med2 = a => { const s2 = a.slice().sort((p, q) => p - q);
-      return s2.length ? s2[Math.floor(s2.length / 2)] : 0; };
-    const rader2 = Object.keys(TYPENAVN).map(t => {
-      const d = detaljer.filter(x => x.type === t);
-      if (!d.length) return null;
-      return TYPENAVN[t] + ": <b>" + d.length + "</b> avbrutt, typisk ved <b>"
-        + med2(d.map(x => +x.ved || 0)) + " av " + med2(d.map(x => +x.av || 0))
-        + "</b> etter " + minutter(med2(d.map(x => +x.sek || 0)));
-    }).filter(Boolean);
-    el.insertAdjacentHTML('beforeend',
-      "<div style='font-size:12px;margin-top:10px;line-height:1.8;border-top:1px solid "
-      + "var(--grid);padding-top:8px'>" + rader2.join("<br>")
-      + "<br><span style='color:var(--muted)'>fra " + detaljer.length + " loggede avbrudd"
-      + " på " + data.filter(r => (r.avbrutte || []).length).length + " enheter"
-      + " - krever build-134</span></div>");
-  }
-}
-
-// Foer laasing: hvor mange som faktisk moeter tidsgrensen, og hva de rakk.
-//
-// Maales bare paa 5-minuttersmodellen. De eldre modellene hadde andre
-// grenser, og aa blande dem gir et snitt som ikke gjelder noen.
-function laasKort(data){
-  const med = data.filter(r => nivaa(r).n === 3);
-  const el = document.getElementById('cLaas');
-  if (!med.length) { el.innerHTML = "<div style='color:var(--muted);font-size:12px'>"
-    + "Ingen enheter på tidsmodellen ennå.</div>"; return; }
-  // Bare enheter som KAN treffe laasen. Android har hele appen gratis, og
-  // kjoepere har full tilgang - begge ligger paa tidsmodellen, men ingen av
-  // dem kan noensinne bli laast.
-  const kanLaas = med.filter(kanLaases);
-  const maalbar = kanLaas.filter(kanMaaleLaas);
-  const laast = maalbar.filter(r => hend(r, 'laas_vist') > 0);
-  const tomPotte = kanLaas.filter(pottenTom);
-  const kjoptEtter = tomPotte.filter(r => kjopsInfo(r).betalt).length;
-  const potte = kanLaas.filter(r => r.bruk).map(r => +r.bruk.tidSekBrukt || 0);
-  const b = [['ikke rørt', 0], ['under halve potten', 0], ['over halve', 0], ['brukt opp', 0]];
-  potte.forEach(t => b[t <= 0 ? 0 : t < 150 ? 1 : t < 290 ? 2 : 3][1]++);
-  liste('cLaas', b, Math.max(1, ...b.map(x => x[1])), true);
-  // Rakk de en runde foer tiden gikk? Det er terskelen som avgjoer om
-  // gratisnivaaet gir smaken av appen, eller bare av grensen. Maales paa
-  // tom potte, ikke paa laaseskjermen - da gjelder det alle buildene.
-  const utenRunde = tomPotte.filter(r => !r.runder.length).length;
-  // To ulike tall, og de maa ikke forveksles:
-  //   laaseskjerm - kumulativ teller, men finnes foerst fra build-126
-  //   potten tom  - gjelder alle buildene, men bare SISTE talte dag
-  const pst = (a, b) => b ? " <span style='color:var(--muted)'>(" + (100 * a / b).toFixed(0) + " %)</span>" : "";
-  el.insertAdjacentHTML('beforeend',
-    "<div style='font-size:12px;margin-top:10px;line-height:1.8'>"
-    + (maalbar.length
-        ? "<b>" + laast.length + "</b> av " + maalbar.length + " har møtt låsen"
-          + pst(laast.length, maalbar.length)
-        : "<span style='color:var(--muted)'>ingen kan måle låsen ennå - krever build-126</span>")
-    + "<br><b>" + kjoptEtter + "</b> med tom potte har kjøpt" + pst(kjoptEtter, tomPotte.length) + "<br>"
-    + "<span style='color:var(--muted)'><b>" + tomPotte.length + "</b> av " + kanLaas.length
-    + " har tom potte akkurat nå - men det er bare siste dag de var inne, og "
-    + "kveldsbolken kl. 16 nullstiller den</span>"
-    + "<br><span style='color:var(--muted)'><b>" + utenRunde + "</b> av dem uten "
-    + "én eneste fullført runde"
-    + (kanLaas.length < med.length
-        ? " · " + (med.length - kanLaas.length) + " Android-enheter holdt utenfor: der har appen aldri hatt en lås"
-        : "")
-    + "</span></div>");
-}
-
-// Kom de tilbake? Av dem som aapnet appen, hvor mange var innom en annen
-// dag ogsaa - og hvor lang tid gikk det foer andre besoek.
-//
-// Kohorten krever at foerste aktive dag er minst ett doegn gammel. Uten det
-// teller enheter som nettopp lastet ned som «kom aldri tilbake», og
-// frafallet ser stoerre ut enn det er.
-// Alle maales over SAMME strekning. Uten en fast frist ligger det alltid et
-// ferskt lag i nevneren som ikke har rukket aa komme tilbake, og de kan bare
-// havne i «bare den ene dagen» - da synker andelen bare fordi det kommer nye
-// nedlastinger inn.
-const RETUR_VINDU = 7;
+// D1 = inne igjen dagen etter foerste oppstart. D7 = inne paa dag 7 eller
+// senere. Kohorten er enheter fra etter lanseringen som har hatt appen minst
+// 8 dager, saa D7 er mulig for alle i nevneren.
 function returKort(data){
-  const el = document.getElementById('cRetur');
-  const idag = new Date().toISOString().slice(0, 10);
-  const frist = new Date(Date.now() - RETUR_VINDU * 864e5).toISOString().slice(0, 10);
-  const med = [];
-  let utenDagbok = 0;
-  data.forEach(r => {
-    // Ankeret er NEDLASTINGSDATOEN, ikke eldste dagslinje. To grunner:
-    // dagboken kom med ota-142 og begynner derfor midt i historikken for
-    // eldre enheter, og en enhet uten dagslinjer i det hele tatt - typisk
-    // en som var innom kort og aldri kom igjen - ville falt ut av nevneren.
-    const start = nedlastet(r);
-    if (!start || start > frist) return;   // ikke gammel nok til aa svare
-    const grense = new Date(Date.parse(start + 'T00:00:00Z') + RETUR_VINDU * 864e5)
-      .toISOString().slice(0, 10);
-    // Fremtidige datoer forkastes: en telefon med feil klokke ville ellers
-    // gitt en «retur» som ikke har skjedd.
-    const dager = dagsLinjer(r).map(x => x.dato).filter(d => d <= idag).sort();
-    if (!dager.length) utenDagbok++;
-    const retur = dager.filter(d => d > start && d <= grense);
-    const gap = retur.length
-      ? Math.round((Date.parse(retur[0] + 'T00:00:00Z') - Date.parse(start + 'T00:00:00Z')) / 864e5)
-      : null;
-    // Dash-blitz ligger i sitt eget felt, ikke i rundeloggen. Uten dette
-    // telles en som spilte Dash-blitz som en som aldri kom i gang.
-    med.push({ r, gap, runder: (r.runder || []).length + dashAntall(r) });
-  });
-  if (!med.length) { el.innerHTML = "<div style='color:var(--muted);font-size:12px'>"
-    + "Ingen enheter er " + RETUR_VINDU + " dager gamle ennå.</div>"; return; }
-  const b = [
-    ['bare den ene dagen', 0], ['tilbake dagen etter', 0], ['innen 3 dager', 0],
-    ['innen ' + RETUR_VINDU + ' dager', 0],
-  ];
-  med.forEach(x => {
-    if (x.gap === null) b[0][1]++;
-    else b[x.gap <= 1 ? 1 : x.gap <= 3 ? 2 : 3][1]++;
-  });
-  liste('cRetur', b, Math.max(1, ...b.map(x => x[1])), true);
-  const kom = med.filter(x => x.gap !== null);
-  const enDag = med.filter(x => x.gap === null);
-  const utenRunde = enDag.filter(x => !x.runder).length;
-  const medianGap = (() => {
-    const g = kom.map(x => x.gap).sort((a, b2) => a - b2);
-    if (!g.length) return null;
-    // Ekte median: snitt av de to midterste ved partall. Med faa enheter gir
-    // oevre median et tall som ser typisk ut uten aa vaere det.
-    const m = Math.floor(g.length / 2);
-    return g.length % 2 ? g[m] : Math.round((g[m - 1] + g[m]) / 2);
-  })();
-  el.insertAdjacentHTML('beforeend',
-    "<div style='font-size:12px;margin-top:10px;line-height:1.8'>"
-    + "<b>" + kom.length + "</b> av " + med.length + " kom tilbake innen " + RETUR_VINDU + " dager"
-    + " <span style='color:var(--muted)'>(" + (100 * kom.length / med.length).toFixed(0)
-    + " %)</span>"
-    + (medianGap !== null ? ", typisk etter <b>" + medianGap + (medianGap === 1 ? " dag" : " dager")
-        + "</b>" : "")
-    + (enDag.length ? "<br><span style='color:var(--muted)'><b>" + utenRunde + "</b> av de "
-        + enDag.length + " som bare var innom én dag rakk aldri en runde eller en Dash-blitz</span>" : "")
-    + (utenDagbok ? "<br><span style='color:var(--muted)'>" + utenDagbok + " av dem har ingen"
-        + " dagslogg i det hele tatt - de teller som endagsbrukere, som er det mest sannsynlige</span>" : "")
-    + "<br><span style='color:var(--muted)'>Døgnskillet er UTC, altså kl. 02 norsk tid:"
-    + " en økt som krysser den telles som to dager</span></div>");
+  const idag = Date.parse(idagIso());
+  const g = data.filter(r => nedlastet(r) >= LANSERT && idag - Date.parse(nedlastet(r)) >= 8*864e5);
+  const dagN = (r, n) => new Date(Date.parse(nedlastet(r)) + n*864e5).toISOString().slice(0,10);
+  const d1 = g.filter(r => aktiveDager(r).includes(dagN(r, 1))).length;
+  const d7 = g.filter(r => { const s = Date.parse(nedlastet(r)); return aktiveDager(r).some(d => Date.parse(d) - s >= 7*864e5); }).length;
+  const u1 = g.filter(r => { const s = Date.parse(nedlastet(r)); return aktiveDager(r).some(d => { const t = Date.parse(d) - s; return t >= 864e5 && t < 7*864e5; }); }).length;
+  document.getElementById('cRetur').innerHTML = g.length
+    ? lrad('D1 · dagen etter', d1, g.length, pct(d1, g.length)) + lrad('Noen dag i uke 1', u1, g.length, pct(u1, g.length))
+      + lrad('D7 · dag 7 eller senere', d7, g.length, pct(d7, g.length))
+      + '<div class="hull">' + g.length + ' enheter fra etter lansering med minst 8 dagers eiertid.</div>'
+    : '<span style="color:var(--muted)">for få enheter med en ukes eiertid</span>';
+}
+function lrad(navn, v, maks, tekst, b){
+  return '<div class="lrad"><span class="ln">' + navn + '</span><span class="lb"><i' + (b ? ' class="b"' : '') + ' style="width:' + (maks ? Math.round(100*v/maks) : 0) + '%"></i></span><span class="lv">' + tekst + '</span></div>';
+}
+function rekkeKort(data){
+  const b = [['1 dag',0],['2 dager',0],['3–4 dager',0],['5–7 dager',0],['over en uke',0]];
+  data.forEach(r => { const n = lengsteRekke(r); if (!n) return; b[n <= 1 ? 0 : n === 2 ? 1 : n <= 4 ? 2 : n <= 7 ? 3 : 4][1]++; });
+  const maks = Math.max(1, ...b.map(x => x[1]));
+  document.getElementById('cRekke').innerHTML = b.map(([n, v]) => lrad(n, v, maks, String(v))).join('');
 }
 
-function traktKort(data){
-  const nye = data.filter(r => r.hendelser);
-  const el = document.getElementById("cTrakt");
-  if (!nye.length) { el.innerHTML = "<div style='color:var(--muted);font-size:12px'>" +
-    "Krever nyeste build.</div>"; return; }
-  const tell = k => nye.filter(r => (r.hendelser[k] || 0) > 0).length;
-  const dialog = nye.filter(r => Object.keys(r.hendelser).some(k => k.startsWith("betaldialog_"))).length;
-  const steg = [["Åpnet appen", nye.length], ["Så betalingsdialogen", dialog],
-                ["Startet kjøp", tell("kjop_start")], ["Fullførte kjøp", tell("kjop_fullfort")]];
-  liste("cTrakt", steg, nye.length, true);
-}
-
-
-// Hva skjedde FOER kjoepet? Kjoeperne maales mot aktive ikke-kjoepere, og
-// bare paa det som lot seg observere foer kjoepsdagen - alt etterpaa er
-// virkning av kjoepet, ikke aarsak til det.
-function monsterKort(data){
-  const el = document.getElementById("cMonster");
-  const alle = data.map(r => ({ r, i: kjopsInfo(r) }));
-  const kj = alle.filter(x => x.i.betalt);
-  // Sammenligningsgruppe: har brukt appen, men ikke kjoept.
-  const ikke = alle.filter(x => !x.i.betalt && (x.r.runder.length > 0 || x.r.tid > 0));
-  document.getElementById("antMonster").textContent = kj.length + " kjøpere";
-  if (!kj.length) { el.innerHTML = "<div style='color:var(--muted);font-size:12px'>Ingen kjøp påvist ennå.</div>"; return; }
-
-  // --- maal som kan leses foer kjoepsdagen ---
-  const kjopsdag = x => x.i.kjopMs ? new Date(x.i.kjopMs).toISOString().slice(0,10) : x.i.dag;
-  const foerDag = (r, til) => til ? Object.keys(r.tidDager || {}).filter(d => d <= til) : Object.keys(r.tidDager || {});
-  // aktive dager til og med kjoepsdagen
-  const aktiveDager = x => {
-    const til = x.i.betalt ? kjopsdag(x) : null;
-    const s2 = new Set([
-      ...Object.keys(x.r.tidDager || {}).filter(d => +x.r.tidDager[d] > 0 && (!til || d <= til)),
-      ...x.r.runder.filter(y => y && y.dato && (!til || y.dato <= til)).map(y => y.dato),
-    ]);
-    return s2.size;
+// 3. HVOR TIDEN GAAR
+function siderKort(data){
+  const lag = (liste, id, klasse) => {
+    const m = liste.filter(r => r.skjermSek);
+    if (!m.length) { document.getElementById(id).innerHTML = '<span style="color:var(--muted)">ingen enheter med sidetid (krever build-126)</span>'; return; }
+    const per = {};
+    m.forEach(r => Object.entries(r.skjermSek).forEach(([k, v]) => { (per[k] = per[k] || []).push(+v || 0); }));
+    const rader2 = Object.entries(per).map(([k, a]) => ({ k, n: a.length, m: med(a), sum: a.reduce((x,y)=>x+y,0) }))
+      .filter(x => x.k !== 'kilder').sort((a,b) => b.m - a.m);
+    const maks = Math.max(1, ...rader2.map(x => x.m));
+    document.getElementById(id).innerHTML = rader2.map(x => {
+      const vekt = SKJERM_VEKT[x.k];
+      return lrad((SKJERM_NAVN[x.k] || x.k) + '<span class="vekt">' + vektTekst(x.k) + '</span>',
+        x.m, maks, minutter(x.m) + ' <span style="color:var(--muted)">· ' + x.n + '</span>', klasse);
+    }).join('') + '<div class="hull">' + m.length + ' enheter måles. Tallet til høyre er hvor mange som har vært på siden.</div>';
   };
-  const runderFoer = x => x.i.betalt ? (x.i.foerRunder || 0) : x.r.runder.length;
-  // null naar enheten mangler dagslogg (eldre build) - da kan tiden foer
-  // kjoepet ikke leses, og enheten maa holdes utenfor snittet i BEGGE
-  // grupper. Ellers ville kjoepere fatt 0 og ikke-kjoepere full tid.
-  const tidFoer = x => {
-    if (!Object.keys(x.r.tidDager || {}).length) return null;
-    const til = x.i.betalt ? kjopsdag(x) : null;
-    return foerDag(x.r, til).reduce((a,d) => a + (+x.r.tidDager[d] || 0), 0);
-  };
-  const toDagerFoer = x => {
-    const til = x.i.betalt ? kjopsdag(x) : null;
-    return x.r.runder.filter(y => y && y.dato && (!til || y.dato <= til) && y.prove).length > 0;
-  };
-  const median = a => { const b = a.filter(v => v !== null && !isNaN(v)).sort((x,y)=>x-y);
-    return b.length ? b[Math.floor(b.length/2)] : 0; };
-  const pct = (n, av) => av ? Math.round(100*n/av) + " %" : "–";
-
-  const rader = [
-    ["Tok prøvesimulering først", pct(kj.filter(toDagerFoer).length, kj.length),
-       pct(ikke.filter(toDagerFoer).length, ikke.length),
-       kj.filter(toDagerFoer).length + " av " + kj.length],
-    ["Median runder spilt", median(kj.map(runderFoer)), median(ikke.map(runderFoer)), ""],
-    ["Median aktive dager", median(kj.map(aktiveDager)), median(ikke.map(aktiveDager)), ""],
-    ["Median tid i appen", minutter(median(kj.map(tidFoer))), minutter(median(ikke.map(tidFoer))),
-       kj.filter(x => tidFoer(x) !== null).length + " av " + kj.length + " har dagslogg"],
-    ["Rakk 3 runder eller mer", pct(kj.filter(x => runderFoer(x) >= 3).length, kj.length),
-       pct(ikke.filter(x => runderFoer(x) >= 3).length, ikke.length), ""],
-  ];
-
-  let h = "<div style='overflow-x:auto'><table>" +
-    "<tr><th></th><th style='text-align:right'>kjøpere (" + kj.length + ")</th>" +
-    "<th style='text-align:right'>kjøpte ikke (" + ikke.length + ")</th><th></th></tr>" +
-    rader.map(r2 => "<tr><td>" + r2[0] + "</td>" +
-      "<td style='text-align:right'><b>" + r2[1] + "</b></td>" +
-      "<td style='text-align:right;color:var(--muted)'>" + r2[2] + "</td>" +
-      "<td style='color:var(--muted);font-size:11.5px'>" + (r2[3]||"") + "</td></tr>").join("") +
-    "</table></div>";
-
-  // --- hvor fort gikk det ---
-  const dager = kj.map(x => (x.r.foerste && kjopsdag(x))
-    ? Math.max(0, Math.round((Date.parse(kjopsdag(x)) - Date.parse(x.r.foerste.slice(0,10)))/864e5)) : null)
-    .filter(v => v !== null);
-  if (dager.length) {
-    const b = [["kjøpte samme dag", dager.filter(v => v === 0).length],
-               ["dagen etter", dager.filter(v => v === 1).length],
-               ["2-6 dager", dager.filter(v => v >= 2 && v <= 6).length],
-               ["7 dager eller mer", dager.filter(v => v >= 7).length]];
-    h += "<div class='detblokk'><div class='tit'>tid fra nedlasting til kjøp (" + dager.length + " med pålitelig dato)</div></div>";
-    h += "<div id='mFordeling'></div>";
-    setTimeout(() => liste("mFordeling", b, Math.max(1, ...b.map(x => x[1])), true), 0);
-  }
-
-  // --- runder paa selve kjoepsdagen: skjer kjoepet naar de moeter veggen? ---
-  const paaDagen = kj.map(x => {
-    const d = kjopsdag(x); if (!d) return null;
-    return x.r.runder.filter(y => y && y.dato === d).length;
-  }).filter(v => v !== null);
-  if (paaDagen.length) {
-    const snitt = (paaDagen.reduce((a,b2)=>a+b2,0) / paaDagen.length).toFixed(1);
-    h += "<div class='detblokk'><div class='tit'>på selve kjøpsdagen</div>" +
-      "median <b>" + median(paaDagen) + "</b> runder, snitt " + snitt +
-      " &nbsp;·&nbsp; " + paaDagen.filter(v => v >= 3).length + " av " + paaDagen.length +
-      " spilte 3 runder eller mer den dagen</div>";
-  }
-
-  // --- betalingsdialogen (bare nyeste build) ---
-  const medH = kj.filter(x => x.r.hendelser);
-  if (medH.length) {
-    const saaDialog = medH.filter(x => Object.keys(x.r.hendelser).some(k2 => k2.startsWith("betaldialog_"))).length;
-    h += "<div class='detblokk'><div class='tit'>betalingsdialogen</div>" +
-      saaDialog + " av " + medH.length + " kjøpere på nyeste build har registrert dialogvisning</div>";
-  }
-
-  el.innerHTML = h;
+  lag(data.filter(r => !kjopsInfo(r).betalt), 'cSiderG', false);
+  lag(data.filter(kvittert), 'cSiderK', true);
+}
+function avbruddKort(data){
+  const alle = []; data.forEach(r => (r.avbrutte || []).forEach(a => { if (a && a.av > 0) alle.push(a); }));
+  if (!alle.length) { document.getElementById('cAvbrudd').innerHTML = '<span style="color:var(--muted)">ingen avbrudd logget ennå (krever build-134)</span>'; return; }
+  const typer = { ov: 'Øvingsrunde', prove: 'Prøve', blitz: 'Skilt-blitz', dash: 'Dash-blitz' };
+  const per = {}; alle.forEach(a => { (per[a.type] = per[a.type] || []).push(a); });
+  document.getElementById('cAvbrudd').innerHTML = Object.entries(per).map(([t, a]) => {
+    const andel = med(a.map(x => x.ved / x.av)), sek = med(a.map(x => +x.sek || 0));
+    return lrad(typer[t] || t, a.length, alle.length, a.length + ' · ved ' + Math.round(100*andel) + ' % · ' + minutter(sek));
+  }).join('') + '<div class="hull">' + alle.length + ' avbrudd fra ' + data.filter(r => (r.avbrutte||[]).length).length + ' enheter. «ved» = hvor langt inn i runden, median.</div>';
 }
 
-function kjoperKort(data){
-  const alle = data.map(r => ({ r, i: kjopsInfo(r) }));
-  const antattN = alle.filter(x => x.i.kilde === 'antatt').length;
-  // Bade kvitterte og antatte kjoep - antatte er enheter paa eldre build
-  // der store oevingsrunder beviser full tilgang uten at kvittering finnes.
-  const k = alle.filter(x => x.i.betalt)
-    .sort((a,b) => (b.i.dag || "").localeCompare(a.i.dag || ""));
-  const el = document.getElementById("cKjop");
-  if (!k.length) { el.innerHTML = "<div style='color:var(--muted);font-size:12px'>" +
-    "Ingen kjøp påvist ennå.</div>"; return; }
-
-  // Dager fra foerste oppstart til kjopsdagen. null naar foerste mangler
-  // (enheter fra foer ota-141 har feil foerstedato og maa holdes utenfor).
-  const dagerFoerKjop = x => (x.r.foerste && x.i.dag)
-    ? Math.max(0, Math.round((Date.parse(x.i.dag) - Date.parse(x.r.foerste.slice(0,10))) / 864e5))
-    : null;
-
-  const tot = {}, kjop = {};
-  data.forEach(r => { const s = r.sprak || "ukjent"; tot[s] = (tot[s]||0)+1; });
-  k.forEach(x => { const s = x.r.sprak || "ukjent"; kjop[s] = (kjop[s]||0)+1; });
-  const spr = Object.keys(kjop).sort((a,b) => kjop[b]-kjop[a]);
-
-  // Naar kjoper de? Det er sporsmaalet kortet skal svare paa.
-  const md = k.map(dagerFoerKjop).filter(v => v !== null);
-  const samme = md.filter(v => v === 0).length;
-  const etter1 = md.filter(v => v === 1).length;
-  const senere = md.filter(v => v >= 2).length;
-
-  let s2 = "<div style='font-size:12.5px;color:var(--text-secondary);margin-bottom:4px'>" +
-    "<b>" + k.length + "</b> av " + data.length + " enheter (" +
-    (100*k.length/Math.max(1,data.length)).toFixed(1) + " %)" +
-    (antattN ? " - av dem " + antattN + " antatt (eldre build, uten kvittering)" : "") + ". Per språk: " +
-    spr.map(x => (x === "ukjent" ? "Ukjent" : sprakNavn(x)) + " " + kjop[x] + "/" + tot[x] +
-      (tot[x] >= 5 ? " (" + Math.round(100*kjop[x]/tot[x]) + " %)" : "")).join(" · ") + "</div>";
-  if (md.length) s2 += "<div style='font-size:12.5px;color:var(--text-secondary);margin-bottom:10px'>" +
-    "Kjøpte <b>samme dag</b>: " + samme + " · <b>dagen etter</b>: " + etter1 +
-    " · <b>etter 2 dager eller mer</b>: " + senere +
-    " <span style='color:var(--muted)'>(" + (k.length - md.length) +
-    " uten pålitelig nedlastingsdato)</span></div>";
-
-  s2 += "<div style='overflow-x:auto'><table id='ktab'>" +
-    "<tr><th></th><th>enhet</th><th>språk</th><th>kjøpsdag</th>" +
-    "<th style='text-align:right'>hadde appen</th>" +
-    "<th style='text-align:right'>spilt før kjøp</th>" +
-    "<th style='text-align:right'>runder før</th>" +
-    "<th style='text-align:right'>tid i dag</th></tr>";
-
-  k.forEach((x, i) => {
-    const linjer = dagsLinjer(x.r);
-    const kanApnes = linjer.length > 0;
-    const d = dagerFoerKjop(x);
-    s2 += "<tr" + (kanApnes ? " style='cursor:pointer' data-krad='" + i + "'" : "") + ">" +
-      "<td style='width:14px;color:var(--muted)'>" +
-        (kanApnes ? "<span id='kpil" + i + "'>›</span>" : "") + "</td>" +
-      "<td>" + x.r.id.slice(0,8) +
-        (x.i.kilde === "antatt" ? "<span class='merke' title='store runder, men ingen kvittering'>antatt</span>" : "") +
-        "</td><td>" + sprakNavn(x.r.sprak) +
-      "</td><td>" + fmtDag(x.i.dag) +
-      "</td><td style='text-align:right'>" +
-        (d === null ? "<span style='color:var(--muted)'>–</span>"
-          : d === 0 ? "<b>samme dag</b>" : d + " d") +
-      "</td><td style='text-align:right'>" +
-        (x.i.foerTid ? minutter(x.i.foerTid) : "<span style='color:var(--muted)'>–</span>") +
-      "</td><td style='text-align:right'>" + x.i.foerRunder +
-      "</td><td style='text-align:right'>" + (x.r.tid ? minutter(x.r.tid) : "–") + "</td></tr>";
-    if (kanApnes) {
-      const maks = Math.max(60, ...linjer.map(l => l.sek || 0));
-      s2 += "<tr id='kdet" + i + "' style='display:none'><td></td>" +
-        "<td colspan='7' style='padding:4px 0 12px'>" +
-        "<div style='display:flex;gap:9px;font-size:11px;color:var(--muted);margin-bottom:2px'>" +
-        "<span style='width:44px;flex:none'>dato</span>" +
-        "<span style='width:128px;flex:none'>tid i appen</span><span>runder</span></div>" +
-        linjer.map(l => dagsRad(l, maks)).join('') + "</td></tr>";
-    }
-  });
-
-  el.innerHTML = s2 + "</table></div>";
-  el.querySelectorAll('[data-krad]').forEach(rad => {
-    rad.addEventListener('click', () => {
-      const i = rad.dataset.krad, d = document.getElementById('kdet' + i);
-      const apen = d.style.display !== 'none';
-      d.style.display = apen ? 'none' : '';
-      const pil = document.getElementById('kpil' + i);
-      if (pil) pil.textContent = apen ? '›' : '⌄';
-    });
-  });
+// 4. UKE FOR UKE
+function ukeStart(d){ const t = new Date(Date.parse(d)); const dag = (t.getUTCDay() + 6) % 7; t.setUTCDate(t.getUTCDate() - dag); return t.toISOString().slice(0,10); }
+function ukeKort(data){
+  const per = {};
+  const u = d => (per[d] = per[d] || { nye: 0, kjop: 0, kr: 0, meta: 0, asa: 0 });
+  data.forEach(r => { u(ukeStart(nedlastet(r))).nye++; if (!KJOP_RC.length && kvittert(r)) u(ukeStart(kjopsInfo(r).dag)).kjop++; });
+  KJOP_RC.forEach(t => { u(ukeStart(t.d)).kjop++; });
+  const alleDager = new Set([...Object.keys(META_KR)]);
+  for (let t = Date.parse(ASA_START); t <= Date.now(); t += 864e5) alleDager.add(new Date(t).toISOString().slice(0,10));
+  alleDager.forEach(d => { const rk = reklameKr(d), w = u(ukeStart(d)); w.kr += rk.sum; w.meta += rk.meta; w.asa += rk.asa; });
+  const uker = Object.keys(per).filter(k => k >= ukeStart(LANSERT)).sort();
+  const kr = n => Math.round(n).toLocaleString('nb-NO') + ' kr';
+  const tot = { nye:0, kjop:0, kr:0 };
+  let s = '<table><tr><th>uke fra</th><th class="h">nye</th><th class="h">kjøp</th><th class="h">konv.</th><th class="h">reklame</th><th class="h">kr / ny</th><th class="h">kr / kjøp</th><th class="h">netto</th><th class="h">resultat</th></tr>';
+  uker.forEach(k => { const w = per[k]; tot.nye += w.nye; tot.kjop += w.kjop; tot.kr += w.kr;
+    const netto = w.kjop * PRIS_KR * BUTIKK_ANDEL;
+    s += '<tr><td>' + fmtDag(k) + '</td><td class="h">' + w.nye + '</td><td class="h">' + w.kjop + '</td><td class="h">' + pct(w.kjop, w.nye)
+      + '</td><td class="h" title="Meta ' + kr(w.meta) + ' + ASA ~' + kr(w.asa) + '">' + kr(w.kr) + '</td><td class="h">' + (w.nye ? kr(w.kr / w.nye) : '–')
+      + '</td><td class="h">' + (w.kjop ? kr(w.kr / w.kjop) : '–') + '</td><td class="h">' + kr(netto) + '</td><td class="h" style="color:' + (netto - w.kr >= 0 ? 'var(--good-text)' : 'var(--critical)') + '">' + kr(netto - w.kr) + '</td></tr>'; });
+  const nettoT = tot.kjop * PRIS_KR * BUTIKK_ANDEL;
+  s += '<tr style="font-weight:700"><td>i alt</td><td class="h">' + tot.nye + '</td><td class="h">' + tot.kjop + '</td><td class="h">' + pct(tot.kjop, tot.nye) + '</td><td class="h">' + kr(tot.kr)
+    + '</td><td class="h">' + (tot.nye ? kr(tot.kr/tot.nye) : '–') + '</td><td class="h">' + (tot.kjop ? kr(tot.kr/tot.kjop) : '–') + '</td><td class="h">' + kr(nettoT) + '</td><td class="h">' + kr(nettoT - tot.kr) + '</td></tr></table>';
+  document.getElementById('cUke').innerHTML = s;
+  document.getElementById('cUkeHull').textContent = 'Datahull: Meta er fakturadatoer (terskelbelastninger), så en uke kan bære forbruk fra uka før. Apple Search Ads er dagsbudsjett (EUR 15 × 11,60), ikke faktura. Google App Campaigns er ikke startet. '
+    + 'Nye enheter er første oppstart fra basen, som ligger under butikkens nedlastingstall (rader slettes etter 90 dager, og noen laster ned uten å åpne). Nettoen bruker 85 % som butikkandel for begge butikker.';
 }
 
-
-// Skjermaapninger. Finnes bare paa nyeste build, saa de fleste faar en
-// forklaring i stedet for et tomt felt.
-function sideOppsummering(r){
-  if (!r.hendelser) return "<div class='detblokk'><div class='tit'>sider åpnet</div>" +
-    "<span style='color:var(--muted)'>krever nyeste build</span></div>";
-  const sider = Object.entries(r.hendelser).filter(([k]) => k.startsWith("skjerm_"))
-    .map(([k,v]) => [k.slice(7), +v || 0]).sort((a,b) => b[1]-a[1]);
-  const annet = Object.entries(r.hendelser).filter(([k]) => !k.startsWith("skjerm_"))
-    .map(([k,v]) => k + " " + v);
-  if (!sider.length && !annet.length) return "";
-  return "<div class='detblokk'><div class='tit'>sider åpnet</div>" +
-    sider.map(([n,v]) => n + " <b>" + v + "</b>").join(" &nbsp;·&nbsp; ") +
-    (annet.length ? "<div style='margin-top:3px;color:var(--series-1)'>" +
-      annet.join(" &nbsp;·&nbsp; ") + "</div>" : "") + "</div>";
+// PERIODER. Grensene er regimeskiftene i appen - ikke en fil eieren maa
+// vedlikeholde. Legg til en linje her naar reglene endres.
+const PERIODER = [
+  { navn: 'Dagsrasjon', fra: '2026-08-14', til: '2026-08-29', regel: 'runder og kort per dag' },
+  { navn: 'Tid, lås utelt', fra: '2026-08-30', til: '2026-08-30', regel: '5 min vektet, build-112' },
+  { navn: 'Tid, lås telles', fra: '2026-08-31', til: '2099-12-31', regel: '5 min vektet, build-126+' },
+];
+function wilson(k, n){ if (!n) return [0, 0]; const z = 1.96, p = k/n, d = 1 + z*z/n, c = p + z*z/(2*n), m = z*Math.sqrt(p*(1-p)/n + z*z/(4*n*n)); return [(c-m)/d, (c+m)/d]; }
+function perioderKort(data){
+  const idag = idagIso();
+  const cell = liste => { const kj = liste.filter(kvittert).length, [lo, hi] = wilson(kj, liste.length);
+    return liste.length ? '<b>' + pct(kj, liste.length) + '</b> <span style="color:var(--muted)">' + kj + '/' + liste.length + ' · ' + Math.round(100*lo) + '–' + Math.round(100*hi) + ' %</span>' : '–'; };
+  const d1 = liste => { const g = liste.filter(r => Date.parse(idag) - Date.parse(nedlastet(r)) >= 2*864e5);
+    const n = g.filter(r => aktiveDager(r).includes(new Date(Date.parse(nedlastet(r)) + 864e5).toISOString().slice(0,10))).length; return g.length ? pct(n, g.length) : '–'; };
+  let s = '<table><tr><th>periode</th><th>regel</th><th class="h">nye</th><th class="h" title="RevenueCat-kjøp med kjøpsdato i perioden, delt på nye i perioden. Ikke kohort - kjøpet kan komme fra en tidligere periodes nye">kjøp RC / nye</th><th class="h">kohort alle</th><th class="h">norsk</th><th class="h">arabisk</th><th class="h">andre</th><th class="h">D1</th><th class="h">møtt låsen</th></tr>';
+  PERIODER.forEach(p => { const k = data.filter(r => { const d = nedlastet(r); return d >= p.fra && d <= p.til; });
+    const m = k.filter(maalbar), laas = m.filter(r => hend(r, 'laas_vist') > 0).length;
+    s += '<tr><td>' + p.navn + ' <span style="color:var(--muted)">' + fmtDag(p.fra) + (p.til < '2099' ? '–' + fmtDag(p.til) : '–') + '</span></td><td style="color:var(--muted)">' + p.regel + '</td><td class="h">' + k.length
+      + '</td><td class="h">' + (KJOP_RC.length ? '<b>' + pct(rcKjop(p.fra, p.til), k.length) + '</b> <span style="color:var(--muted)">' + rcKjop(p.fra, p.til) + '/' + k.length + '</span>' : '–')
+      + '</td><td class="h">' + cell(k) + '</td><td class="h">' + cell(k.filter(r => r.sprak === 'no')) + '</td><td class="h">' + cell(k.filter(r => r.sprak === 'ar'))
+      + '</td><td class="h">' + cell(k.filter(r => r.sprak && r.sprak !== 'no' && r.sprak !== 'ar')) + '</td><td class="h">' + d1(k) + '</td><td class="h" title="av ' + m.length + ' målbare">' + (m.length ? pct(laas, m.length) : '–') + '</td></tr>'; });
+  document.getElementById('cPerioder').innerHTML = s + '</table>';
 }
 
+// 5. ENHETENE
+const KOLONNER = [
+  { k:'id', t:'enhet' }, { k:'sprak', t:'språk' }, { k:'bygg', t:'modell', tall:1 },
+  { k:'foerste', t:'lastet ned', tall:1 }, { k:'hatt', t:'hatt', tall:1, h:1 }, { k:'oppdatert', t:'sist aktiv', tall:1 },
+  { k:'skjerm', t:'på skjerm', tall:1, h:1 }, { k:'spill', t:'i spill', tall:1, h:1 }, { k:'lesing', t:'lesing', tall:1, h:1 }, { k:'runder', t:'runder', tall:1, h:1 },
+  { k:'laast', t:'låst', tall:1, h:1 }, { k:'kjopt', t:'kjøpt', tall:1 }, { k:'aktiv', t:'aktivitet', tall:1 },
+];
+let tabSort = { kol:'foerste', ned:true };
+function sortVerdi(r, k){
+  if (k === 'id') return r.id; if (k === 'sprak') return sprakNavn(r.sprak || '');
+  if (k === 'bygg') return nivaa(r).n; if (k === 'foerste') return nedlastSort(r);
+  if (k === 'hatt') return dagerHatt(r) ?? -1; if (k === 'oppdatert') return r.oppdatert;
+  if (k === 'skjerm') return paaSkjerm(r) ?? -1; if (k === 'spill') return iSpill(r) ?? -1; if (k === 'lesing') return lesing(r) ?? -1;
+  if (k === 'runder') return r.runder.length + (r.lampeblitz || []).length;
+  if (k === 'laast') return hend(r, 'laas_vist');
+  if (k === 'kjopt') { const i = kjopsInfo(r); return i.kjopMs || (i.dag ? Date.parse(i.dag) : 0); }
+  if (k === 'aktiv') return aktiveDager(r).length;
+  return 0;
+}
+function dagStripe(r){
+  const start = nedlastet(r), aktive = new Set(aktiveDager(r)), ki = kjopsInfo(r);
+  const kjopsdag = ki.betalt ? ki.dag : null, dg = [];
+  for (let t = Date.parse(start); t <= Date.parse(idagIso()); t += 864e5) { const d = new Date(t).toISOString().slice(0,10); dg.push({ d, paa: aktive.has(d), kjop: d === kjopsdag }); }
+  let ut = '', i = 0;
+  while (i < dg.length) {
+    if (dg[i].kjop) { ut += '<span class="dpunkt kjop" title="' + dg[i].d + ' - kjøp"></span>'; i++; }
+    else if (dg[i].paa) { ut += '<span class="dpunkt" title="' + dg[i].d + '"></span>'; i++; }
+    else { let j = i; while (j < dg.length && !dg[j].paa && !dg[j].kjop) j++; const n = j - i;
+      if (n > 3) ut += '<span class="dhopp" title="' + n + ' dager uten aktivitet">' + n + '</span>';
+      else for (let k = i; k < j; k++) ut += '<span class="dpunkt av" title="' + dg[k].d + '"></span>';
+      i = j; }
+  }
+  return '<span class="dstripe" title="' + aktive.size + ' aktive av ' + dg.length + ' dager">' + ut + '</span>';
+}
+function sideDetalj(r){
+  if (!r.skjermSek) return '<div class="detblokk"><div class="tit">tid per side</div><span style="color:var(--muted)">krever build-126</span></div>';
+  const rader2 = Object.entries(r.skjermSek).map(([k, v]) => [k, +v || 0]).filter(x => x[1] > 0).sort((a,b) => b[1]-a[1]);
+  const maks = Math.max(1, ...rader2.map(x => x[1]));
+  const bes = k => hend(r, 'skjerm_' + k);
+  // Sekunder per aapning gir mening bare der begge tellerne startet samtidig,
+  // altsaa enheter som fikk appen etter at skjermSek fantes (31.08).
+  const samtidig = nedlastet(r) >= '2026-08-31';
+  return '<div class="detblokk"><div class="tit">tid per side · besøk' + (samtidig ? ' · sek per åpning' : '') + '</div>' + rader2.map(([k, v]) =>
+    lrad((SKJERM_NAVN[k] || k) + '<span class="vekt">' + vektTekst(k) + '</span>', v, maks,
+      minutter(v) + (bes(k) ? ' <span style="color:var(--muted)">· ' + bes(k) + '×' + (samtidig ? ' · ' + Math.round(v / bes(k)) + ' s' : '') + '</span>' : ''), kvittert(r))).join('') + '</div>';
+}
+function hendelseDetalj(r){
+  if (!r.hendelser) return '';
+  const rekkef = ['runde_start','runde_fullfort','prove_start','prove_fullfort','prove_avbrutt','blitz_start','laas_vist',
+    'betaldialog_info','betaldialog_prove','betaldialog_antall','betaldialog_laas','kjop_start','kjop_fullfort','kode_innlost','blitzgave_blitz','blitzgave_lampeblitz','anmeld_trykk'];
+  const deler = rekkef.filter(k => hend(r, k)).map(k => k.replace(/_/g, ' ') + ' <b>' + hend(r, k) + '</b>');
+  return deler.length ? '<div class="detblokk"><div class="tit">hendelser</div>' + deler.join(' &nbsp;·&nbsp; ') + '</div>' : '';
+}
+function dagDetalj(r){
+  const d = aktiveDager(r).slice().reverse().slice(0, 30);
+  const perDag = {}; (r.runder || []).forEach(x => { if (x && x.dato) (perDag[x.dato] = perDag[x.dato] || []).push(x); });
+  (r.lampeblitz || []).forEach(x => { if (x && gyldigMs(+x.d)) { const k = new Date(+x.d).toISOString().slice(0,10); (perDag[k] = perDag[k] || []).push({ dash: true, r: +x.r || 0 }); } });
+  const merke = x => x.dash ? '<span class="merke">&#x26A1; ' + x.r + '</span>' : '<span class="merke' + (x.prove ? '' : '') + '"' + (x.prove ? ' style="color:var(--series-1);border-color:var(--series-1)"' : '') + '>' + (x.prove ? 'Prøve' : 'Øving') + ' ' + (x.poeng ?? x.r ?? '?') + '/' + x.av + '</span>';
+  return '<div class="detblokk"><div class="tit">dager</div>' + d.map(dag => '<div style="margin:2px 0"><span style="display:inline-block;width:44px;color:var(--muted)">' + fmtDag(dag) + '</span>' + (perDag[dag] || []).map(merke).join(' ') + '</div>').join('') + '</div>';
+}
 function tabell(data){
   const t = document.getElementById('tabell');
-  const naa = Date.now();
-  const sortert = [...data].sort((a,b) => {
-    const x = sortVerdi(a, tabSort.kol), y = sortVerdi(b, tabSort.kol);
-    const c = (typeof x === 'number' && typeof y === 'number')
-      ? x - y : String(x).localeCompare(String(y), 'nb');
-    return tabSort.ned ? -c : c;
-  });
-  let s = '<tr><th></th>' + KOLONNER.map(k =>
-    '<th class="sorter' + (tabSort.kol === k.k ? ' aktiv' : '') + '" data-kol="' + k.k + '"'
-    + (k.hoyre ? ' style="text-align:right"' : '') + '>' + k.t
-    + '<span class="pil">' + (tabSort.ned ? '▼' : '▲') + '</span></th>').join('') + '</tr>';
+  const sortert = [...data].sort((a,b) => { const x = sortVerdi(a, tabSort.kol), y = sortVerdi(b, tabSort.kol);
+    const c = (typeof x === 'number' && typeof y === 'number') ? x - y : String(x).localeCompare(String(y), 'nb'); return tabSort.ned ? -c : c; });
+  let s = '<tr><th></th>' + KOLONNER.map(k => '<th class="sorter' + (tabSort.kol === k.k ? ' aktiv' : '') + (k.h ? ' h' : '') + '" data-kol="' + k.k + '">' + k.t + '<span class="pil">' + (tabSort.ned ? '▼' : '▲') + '</span></th>').join('') + '</tr>';
+  const strek = v => v === null ? '<span style="color:var(--muted)" title="krever build-126">–</span>' : minutter(v);
   sortert.forEach((r, i) => {
-    const linjer = dagsLinjer(r);
-    const kanApnes = linjer.length > 0;
-    const soverInn = dagerSidenAktiv(r) > 5;
-    s += '<tr class="' + ('')
-      + (soverInn ? 'sovende' : '') + '"'
-      + (kanApnes ? ' style="cursor:pointer" data-rad="' + i + '"' : '') + '>'
-      + '<td style="width:14px;color:var(--muted)">' + (kanApnes ? '<span id="pil'+i+'">›</span>' : '') + '</td>'
-      + '<td>' + pfMerke(r) + r.id.slice(0,8)
-      + (r.runder.some(x => x && x.prove) ? '<span class="merke">prøve</span>' : '')
-      + (kjopsInfo(r).kilde === 'kjop' ? '<span class="merke betalt">betalt</span>' : '')
-      + (kjopsInfo(r).kilde === 'antatt' ? '<span class="merke" title="store runder, men ingen kvittering rapportert - kan vaere kjoep paa eldre build eller kode">antatt</span>' : '')
-      + (r.kodeUtlop > 0 ? '<span class="merke">kode</span>' : '')
-      + '</td><td title="' + sprakNavn(r.sprak || '') + '">' + (r.sprak || '–')
-      + '</td><td><span class="tsprak' + (utenlandsk(r) ? ' avvik' : '')
-        + '" title="telefonens region (fra ' + (r.telSprak || 'ukjent') + ')">'
-        + (region(r) || '–') + '</span>'
-      + '</td><td><span class="bygg n' + nivaa(r).n + '" title="' + nivaa(r).navn + '">'
-        + BYGGKORT[nivaa(r).n] + '</span>'
-      // Nedlastingsdato: den ekte, ikke bare den enheten selv melder.
-      // Er den utledet av spor, staar den med ~ og forklarer seg i tittelen -
-      // et anslag som ser ut som en maaling er verre enn ingen dato.
-      + '</td><td>' + (function(){
-          const n = nedlastKilde(r);
-          const egen = r.foerste ? 'enheten melder ' + fmtDag(r.foerste)
-            + (r.foerste.length > 15 ? ' ' + r.foerste.slice(11,16) : '') : 'enheten melder ingen dato';
-          if (!n.anslag) return '<span title="' + egen + '">' + fmtDag(n.dato)
-            + (r.foerste.length > 15 ? ' <span style="color:var(--muted)">' + r.foerste.slice(11,16) + '</span>' : '') + '</span>';
-          const hvor = NED_KILDE_NAVN[n.kilde] || 'sist aktiv';
-          const tittel = 'Eldre spor enn enheten selv melder: ' + hvor + '. ' + egen + '.'
-            + (n.mettet ? ' Kilden er full, saa enheten kan ha hatt appen enda lenger.' : '');
-          return '<span class="anslag" title="' + tittel + '">~' + fmtDag(n.dato)
-            + (n.mettet ? '+' : '') + '</span>';
-        })()
-      // Naar enheten fikk versjonen den kjoerer. Tom for alt eldre enn
-      // build-131 - da fantes ikke stempelet.
-      + '</td><td>' + (function(){
-          const f = versjonFikk(r);
-          if (!f) return '<span style="color:var(--muted)" title="krever build-131">–</span>';
-          const bygg = (f.versjon.match(/build-(\d+)/) || [])[1];
-          return '<span title="' + f.versjon + (f.logg.length > 1
-            ? ' · ' + f.logg.slice(0, -1).map(x => x.v.replace(/^.*build-/, 'b') + ' ' + x.d).join(', ')
-            : '') + '">' + fmtDag(f.dato)
-            + (bygg ? ' <span style="color:var(--muted)">b' + bygg + '</span>' : '') + '</span>';
-        })()
-      + '</td><td style="text-align:right">' + (dagerHatt(r) ? dagerHatt(r) + ' d' : '–')
-      + '</td><td>' + fmtDag(r.oppdatert) + ' ' + r.oppdatert.slice(11,16)
-
-      // Tid i spill, og hvor stor del av brukstiden det er. Er andelen lav
-      // har enheten stort sett lest og navigert, ikke spilt.
-      + '</td><td style="text-align:right"' + (spilltid(r)
-          ? ' title="' + Math.round(100 * spilltid(r) / Math.max(1, r.tid)) + ' % av brukstiden"' : '')
-        + '>' + (spilltid(r) ? minutter(spilltid(r))
-          : (r.skjermSek ? '0 min' : '<span style="color:var(--muted)" title="krever build-126">–</span>'))
-      + '</td><td style="text-align:right">' + (r.runder.length + dashAntall(r))
-      + (dashAntall(r) ? ' <span style="color:var(--muted)">(' + dashAntall(r) + '&#x26A1;)</span>' : '')
-      // Avbrutte runder star som eget tall - de finnes ikke i rundeloggen
-      + (avbrutt(r) ? ' <span style="color:var(--critical)" title="startet, men forlatt underveis">-'
-          + avbrutt(r) + '</span>' : '')
-      // Laasen. Er raden IKKE markert, staar det hvorfor - «denne har jo nok
-      // tid til aa vaere laast» er det naturlige spoersmaalet, og en tom celle
-      // svarer ikke paa det.
-      + '</td><td>' + (function(){
-          const n = hend(r, 'laas_vist');
-          if (n) return '<span class="merke" title="låseskjermen vist ' + n + ' ganger">'
-            + (kjopsInfo(r).betalt ? 'låst → kjøpte' : 'låst ×' + n) + '</span>';
-          if (erAndroid(r)) return '<span style="color:var(--muted)" title="Android har hele'
-            + ' appen gratis - det finnes ingen lås å møte">gratis</span>';
-          if (byggNr(r) < LAAS_BUILD) return '<span style="color:var(--muted)" title="telleren'
-            + ' kom med build-' + LAAS_BUILD + ' - enheten kan ha vært låst uten at det ble talt">?</span>';
-          // Potten sist enheten talte tid. Brukstiden er VEKTET: lesing
-          // teller saktere enn oeving, og menyene teller ikke i det hele
-          // tatt - saa total brukstid sier lite om potten gikk tom.
-          if (!r.bruk) return '';
-          const brukt = +r.bruk.tidSekBrukt || 0;
-          const potte = r.tempoSek > 0 && r.tempoSek < 120 ? POTTE_RASK_SEK : POTTE_SEK;
-          return '<span style="color:var(--muted)" title="vektet gratistid brukt siste dagen'
-            + ' enheten var inne (' + (r.bruk.dag || 'ukjent') + '). Brukstid-kolonnen er uvektet">'
-            + Math.round(brukt / 60 * 10) / 10 + '/' + (potte / 60) + ' min</span>';
-        })()
-      + '</td><td>' + (function(){
-          const i2 = kjopsInfo(r);
-          if (i2.kjopMs) { const iso = new Date(i2.kjopMs).toISOString();
-            const t = fmtDag(iso) + (i2.klemt ? '' : ' ' + iso.slice(11,16));
-            return i2.klemt
-              ? '<span style="color:var(--muted)" title="utløpet stemmer ikke med 120 dager, så kjøpsdagen er et anslag">~' + t + '</span>'
-              : t; }
-          if (i2.kilde === 'antatt' && i2.dag) return '<span style="color:var(--muted)" title="foerste store runde - kvittering mangler">~' + fmtDag(i2.dag) + '</span>';
-          return '–';
-        })()
-      + '</td><td>' + dagStripe(r) + '</td></tr>';
-    if (kanApnes) {
-      const maks = Math.max(60, ...linjer.map(l => l.sek || 0));
-      s += '<tr id="det' + i + '" style="display:none"><td></td><td colspan="' + KOLONNER.length + '" style="padding:4px 0 12px">'
-        + '<div style="display:flex;gap:9px;font-size:11px;color:var(--muted);margin-bottom:2px">'
-        + '<span style="width:44px;flex:none">dato</span>'
-        + '<span style="width:128px;flex:none">tid i appen</span><span>runder</span></div>'
-        + linjer.map(l => dagsRad(l, maks)).join('')
-        + sideOppsummering(r)
-        + (r.tid > 0 && !Object.keys(r.tidDager).length
-            ? '<div style="font-size:11px;color:var(--muted);margin-top:6px">'
-              + 'Tid per dag mangler – enheten har ikke fått ota-142 ennå. '
-              + 'Totalt ' + minutter(r.tid) + '.</div>' : '')
-        + '</td></tr>';
-    }
+    const ki = kjopsInfo(r), n = nedlastKilde(r), sov = dagerSidenAktiv(r) > 5;
+    s += '<tr class="' + (sov ? 'sovende' : '') + '" style="cursor:pointer" data-rad="' + i + '">'
+      + '<td style="width:14px;color:var(--muted)"><span id="pil' + i + '">›</span></td>'
+      + '<td>' + pfMerke(r) + r.id.slice(0,8) + (reinstallert(r) ? '<span class="merke" title="runder i skyen, men tellerne er tomme: trolig slettet og lastet ned på nytt">⟲</span>' : '')
+      + (ki.kilde === 'kjop' ? '<span class="merke betalt">betalt</span>' : '') + (ki.kilde === 'antatt' ? '<span class="merke" title="store runder uten kvittering">antatt</span>' : '') + (r.kodeUtlop > 0 ? '<span class="merke">kode</span>' : '') + '</td>'
+      + '<td title="' + sprakNavn(r.sprak || '') + (region(r) ? ' · ' + region(r) : '') + '">' + (r.sprak || '–') + '</td>'
+      + '<td><span class="bygg n' + nivaa(r).n + '" title="' + nivaa(r).navn + (r.versjon ? ' · ' + r.versjon : '') + '">' + nivaa(r).kort + '</span></td>'
+      + '<td>' + (n.anslag ? '<span class="anslag" title="utledet av eldste spor">~' + fmtDag(n.dato) + (n.mettet ? '+' : '') + '</span>' : fmtDag(n.dato)) + '</td>'
+      + '<td class="h">' + (dagerHatt(r) ? dagerHatt(r) + ' d' : '–') + '</td>'
+      + '<td>' + fmtDag(r.oppdatert) + ' ' + r.oppdatert.slice(11,16) + '</td>'
+      + '<td class="h">' + strek(paaSkjerm(r)) + '</td>'
+      + '<td class="h">' + strek(iSpill(r)) + '</td>'
+      + '<td class="h">' + strek(lesing(r)) + '</td>'
+      + '<td class="h">' + (r.runder.length + (r.lampeblitz || []).length) + '</td>'
+      + '<td class="h">' + (kanMaales(r) ? (hend(r,'laas_vist') || '0') : '<span style="color:var(--muted)">–</span>') + '</td>'
+      + '<td>' + (ki.kilde === 'kjop' ? (ki.klemt ? '~' : '') + fmtDag(ki.dag) : ki.kilde === 'antatt' ? '<span style="color:var(--muted)">~' + fmtDag(ki.dag) + '</span>' : '–') + '</td>'
+      + '<td>' + dagStripe(r) + '</td></tr>';
+    s += '<tr id="det' + i + '" style="display:none"><td></td><td colspan="' + KOLONNER.length + '" style="padding:4px 0 12px">'
+      + '<div class="rute2" style="margin:0">' + '<div>' + sideDetalj(r) + '</div><div>' + dagDetalj(r) + hendelseDetalj(r) + '</div></div></td></tr>';
   });
   t.innerHTML = s;
-  t.querySelectorAll('th[data-kol]').forEach(th => {
-    th.addEventListener('click', () => {
-      const k = th.dataset.kol;
-      const def = KOLONNER.find(x => x.k === k);
-      if (tabSort.kol === k) tabSort.ned = !tabSort.ned;
-      else tabSort = { kol: k, ned: !!(def && def.tall) };
-      tabell(data);
-    });
-  });
-  t.querySelectorAll('[data-rad]').forEach(rad => {
-    rad.addEventListener('click', () => {
-      const i = rad.dataset.rad, d = document.getElementById('det' + i);
-      const apen = d.style.display !== 'none';
-      d.style.display = apen ? 'none' : 'table-row';
-      document.getElementById('pil' + i).textContent = apen ? '›' : '⌄';
-    });
-  });
+  t.querySelectorAll('th[data-kol]').forEach(th => th.addEventListener('click', () => { const k = th.dataset.kol; const def = KOLONNER.find(x => x.k === k);
+    if (tabSort.kol === k) tabSort.ned = !tabSort.ned; else tabSort = { kol: k, ned: !!(def && def.tall) }; tabell(data); }));
+  t.querySelectorAll('[data-rad]').forEach(rad => rad.addEventListener('click', () => { const i = rad.dataset.rad, d = document.getElementById('det' + i);
+    const apen = d.style.display !== 'none'; d.style.display = apen ? 'none' : 'table-row'; document.getElementById('pil' + i).textContent = apen ? '›' : '⌄'; }));
 }
 
-// Tooltip-laget
-const tips = document.getElementById('tips');
-function kobleTips(rot){
-  rot.querySelectorAll('[data-tt]').forEach(n => {
-    n.addEventListener('mousemove', e => {
-      const [l1, l2] = n.getAttribute('data-tt').split('|');
-      tips.innerHTML = '<div class="l1">' + l1 + '</div><div class="l2">' + l2 + '</div>';
-      tips.style.display = 'block';
-      tips.style.left = Math.min(innerWidth - 130, e.clientX + 12) + 'px';
-      tips.style.top = (e.clientY - 40) + 'px';
-    });
-    n.addEventListener('mouseleave', () => { tips.style.display = 'none'; });
-  });
-}
-
-document.getElementById('filtre').addEventListener('click', e => {
-  const k = e.target.closest('.knapp'); if (!k) return;
-  dager = +k.dataset.dager;
-  document.querySelectorAll('.knapp').forEach(x => x.classList.toggle('valgt', x === k));
-  tegn();
-});
-document.querySelectorAll('.kort.fold > h2').forEach(h => {
-  h.addEventListener('click', () => {
-    const apen = h.parentElement.classList.toggle('apen');
-    // Diagrammene inni foldet ble tegnet mens det var skjult, altsaa uten
-    // maalbar bredde. Tegn paa nytt naa som kolonnen har en bredde.
-    if (apen && rader.length) tegn();
-  });
-});
-['kunGP', 'kunAS'].forEach(id =>
-  document.getElementById(id).addEventListener('change', tegn));
-document.getElementById('visTest').addEventListener('change', tegn);
-addEventListener('resize', () => { if (rader.length) tegn(); });
+document.querySelectorAll('[data-dager]').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('[data-dager]').forEach(x => x.classList.toggle('valgt', x === b)); dager = +b.dataset.dager; tegn(); }));
+['visTest','kunGP','kunAS'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('change', tegn); });
 
 // Krypterte data. Uten riktig bruker+passord kan ikke Supabase-noekkelen
 // utledes, og siden har ingenting aa hente med.
@@ -2487,30 +1481,18 @@ function apne(nokkel) {
 })();
 </script>
 <script>
-/* Faneskifte. Diagrammene maaler bredden paa beholderen sin, og den er 0 px
-   mens fanen staar paa display:none - derfor tegnes sida paa nytt etter
-   hvert bytte, og oekonomifanen faar et eget varsel den lytter paa. */
 (function () {
-  var faner = document.getElementById('faner');
-  if (!faner) return;
+  var faner = document.getElementById('faner'); if (!faner) return;
   function vis(navn) {
-    document.querySelectorAll('#faner .fane').forEach(function (b) {
-      b.classList.toggle('valgt', b.dataset.vis === navn);
-    });
-    document.querySelectorAll('[data-fane]').forEach(function (el) {
-      el.style.display = el.dataset.fane.split(' ').indexOf(navn) > -1 ? '' : 'none';
-    });
-    try { localStorage.setItem('analysefane', navn); } catch (e) { }
-    if (typeof tegn === 'function' && navn !== 'okonomi') tegn();
+    document.querySelectorAll('#faner .fane').forEach(function (b) { b.classList.toggle('valgt', b.dataset.vis === navn); });
+    document.querySelectorAll('[data-fane]').forEach(function (el) { el.style.display = el.dataset.fane.split(' ').indexOf(navn) > -1 ? '' : 'none'; });
+    try { localStorage.setItem('analysefane2', navn); } catch (e) { }
+    if (typeof tegn === 'function' && navn !== 'okonomi' && rader.length) tegn();
     window.dispatchEvent(new CustomEvent('fanebytte', { detail: navn }));
   }
-  faner.addEventListener('click', function (e) {
-    var b = e.target.closest('.fane');
-    if (b) vis(b.dataset.vis);
-  });
-  var lagret = null;
-  try { lagret = localStorage.getItem('analysefane'); } catch (e) { }
-  vis(lagret || 'brukerdata');
+  faner.addEventListener('click', function (e) { var b = e.target.closest('.fane'); if (b) vis(b.dataset.vis); });
+  var lagret = null; try { lagret = localStorage.getItem('analysefane2'); } catch (e) { }
+  vis(lagret || 'bruk');
 })();
 </script>
 </body>
