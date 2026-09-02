@@ -1068,9 +1068,20 @@ function kjopsInfo(r){
   // enkeltkjoep. For forleng-stablere blir det et estimat som ligger
   // etter foerste kjoep - aldri foer.
   if (r.proUtlop > 0) {
-    const kjopMs = r.proUtlop - 120 * 864e5;
+    let kjopMs = r.proUtlop - 120 * 864e5;
+    // Utloepet er ikke alltid 120 dager: den foerste Play-kjoeperen fikk
+    // 240 (transaksjonen ser ut til aa telles to ganger), og da havnet den
+    // utledede kjoepsdagen flere maaneder FRAM i tid - utenfor stripa, saa
+    // den roede prikken forsvant. Datoen klemmes derfor til vinduet
+    // enheten faktisk har eksistert i. Klemt dato er et anslag, ikke en
+    // maaling - men en kjoeper skal alltid vaere synlig som kjoeper.
+    const start = r.foerste ? Date.parse(r.foerste.slice(0,10)) : 0;
+    const naa = Date.parse(new Date().toISOString().slice(0,10));
+    const utenfor = (start && kjopMs < start) || kjopMs > naa;
+    if (utenfor) kjopMs = Math.min(naa, Math.max(start || naa, kjopMs));
     const dag = new Date(kjopMs).toISOString().slice(0,10);
-    return { betalt: true, kilde: 'kjop', kjopMs, dag, foerRunder: (r.runder || []).length, foerTid: 0, eksakt: true };
+    return { betalt: true, kilde: 'kjop', kjopMs, dag, klemt: utenfor,
+      foerRunder: (r.runder || []).length, foerTid: 0, eksakt: !utenfor };
   }
   if (r.kodeUtlop > 0) {
     return { betalt: false, kilde: 'kode' };
@@ -1123,8 +1134,15 @@ function lengsteHull(r){
 // Prikkstripe fra foerste oppstart til i dag: fylt = aktiv, aapen = ikke.
 // Fire eller flere inaktive paa rad vises som tall i stedet.
 function dagStripe(r){
-  const start = r.foerste ? r.foerste.slice(0,10)
-    : (r.runder.filter(x => x && x.dato).map(x => x.dato).sort()[0] || null);
+  // Stripa skal dekke ALL kjent aktivitet. foerste-feltet kom med ota-141
+  // og ble satt den dagen enheten oppdaterte, saa det kan ligge etter
+  // runder og dagslogg som er eldre. Tidligste spor vinner.
+  const spor = [
+    r.foerste ? r.foerste.slice(0,10) : null,
+    ...r.runder.filter(x => x && x.dato).map(x => x.dato),
+    ...Object.keys(r.tidDager || {}),
+  ].filter(Boolean).sort();
+  const start = spor[0] || null;
   if (!start) return '<span style="color:var(--muted)">–</span>';
   const idag = new Date().toISOString().slice(0,10);
   const aktive = new Set([
@@ -2331,7 +2349,11 @@ function tabell(data){
         })()
       + '</td><td>' + (function(){
           const i2 = kjopsInfo(r);
-          if (i2.kjopMs) { const iso = new Date(i2.kjopMs).toISOString(); return fmtDag(iso) + ' ' + iso.slice(11,16); }
+          if (i2.kjopMs) { const iso = new Date(i2.kjopMs).toISOString();
+            const t = fmtDag(iso) + (i2.klemt ? '' : ' ' + iso.slice(11,16));
+            return i2.klemt
+              ? '<span style="color:var(--muted)" title="utløpet stemmer ikke med 120 dager, så kjøpsdagen er et anslag">~' + t + '</span>'
+              : t; }
           if (i2.kilde === 'antatt' && i2.dag) return '<span style="color:var(--muted)" title="foerste store runde - kvittering mangler">~' + fmtDag(i2.dag) + '</span>';
           return '–';
         })()
@@ -2407,7 +2429,7 @@ addEventListener('resize', () => { if (rader.length) tegn(); });
 
 // Krypterte data. Uten riktig bruker+passord kan ikke Supabase-noekkelen
 // utledes, og siden har ingenting aa hente med.
-const KRYPT = { s: 'XAJXn9mmF8aIZPTzpCm2EA==', i: '5zTfDp5842OfdRtE', d: 'LGLxagXubQH7mf5XIkFHN/G/c8LZpVHQf14td+k2oRufkAu8bLgAf1jPl39cgXATFt7PL/t6I8IknIbsp7I=', it: 310000 };
+const KRYPT = { s: 'llbst8fk7q8+ODswhoz5Zw==', i: '7ZY7fsj7YRqzXsOy', d: 'Sc9L0o5Vfdz08+E7Jfv94ZfqUoCxRnxNA/6jWUEKPIbE2tHEiGdcpKU/u1d64X6MQIffZaZQk4zTm723DfI=', it: 310000 };
 const fraB64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
 
 async function lasOppNokkel(bruker, passord) {
