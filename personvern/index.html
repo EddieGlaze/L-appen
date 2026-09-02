@@ -40,7 +40,7 @@
     <div class="lskilt"></div><div class="ordmerke">-appen</div>
   </a>
   <h1>Personvernerklæring for L-appen</h1>
-  <p class="oppdatert">Sist oppdatert: 28. august 2026</p>
+  <p class="oppdatert">Sist oppdatert: 2. september 2026</p>
 
   <p>L-appen er en øvingsapp for teoriprøven til førerkort klasse B, utgitt av Studio
   Glazebrook. Appen er laget for å samle inn så lite data som overhodet mulig - den
@@ -54,15 +54,18 @@
     <li><strong>Øvingsstatistikk:</strong> Hvilke spørsmål du har besvart riktig og feil,
         og resultater fra øvingsrunder. Lagres på enheten din, med en sikkerhetskopi
         knyttet til den anonyme enhets-ID-en, slik at fremdriften kan gjenopprettes.</li>
-    <li><strong>Bruk av appen:</strong> hvor lenge du har vært i appen til sammen og per
-        dag, og en teller over hvilke skjermer som er åpnet. Dette forteller oss om folk
-        øver jevnt eller i skippertak, og hvilke deler av appen som brukes - ikke hvem du
-        er eller hva du gjør utenfor appen.</li>
+    <li><strong>Bruk av appen:</strong> hvor lenge du har vært i appen til sammen, per
+        dag og per skjerm, en teller over hvilke skjermer som er åpnet, og en logg over de
+        siste 30 gangene appen ble startet: tidspunkt, hvor lenge økten varte, hvor mange
+        runder du tok, og om gratistiden gikk ut. Dette forteller oss om folk øver jevnt
+        eller i skippertak, hvilke deler av appen som brukes, og hva som skjer den første
+        dagen - ikke hvem du er eller hva du gjør utenfor appen.</li>
     <li><strong>Språk og oppstart:</strong> hvilket språk du har valgt, hvilket språk
         telefonen står på, og datoen du åpnet appen første gang. Språkene brukes til å se
         om de med annet morsmål finner språkvelgeren.</li>
-    <li><strong>Kjøpsstatus:</strong> om det er kjøpt full tilgang, og når den utløper.
-        Ingen betalingsopplysninger - se «Kjøp» nedenfor.</li>
+    <li><strong>Kjøpsstatus:</strong> om det er kjøpt full tilgang, når den utløper, når
+        kjøpet ble gjort og fra hvilken skjerm i appen. Ingen betalingsopplysninger - se
+        «Kjøp» nedenfor.</li>
     <li><strong>Innmeldte forbedringsforslag:</strong> Hvis du bruker «Meld inn justering»,
         lagres teksten du skriver sammen med den anonyme enhets-ID-en.</li>
   </ul>
@@ -77,14 +80,23 @@
   Begge kan du slå av, og begge er forklart under «Måling av annonser» nedenfor.</p>
 
   <h2>Kjøp</h2>
-  <p>Alle kjøp gjennomføres av Apple via App Store (In-App Purchase). Betalingsopplysningene
-  dine håndteres utelukkende av Apple - appen mottar kun en anonym bekreftelse på at et
-  kjøp er gyldig, og ser aldri kortnummer eller identitet.</p>
+  <p>Alle kjøp gjennomføres av Apple via App Store eller av Google via Google Play
+  (kjøp i appen). Betalingsopplysningene dine håndteres utelukkende av Apple eller Google -
+  appen ser aldri kortnummer eller identitet.</p>
+  <p>For å bekrefte at et kjøp er gyldig, og for å gi deg tilgangen tilbake om du bytter
+  telefon eller installerer appen på nytt, bruker vi tjenesten
+  <a href="https://www.revenuecat.com/">RevenueCat</a> (RevenueCat, Inc., USA). RevenueCat
+  mottar kvitteringen fra Apple eller Google, den anonyme enhets-ID-en (som brukes som
+  kunde-ID hos dem), beløp og valuta, enhetstype og operativsystem, og IP-adressen som
+  følger med forespørselen. RevenueCat får ikke navn, e-post, kortnummer eller noe fra
+  øvingen din. RevenueCat er selv ansvarlig for hvordan de behandler disse dataene; se
+  <a href="https://www.revenuecat.com/privacy/">RevenueCats personvernerklæring</a>.</p>
 
   <h2>Hvor lagres dataene?</h2>
-  <p>Sikkerhetskopien av øvingsstatistikken lagres hos Supabase (databaseleverandør) på
-  servere i EU/EØS. Dataene er beskyttet med tilgangsregler som gjør at hver enhet kun
-  kan lese og skrive sine egne data.</p>
+  <p>Sikkerhetskopien av øvingsstatistikk og bruk lagres hos Supabase (databaseleverandør)
+  på servere i EU/EØS. Den er knyttet bare til den anonyme enhets-ID-en og inneholder ingen
+  personopplysninger - ingen navn, e-post, telefonnummer eller konto. Kjøpsdata lagres i
+  tillegg hos RevenueCat i USA, som beskrevet under «Kjøp».</p>
 
   <h2>Måling av annonser</h2>
   <p>Appen bruker Metas SDK (selskapet bak Facebook og Instagram) til å måle effekten av
@@ -107,8 +119,8 @@
   brukes til å se hvilke annonser som faktisk fører til kjøp, ikke bare til nedlastinger.
   Hendelsen er knyttet til den samme anonyme app-ID-en, så Meta får aldri vite hvem som
   betalte - og aldri kortnummer eller andre betalingsopplysninger, som utelukkende
-  håndteres av Apple. Dette gjelder bare iPhone og iPad. På Android er hele appen gratis,
-  det finnes ingen kjøp i appen, og dermed sendes heller ingen slike hendelser.</p>
+  håndteres av Apple eller Google. Dette gjelder både iPhone/iPad og Android, siden appen
+  fra september 2026 selger full tilgang på begge.</p>
   <p>Utover dette sendes ingenting. Vi sender aldri hva du har svart, hvordan du ligger an
   eller noe annet fra øvingen din, og vi selger ikke data om deg til noen.</p>
   <p>Meta er selv ansvarlig for hvordan de behandler disse dataene. Du kan lese mer i
@@ -120,9 +132,13 @@
   sikkerhetskopien i skyen. Du trenger ingen konto og skal ikke kontakte oss først.
   Vil du heller at vi gjør det for deg, skriv til
   <a href="mailto:edvaglaz@gmail.com">edvaglaz@gmail.com</a>.</p>
-  <p><strong>Hva som slettes:</strong> øvingsstatistikken din - hvilke spørsmål du har
-  svart på, hva du svarte, og resultatene av rundene dine. Det er de eneste dataene
-  sikkerhetskopien inneholder.</p>
+  <p><strong>Hva som slettes:</strong> «Nullstill statistikk» sletter øvingsstatistikken
+  din - hvilke spørsmål du har svart på, hva du svarte, og resultatene av rundene dine.
+  Kjøpsstatusen beholdes, slik at du ikke mister tilgang du har betalt for, og det samme
+  gjør bruksloggen og gratisgrensene. Vil du at alt skal bort, også kjøpsstatus og logg,
+  skriv til <a href="mailto:edvaglaz@gmail.com">edvaglaz@gmail.com</a>. Siden vi ikke
+  vet hvem du er, trenger vi noe å finne raden på: hvilket språk du bruker i appen, omtrent
+  når du lastet den ned, og om du har kjøpt full tilgang. Da sletter vi hele raden.</p>
   <p><strong>Hvor lenge vi beholder det:</strong> sikkerhetskopien slettes automatisk
   <strong>90 dager</strong> etter at appen sist var i bruk. Nullstiller du statistikken,
   beholdes et arkiv i inntil 90 dager slik at du kan hente den tilbake, og deretter
