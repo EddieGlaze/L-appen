@@ -327,7 +327,10 @@
 
   <!-- Modellsammenligningen: hele poenget med aa skille versjonene -->
   <div class="kort" data-fane="statistikk"><h2>Modellene mot hverandre</h2>
-    <div class="hint">5-minutters tidsmodellen mot dagsrasjonen den erstattet. Tallene er ikke
+    <div class="hint">5-minutters tidsmodellen mot dagsrasjonen den erstattet.
+      <b>Uavklart</b> er ikke en modell: det er enheter som har brukt appen uten å ha
+      forbrukt en eneste rasjon, og da finnes det ingenting i backupen som daterer dem.
+      Butikkbinæren kjører dagsrasjonen, så de fleste av dem hører trolig dit. Tallene er ikke
       sammenlignbare før nok enheter har fått den nye - en OTA trer i kraft først ved neste
       oppstart, så «aktiv i dag» sier ingenting om hvilken kode enheten kjører</div>
     <!-- Sju kolonner faar ikke plass paa en telefon. Tabellen ruller inni
@@ -822,16 +825,27 @@ const byggNr = r => {
   const m = String(r.versjon || "").match(/build-(\d+)/);
   return m ? +m[1] : 0;
 };
+// Rasjonstellerne slik butikkbinaeren faktisk skriver dem (type Rasjon i
+// app-expo/src/tilgang.ts). De er Partial: en noekkel finnes foerst naar noe
+// er forbrukt, saa en fersk enhet har ingen av dem.
+const RASJON_NOEKLER = ['quiz', 'skiltblitz', 'dashblitz', 'kort', 'lamper',
+                        'betjening', 'laer'];
+const harRasjon = r => !!r.bruk && RASJON_NOEKLER.some(k => r.bruk[k] !== undefined);
 const MODELLER = [
   { n: 3, kort: '5 min', navn: 'Tidsmodell · 5 minutter vektet',
     test: r => byggNr(r) >= 112 || r.skjermSek || r.oevetimer
       || (r.bruk && r.bruk.tidBolkDag !== undefined) },
   { n: 2, kort: 'rasjon', navn: 'Dagsrasjon · runder og kort per dag',
-    test: r => r.bruk && (r.bruk.quiz !== undefined || r.bruk.kort !== undefined
-      || r.bruk.paafyll !== undefined || r.bruk.bolkDag !== undefined) },
-  { n: 1, kort: '8 min', navn: 'Gammel tidspott · 8 minutter uvektet',
+    test: harRasjon },
+  // IKKE en maaling. Enheten har brukt appen - den har dag og tidSekBrukt -
+  // men har aldri forbrukt en rasjon, og da finnes det ikke ett eneste felt
+  // som sier hvilken modell den kjoerer. Butikkbinaeren (build 24, bygget
+  // 23.08) kjoerer dagsrasjonen, saa de fleste her er rasjonsbrukere som
+  // ikke har rukket aa bruke noe. Boetta het foer «8 min», som var en ren
+  // gjetning - og gal for flertallet.
+  { n: 1, kort: 'uavklart', navn: 'Uavklart · har brukt appen, men ikke forbrukt noe',
     test: r => r.bruk },
-  { n: 0, kort: 'eldre', navn: 'Eldre enn gratismodellen', test: () => true },
+  { n: 0, kort: 'eldre', navn: 'Har ikke roert gratisnivaaet', test: () => true },
 ];
 const nivaa = r => MODELLER.find(x => x.test(r));
 const BYGGKORT = { 3: '5 min', 2: 'rasjon', 1: '8 min', 0: 'eldre' };
