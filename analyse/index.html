@@ -177,6 +177,13 @@
   /* Ett virkemiddel, ikke fire. Var --baseline mot --surface-1 - drygt 1,7:1
      kontrast - PLUSS nedtonede merker, ikoner og gjennomstreking, saa raden
      var i praksis usynlig. --text-secondary er dempet, men lesbart. */
+  /* Butikkmerke foran enhets-id: GP = Google Play, AS = App Store */
+  .pf { display:inline-block; font-size:9.5px; font-weight:700; letter-spacing:.03em;
+        padding:1px 4px; border-radius:4px; margin-right:5px; vertical-align:1px; }
+  .pf.gp { background:#E6F4EA; color:#1E7B34; }
+  .pf.as { background:#EDEFF2; color:#4A4F57; }
+  .pf.ukjent { background:transparent; color:var(--baseline);
+               box-shadow:inset 0 0 0 1px var(--border); }
   .tidtvil { color:var(--muted); }
   .tidtvil::after { content:'?'; font-size:9.5px; vertical-align:super;
                     color:var(--critical); font-weight:700; margin-left:1px; }
@@ -283,6 +290,10 @@
       skjul over 10 t brukstid</label>
     <label class="bryter"><input type="checkbox" id="visTest">
       vis enheter fra testperioden (før 14.08)</label>
+    <label class="bryter" title="Google Play. Enheter uten plattformfelt (merket ?) faller utenfor">
+      <input type="checkbox" id="kunGP"> vis kun Android</label>
+    <label class="bryter" title="App Store. Enheter uten plattformfelt (merket ?) faller utenfor">
+      <input type="checkbox" id="kunAS"> vis kun Apple</label>
   </div>
   <div id="byggInfo" class="bygglinje" data-fane="brukerdata statistikk"></div>
   <div class="fliser" id="fliser" data-fane="brukerdata statistikk"></div>
@@ -960,6 +971,13 @@ const dashAntall = r => (r.lampeblitz || []).filter(Boolean).length;
 const TID_TVIL_SEK = 3 * 3600;
 const tidTvilsom = r => Object.values(r.tidDager || {})
   .some(v => (+v || 0) > TID_TVIL_SEK);
+// Butikkmerket. Enheter uten plattformfelt har ikke faatt build-134 enda -
+// de vises med en tom ramme i stedet for aa gjettes til iOS.
+function pfMerke(r){
+  if (r.plattform === 'android') return '<span class="pf gp" title="Google Play">GP</span>';
+  if (r.plattform === 'ios') return '<span class="pf as" title="App Store">AS</span>';
+  return '<span class="pf ukjent" title="rapporterer ikke plattform enda (eldre enn build-134)">?</span>';
+}
 const SPILLSKJERM = ['quiz', 'resultat', 'blitz', 'lampeblitz'];
 const spilltid = r => skjermTid(r, SPILLSKJERM);
 // Avbrutte runder per enhet: startet minus fullfort. Aldri under null - en
@@ -1203,6 +1221,9 @@ async function hent(){
         // Kjopsstatus kommer med ota-144. null = enheten har ikke fatt den
         // ennaa, og maa ikke forveksles med "har ikke betalt".
         erUtvikler: UTVIKLER.includes(r.device_id),
+        // 'ios' | 'android' | null. Feltet kom med build-134, saa eldre
+        // enheter staar som ukjent til de har faatt koden og synket.
+        plattform: r.plattform || null,
         harKjopsfelt: r.proUtlop != null,
         hendelser: (r.hendelser && typeof r.hendelser === 'object') ? r.hendelser : null,
         lampeblitz: Array.isArray(r.lampeblitz) ? r.lampeblitz : null,
@@ -1243,11 +1264,17 @@ async function hent(){
 // Enhetene som faktisk vises. Utviklerenhetene er de eneste som alltid er
 // ute - de er kjent stoey. Alt annet kan slaas paa.
 function utvalg(){
-  const skjul = document.getElementById('skjulTest').checked;
   const visTest = document.getElementById('visTest').checked;
+  const kunGP = document.getElementById('kunGP').checked;
+  const kunAS = document.getElementById('kunAS').checked;
+  // Begge avkrysset betyr «begge butikkene», ikke «ingen» - da faller bare
+  // enhetene uten plattformfelt ut.
+  const pfOk = r => (!kunGP && !kunAS)
+    || (kunGP && r.plattform === 'android')
+    || (kunAS && r.plattform === 'ios');
   return rader.filter(r => !r.erUtvikler
     && (visTest || !r.forLansering)
-    );   // skjul-bryteren gjoer ingenting lenger - se TEST_GRENSE-notatet
+    && pfOk(r));
 }
 // Hva som ble holdt utenfor, og hvorfor. Staar under tabellen - et tall som
 // ikke stemmer med App Store skal kunne forklares paa stedet, ikke gjettes.
@@ -2230,7 +2257,7 @@ function tabell(data){
       + (soverInn ? 'sovende' : '') + '"'
       + (kanApnes ? ' style="cursor:pointer" data-rad="' + i + '"' : '') + '>'
       + '<td style="width:14px;color:var(--muted)">' + (kanApnes ? '<span id="pil'+i+'">›</span>' : '') + '</td>'
-      + '<td>' + r.id.slice(0,8)
+      + '<td>' + pfMerke(r) + r.id.slice(0,8)
       + (r.runder.some(x => x && x.prove) ? '<span class="merke">prøve</span>' : '')
       + (kjopsInfo(r).kilde === 'kjop' ? '<span class="merke betalt">betalt</span>' : '')
       + (kjopsInfo(r).kilde === 'antatt' ? '<span class="merke" title="store runder, men ingen kvittering rapportert - kan vaere kjoep paa eldre build eller kode">antatt</span>' : '')
@@ -2373,13 +2400,14 @@ document.querySelectorAll('.kort.fold > h2').forEach(h => {
     if (apen && rader.length) tegn();
   });
 });
-document.getElementById('skjulTest').addEventListener('change', tegn);
+['kunGP', 'kunAS'].forEach(id =>
+  document.getElementById(id).addEventListener('change', tegn));
 document.getElementById('visTest').addEventListener('change', tegn);
 addEventListener('resize', () => { if (rader.length) tegn(); });
 
 // Krypterte data. Uten riktig bruker+passord kan ikke Supabase-noekkelen
 // utledes, og siden har ingenting aa hente med.
-const KRYPT = { s: 'dDoFyZBucfojyDFBe1l0+g==', i: 'szn8kujryZIDyr5q', d: 'HkwMCs1pxtcW6PvNXP8g1YSCisSgqN2Y99YPQJxB8AFTYdQCLcG8vdTMvReN2z2GcEL11OirM7dDBOI2YlA=', it: 310000 };
+const KRYPT = { s: 'XAJXn9mmF8aIZPTzpCm2EA==', i: '5zTfDp5842OfdRtE', d: 'LGLxagXubQH7mf5XIkFHN/G/c8LZpVHQf14td+k2oRufkAu8bLgAf1jPl39cgXATFt7PL/t6I8IknIbsp7I=', it: 310000 };
 const fraB64 = t => Uint8Array.from(atob(t), c => c.charCodeAt(0));
 
 async function lasOppNokkel(bruker, passord) {
