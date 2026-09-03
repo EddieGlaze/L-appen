@@ -265,7 +265,7 @@
   <div class="kort" data-fane="bruk enheter"><h3>Kan jeg stole på tallene?</h3>
     <div class="hint">Hvert kort under måler på den delen av basen som HAR feltet. Her er nevnerne, så et tall aldri leses som «alle».</div>
     <div id="cDekning"></div>
-    <div class="hull">Kilder utenfor basen: Meta-forbruk per annonsesett lest 03.09 (Ads Reporting) · Apple Search Ads og Google Ads som budsjettanslag · RevenueCat avlest 03.09 kl. 10:55 · butikkenes nedlastingstall ikke hentet.</div>
+    <div class="hull" id="cKilder"></div>
   </div>
 
   <!-- 1. FOER KJOEP -->
@@ -307,15 +307,19 @@
     <div class="sp">Nye enheter, aktive enheter og kjøp per dag, med reklamekronene og regimeskiftene under.</div></div>
   <div class="kort" data-fane="bruk"><h3>Dag for dag</h3>
     <div class="hint">Søyler: <span style="color:var(--series-1)">■</span> nye enheter (første oppstart)
-      · <span style="color:var(--series-3)">■</span> kjøp med kvittering.
-      Linje: <span style="color:var(--series-2)">—</span> reklamekroner. Meta er <b>fakturert</b> den dagen
-      (terskelbelastninger, ikke daglig forbruk - derfor hopper linja), Apple Search Ads er dagsbudsjettet.
-      Regimestripa under sier hvilke regler som gjaldt.</div>
+      · <span style="color:var(--series-3)">■</span> kjøp fra RevenueCat-lista.
+      Linje: <span style="color:var(--series-2)">reklamekroner</span> brukt den dagen - Meta per annonsesett fra Ads Reporting,
+      Apple Search Ads og Google Ads som dagsbudsjett til de er lest (hult punkt = anslag).
+      Regimestripa under sier hvilke regler og kampanjer som gjaldt.</div>
     <svg id="cDag" width="100%" height="190"></svg>
     <div class="regime" id="cRegime"></div>
   </div>
   <div class="kort" data-fane="bruk"><h3>Dag for dag per språk</h3>
-    <div class="hint">Samme kort delt på appens språk. Nye enheter og kjøp er fra backupen per språk (kjøp er nedre grense, se under). Reklamekroner er Metas faktiske forbruk på annonsesettet for språket; for norsk kommer Apple Search Ads og Google Ads i tillegg som budsjettanslag. Felles skala, så høyden kan sammenlignes på tvers.</div>
+    <div class="hint">Samme tegning som over, én rute per <b>appspråk</b> (språket brukeren valgte i appen) og <b>samme skala i alle rutene</b>, også kronene.
+      <span style="color:var(--series-1)">■</span> nye enheter · <span style="color:var(--series-3)">■</span> kjøp med kvittering i backupen (tallet står over søylen; nedre grense, se under)
+      · <span style="color:var(--series-2)">linje</span> = kroner brukt den dagen på kampanjene rettet mot språket; hult punkt = dagsbudsjett, ikke avlest.
+      Oransje skygge = et Meta-sett for språket var aktivt; stiplet rød strek = dagen det ble slått av. Apple Search Ads og Google Ads er norskspråklige og ligger på Norsk som «søk».
+      Språk mot kampanje er en proxy, ikke attribusjon.</div>
     <div class="rute3" id="cSprakDag"></div>
     <div class="hull" id="cSprakDagHull"></div>
   </div>
@@ -359,8 +363,8 @@
     <div class="sp">Uke for uke. Dette er tallene som skal stå side om side når sperre, pris og annonser justeres.</div></div>
   <div class="kort" data-fane="bruk"><h3>Uke for uke</h3>
     <div class="hint"><b>Nye</b> = enheter med første oppstart i uka (ikke butikkens nedlastingstall - det
-      finnes ikke i basen). <b>Kjøp</b> = kvitteringer. <b>Konv.</b> = kjøp / nye samme uke - et grovt mål,
-      siden kjøpet ofte kommer en senere uke. <b>Reklame</b> = Meta betalt + Apple Search Ads anslag.
+      finnes ikke i basen). <b>Kjøp</b> = RevenueCat-lista. <b>Konv.</b> = kjøp / nye samme uke - et grovt mål,
+      siden kjøpet ofte kommer en senere uke. <b>Reklame</b> = forbruk per dag: Meta lest per annonsesett, Apple Search Ads og Google Ads som dagsbudsjett (anslag).
       <b>Netto</b> = kjøp × 149 kr × 0,85 (etter butikkens andel, før mva).</div>
     <div id="cUke" style="overflow-x:auto"></div>
     <div class="hull" id="cUkeHull"></div>
@@ -387,7 +391,7 @@
   </div>
 
   <div class="kort" data-fane="okonomi"><h3>Reklame per dag og språk</h3>
-    <div class="hint">Forbruksdag, ikke fakturadato. Meta er lest per annonsesett fra Ads Reporting; Apple Search Ads og Google Ads er dagsbudsjett (merket ~) til de er lest av. «Faktura» er Metas terskelbelastninger fra økonomidataene, til avstemming. ▶ = første dag med forbruk, ■ = siste dag for en kampanje som er stoppet.</div>
+    <div class="hint">Forbruksdag, ikke fakturadato. Meta er lest per annonsesett fra Ads Reporting; Apple Search Ads og Google Ads er dagsbudsjett (merket ~) til de er lest av. «Faktura Meta» er Metas terskelbelastninger fra økonomidataene, til avstemming; «Meta påløpt» = avlest forbruk hittil minus fakturert hittil. ▶ = første dag med forbruk, ■ = siste dag for en kampanje som er stoppet (hold musa over for navnet).</div>
     <div id="cReklameSkjema" style="overflow-x:auto"></div>
     <div class="hull" id="cReklameHull"></div>
     <h3 style="margin-top:16px">Kampanjene</h3>
@@ -762,14 +766,10 @@ const PRIS_KR = 149, BUTIKK_ANDEL = 0.85;
 let rader = [], dager = 14, hentetTotal = 0;
 
 // META-FAKTURAER PER FAKTURADATO (okonomi/data/meta-transaksjoner-2026.csv,
-// status Betalt, paafyll holdt utenfor). Brukes bare til avstemming paa
-// Oekonomi-fanen - forbruket per dag kommer fra REKLAME under. ASA-konstantene
-// staar igjen for anslaget i lag-anslag (EUR 15/dag til 01.09, 32 fra 02.09).
-const META_KR = {"2026-08-16":62,"2026-08-17":167.79,"2026-08-18":434.8,"2026-08-19":114.62,
-  "2026-08-20":390.46,"2026-08-21":827.4,"2026-08-22":1764.09,"2026-08-23":175.46,"2026-08-24":391.43,
-  "2026-08-25":261.57,"2026-08-26":185.57,"2026-08-27":7.96,"2026-08-29":589.78,"2026-08-30":1265.47,
-  "2026-08-31":894,"2026-09-01":894};
-const ASA_START = '2026-08-17', ASA_EUR_DAG = 15, EUR_NOK = 11.6;
+// status Betalt, paafyll holdt utenfor). Fylles av bygg-analyse-data.js og
+// brukes bare til avstemming paa Oekonomi-fanen - forbruket per dag kommer
+// fra REKLAME under.
+const META_KR = /*META_KR*/{"2026-09-01":894,"2026-08-31":894,"2026-08-30":1265.47,"2026-08-29":589.78,"2026-08-27":7.96,"2026-08-26":185.57,"2026-08-25":261.57,"2026-08-24":391.43,"2026-08-23":175.46,"2026-08-22":1764.09,"2026-08-21":827.4,"2026-08-20":390.46,"2026-08-19":114.62,"2026-08-18":434.8,"2026-08-17":167.79,"2026-08-16":62}/*META_KR*/;
 // KJOEPENE FRA REVENUECAT - fasiten. Backupen mangler kjoepere: kjoepsstatus
 // var ute av OTA-loeypa fra 20.08 (ota-146), og en som kjoepte, besto og la
 // appen fra seg fikk aldri et build som sendte proUtlop. Lista limes inn fra
@@ -788,7 +788,7 @@ const KJOP_RC_HENTET = /*KJOP_RC_HENTET*/"2026-09-03T10:55"/*KJOP_RC_HENTET*/;
 const REKLAME = /*REKLAME*/[{"d":"2026-08-16","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":65.34,"src":"meta-ads-reporting"},{"d":"2026-08-17","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-17","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-17","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-17","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":124.35,"src":"meta-ads-reporting"},{"d":"2026-08-17","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":42.45,"src":"meta-ads-reporting"},{"d":"2026-08-17","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":40.75,"src":"meta-ads-reporting"},{"d":"2026-08-18","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-18","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-18","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-18","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":99.19,"src":"meta-ads-reporting"},{"d":"2026-08-18","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":182.67,"src":"meta-ads-reporting"},{"d":"2026-08-18","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":115.9,"src":"meta-ads-reporting"},{"d":"2026-08-19","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-19","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-19","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-19","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":21.32,"src":"meta-ads-reporting"},{"d":"2026-08-19","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":60.33,"src":"meta-ads-reporting"},{"d":"2026-08-19","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":58.36,"src":"meta-ads-reporting"},{"d":"2026-08-20","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-20","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-20","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-20","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":27.94,"src":"meta-ads-reporting"},{"d":"2026-08-20","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":61.28,"src":"meta-ads-reporting"},{"d":"2026-08-20","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":77.51,"src":"meta-ads-reporting"},{"d":"2026-08-20","k":"meta","id":"120248621229400625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":63.49,"src":"meta-ads-reporting"},{"d":"2026-08-20","k":"meta","id":"120248621229490625","n":"Norge 18-24 norsk - unge","s":"no","kr":100.75,"src":"meta-ads-reporting"},{"d":"2026-08-20","k":"meta","id":"120248621229500625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":74.08,"src":"meta-ads-reporting"},{"d":"2026-08-21","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-21","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-21","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-21","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":129.11,"src":"meta-ads-reporting"},{"d":"2026-08-21","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":210.55,"src":"meta-ads-reporting"},{"d":"2026-08-21","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":170.06,"src":"meta-ads-reporting"},{"d":"2026-08-21","k":"meta","id":"120248625149430625","n":"Norge 18+ norsk - lenkeklikk App Store","s":"no","kr":239.99,"src":"meta-ads-reporting"},{"d":"2026-08-21","k":"meta","id":"120248630876220625","n":"Spansk 18 - 44","s":"es","kr":89.66,"src":"meta-ads-reporting"},{"d":"2026-08-21","k":"meta","id":"120248631319400625","n":"Ukrainsk 18 - 44 – kopi","s":"uk","kr":335.13,"src":"meta-ads-reporting"},{"d":"2026-08-22","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-22","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-22","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-22","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":277.56,"src":"meta-ads-reporting"},{"d":"2026-08-22","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":304.31,"src":"meta-ads-reporting"},{"d":"2026-08-22","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":315.81,"src":"meta-ads-reporting"},{"d":"2026-08-22","k":"meta","id":"120248630876220625","n":"Spansk 18 - 44","s":"es","kr":277.51,"src":"meta-ads-reporting"},{"d":"2026-08-22","k":"meta","id":"120248631319400625","n":"Ukrainsk 18 - 44 – kopi","s":"uk","kr":375.34,"src":"meta-ads-reporting"},{"d":"2026-08-23","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-23","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-23","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-23","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":98.86,"src":"meta-ads-reporting"},{"d":"2026-08-23","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":53.96,"src":"meta-ads-reporting"},{"d":"2026-08-23","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":194.86,"src":"meta-ads-reporting"},{"d":"2026-08-23","k":"meta","id":"120248630876220625","n":"Spansk 18 - 44","s":"es","kr":5.99,"src":"meta-ads-reporting"},{"d":"2026-08-23","k":"meta","id":"120248631319400625","n":"Ukrainsk 18 - 44 – kopi","s":"uk","kr":34.78,"src":"meta-ads-reporting"},{"d":"2026-08-24","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-24","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-24","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-24","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":73.82,"src":"meta-ads-reporting"},{"d":"2026-08-24","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":44.88,"src":"meta-ads-reporting"},{"d":"2026-08-24","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":143.98,"src":"meta-ads-reporting"},{"d":"2026-08-25","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-25","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-25","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-25","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":48.99,"src":"meta-ads-reporting"},{"d":"2026-08-25","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":32.61,"src":"meta-ads-reporting"},{"d":"2026-08-25","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":103.5,"src":"meta-ads-reporting"},{"d":"2026-08-26","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-26","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-26","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-26","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":0.93,"src":"meta-ads-reporting"},{"d":"2026-08-26","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":1.88,"src":"meta-ads-reporting"},{"d":"2026-08-26","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":3.37,"src":"meta-ads-reporting"},{"d":"2026-08-27","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-27","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-27","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-28","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-28","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-28","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-28","k":"meta","id":"120248773686080625","n":"Norge 18+ arabisk - arabiske playables – kopi","s":"ar","kr":9.7,"src":"meta-ads-reporting"},{"d":"2026-08-28","k":"meta","id":"120248773840210625","n":"Norge 18-24 norsk - unge – kopi","s":"no","kr":29.26,"src":"meta-ads-reporting"},{"d":"2026-08-28","k":"meta","id":"120248773978840625","n":"Norge 18+ norsk - lenkeklikk App Store – kopi","s":"no","kr":106.25,"src":"meta-ads-reporting"},{"d":"2026-08-29","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-29","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-29","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-29","k":"meta","id":"120248773686080625","n":"Norge 18+ arabisk - arabiske playables – kopi","s":"ar","kr":100.24,"src":"meta-ads-reporting"},{"d":"2026-08-29","k":"meta","id":"120248773840210625","n":"Norge 18-24 norsk - unge – kopi","s":"no","kr":260.29,"src":"meta-ads-reporting"},{"d":"2026-08-29","k":"meta","id":"120248773978840625","n":"Norge 18+ norsk - lenkeklikk App Store – kopi","s":"no","kr":118.02,"src":"meta-ads-reporting"},{"d":"2026-08-29","k":"meta","id":"120248791219150625","n":"Norge 18-44 engelsk - expats utenfor EØS – kopi – kopi","s":"en","kr":0.44,"src":"meta-ads-reporting"},{"d":"2026-08-29","k":"meta","id":"120248791607810625","n":"Norge 18+ somalisk - somaliske playables","s":"so","kr":1.01,"src":"meta-ads-reporting"},{"d":"2026-08-30","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-30","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-30","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-30","k":"meta","id":"120248773686080625","n":"Norge 18+ arabisk - arabiske playables – kopi","s":"ar","kr":177.16,"src":"meta-ads-reporting"},{"d":"2026-08-30","k":"meta","id":"120248773840210625","n":"Norge 18-24 norsk - unge – kopi","s":"no","kr":411.03,"src":"meta-ads-reporting"},{"d":"2026-08-30","k":"meta","id":"120248773978840625","n":"Norge 18+ norsk - lenkeklikk App Store – kopi","s":"no","kr":305.92,"src":"meta-ads-reporting"},{"d":"2026-08-30","k":"meta","id":"120248792320420625","n":"Norge 18+ tyrkisk - tyrkiske playables","s":"tr","kr":117,"src":"meta-ads-reporting"},{"d":"2026-08-30","k":"meta","id":"120248798052610625","n":"Norge 18-44 engelsk - expats utenfor EØS – kopi – kopi – kopi","s":"en","kr":274.18,"src":"meta-ads-reporting"},{"d":"2026-08-31","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-31","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-31","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-31","k":"meta","id":"120248773686080625","n":"Norge 18+ arabisk - arabiske playables – kopi","s":"ar","kr":127.91,"src":"meta-ads-reporting"},{"d":"2026-08-31","k":"meta","id":"120248773840210625","n":"Norge 18-24 norsk - unge – kopi","s":"no","kr":303.3,"src":"meta-ads-reporting"},{"d":"2026-08-31","k":"meta","id":"120248773978840625","n":"Norge 18+ norsk - lenkeklikk App Store – kopi","s":"no","kr":289.04,"src":"meta-ads-reporting"},{"d":"2026-08-31","k":"meta","id":"120248792320420625","n":"Norge 18+ tyrkisk - tyrkiske playables","s":"tr","kr":146.77,"src":"meta-ads-reporting"},{"d":"2026-08-31","k":"meta","id":"120248798052610625","n":"Norge 18-44 engelsk - expats utenfor EØS – kopi – kopi – kopi","s":"en","kr":396.73,"src":"meta-ads-reporting"},{"d":"2026-09-01","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-09-01","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-09-01","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-09-01","k":"meta","id":"120248773686080625","n":"Norge 18+ arabisk - arabiske playables – kopi","s":"ar","kr":109.51,"src":"meta-ads-reporting"},{"d":"2026-09-01","k":"meta","id":"120248773840210625","n":"Norge 18-24 norsk - unge – kopi","s":"no","kr":274.13,"src":"meta-ads-reporting"},{"d":"2026-09-01","k":"meta","id":"120248773978840625","n":"Norge 18+ norsk - lenkeklikk App Store – kopi","s":"no","kr":362.26,"src":"meta-ads-reporting"},{"d":"2026-09-01","k":"meta","id":"120248792320420625","n":"Norge 18+ tyrkisk - tyrkiske playables","s":"tr","kr":165.08,"src":"meta-ads-reporting"},{"d":"2026-09-01","k":"meta","id":"120248798052610625","n":"Norge 18-44 engelsk - expats utenfor EØS – kopi – kopi – kopi","s":"en","kr":363.86,"src":"meta-ads-reporting"},{"d":"2026-09-02","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":116,"src":"anslag-budsjett"},{"d":"2026-09-02","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-09-02","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":232,"src":"anslag-budsjett"},{"d":"2026-09-02","k":"meta","id":"120248773686080625","n":"Norge 18+ arabisk - arabiske playables – kopi","s":"ar","kr":100.31,"src":"meta-ads-reporting"},{"d":"2026-09-02","k":"meta","id":"120248773840210625","n":"Norge 18-24 norsk - unge – kopi","s":"no","kr":247.77,"src":"meta-ads-reporting"},{"d":"2026-09-02","k":"meta","id":"120248773978840625","n":"Norge 18+ norsk - lenkeklikk App Store – kopi","s":"no","kr":310.76,"src":"meta-ads-reporting"},{"d":"2026-09-02","k":"meta","id":"120248792320420625","n":"Norge 18+ tyrkisk - tyrkiske playables","s":"tr","kr":165.87,"src":"meta-ads-reporting"},{"d":"2026-09-02","k":"meta","id":"120248798052610625","n":"Norge 18-44 engelsk - expats utenfor EØS – kopi – kopi – kopi","s":"en","kr":330.4,"src":"meta-ads-reporting"},{"d":"2026-09-03","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":116,"src":"anslag-budsjett"},{"d":"2026-09-03","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-09-03","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":232,"src":"anslag-budsjett"},{"d":"2026-09-03","k":"google-ads","id":"24209964386","n":"L-appen Android NO","s":"no","kr":350,"src":"anslag-budsjett"},{"d":"2026-09-03","k":"meta","id":"120248773686080625","n":"Norge 18+ arabisk - arabiske playables – kopi","s":"ar","kr":29.51,"src":"meta-ads-reporting"},{"d":"2026-09-03","k":"meta","id":"120248773840210625","n":"Norge 18-24 norsk - unge – kopi","s":"no","kr":58.56,"src":"meta-ads-reporting"},{"d":"2026-09-03","k":"meta","id":"120248773978840625","n":"Norge 18+ norsk - lenkeklikk App Store – kopi","s":"no","kr":74.37,"src":"meta-ads-reporting"},{"d":"2026-09-03","k":"meta","id":"120248792320420625","n":"Norge 18+ tyrkisk - tyrkiske playables","s":"tr","kr":47.95,"src":"meta-ads-reporting"},{"d":"2026-09-03","k":"meta","id":"120248798052610625","n":"Norge 18-44 engelsk - expats utenfor EØS – kopi – kopi – kopi","s":"en","kr":70.27,"src":"meta-ads-reporting"}]/*REKLAME*/;
 const REKLAME_TIL = /*REKLAME_TIL*/"2026-09-03"/*REKLAME_TIL*/;
 // KAMPANJELISTA - butikk/reklame/kampanjer.csv: {k: kanal, id, n, o: overordnet, s, fra, til, dager, kr, st: status, m: merknad}
-const KAMPANJER = /*KAMPANJER*/[{"k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","o":"L-appen playables - norsk + arabisk","s":"ar","fra":"2026-08-16","til":"2026-08-26","dager":11,"kr":967.41,"st":"avsluttet","m":""},{"k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","o":"L-appen playables - norsk + arabisk","s":"en","fra":"2026-08-17","til":"2026-08-26","dager":10,"kr":994.92,"st":"avsluttet","m":""},{"k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","o":"L-appen playables - norsk + arabisk","s":"no","fra":"2026-08-17","til":"2026-08-26","dager":10,"kr":1224.1,"st":"avsluttet","m":""},{"k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","o":"Apple Search Ads Norge","s":"no","fra":"2026-08-17","til":"2026-09-03","dager":18,"kr":974.4,"st":"aktiv","m":""},{"k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","o":"Apple Search Ads Norge","s":"no","fra":"2026-08-17","til":"2026-09-03","dager":18,"kr":417.6,"st":"aktiv","m":""},{"k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","o":"Apple Search Ads Norge","s":"no","fra":"2026-08-17","til":"2026-09-03","dager":18,"kr":2134.4,"st":"aktiv","m":""},{"k":"meta","id":"120248621229400625","n":"Norge 18+ arabisk - arabiske playables","o":"L-appen playables - norsk + arabisk – kopi","s":"ar","fra":"2026-08-20","til":"2026-08-20","dager":1,"kr":63.49,"st":"avsluttet","m":""},{"k":"meta","id":"120248621229490625","n":"Norge 18-24 norsk - unge","o":"L-appen playables - norsk + arabisk – kopi","s":"no","fra":"2026-08-20","til":"2026-08-20","dager":1,"kr":100.75,"st":"avsluttet","m":""},{"k":"meta","id":"120248621229500625","n":"Norge 18-44 engelsk - expats utenfor EØS","o":"L-appen playables - norsk + arabisk – kopi","s":"en","fra":"2026-08-20","til":"2026-08-20","dager":1,"kr":74.08,"st":"avsluttet","m":""},{"k":"meta","id":"120248625149430625","n":"Norge 18+ norsk - lenkeklikk App Store","o":"L-appen trafikk - direktelenke App Store (test)","s":"no","fra":"2026-08-21","til":"2026-08-21","dager":1,"kr":239.99,"st":"avsluttet","m":""},{"k":"meta","id":"120248630876220625","n":"Spansk 18 - 44","o":"Ukrainsk + spansk 3 dager","s":"es","fra":"2026-08-21","til":"2026-08-23","dager":3,"kr":373.16,"st":"avsluttet","m":""},{"k":"meta","id":"120248631319400625","n":"Ukrainsk 18 - 44 – kopi","o":"Ukrainsk + spansk 3 dager","s":"uk","fra":"2026-08-21","til":"2026-08-23","dager":3,"kr":745.25,"st":"avsluttet","m":""},{"k":"meta","id":"120248773686080625","n":"Norge 18+ arabisk - arabiske playables – kopi","o":"Arabisk playables - omkjoring aug26","s":"ar","fra":"2026-08-28","til":"2026-09-03","dager":7,"kr":654.34,"st":"aktiv","m":"Arabisk playables, kr 1 000 totalt til 07.09"},{"k":"meta","id":"120248773840210625","n":"Norge 18-24 norsk - unge – kopi","o":"Norsk unge - omkjoring aug26","s":"no","fra":"2026-08-28","til":"2026-09-03","dager":7,"kr":1584.34,"st":"av 03.09","m":"Norsk unge: Edvard skrudde av de norske Meta-kampanjene 03.09"},{"k":"meta","id":"120248773978840625","n":"Norge 18+ norsk - lenkeklikk App Store – kopi","o":"Lenkeklikk l-appen.app - aug26","s":"no","fra":"2026-08-28","til":"2026-09-03","dager":7,"kr":1566.62,"st":"av 03.09","m":"Lenkeklikk l-appen.app: skrudd av 03.09 sammen med de norske"},{"k":"meta","id":"120248791219150625","n":"Norge 18-44 engelsk - expats utenfor EØS – kopi – kopi","o":"Engelsk expats - omkjoring aug26","s":"en","fra":"2026-08-29","til":"2026-08-29","dager":1,"kr":0.44,"st":"aldri levert","m":"Engelsk expats - omkjoring: kr 0,44 den 29.08, erstattet av kopi-kopi-kopi"},{"k":"meta","id":"120248791607810625","n":"Norge 18+ somalisk - somaliske playables","o":"Somalisk playables - omkjoring aug26","s":"so","fra":"2026-08-29","til":"2026-08-29","dager":1,"kr":1.01,"st":"aldri levert","m":"Somalisk: kr 1,01 den 29.08, ellers ingenting"},{"k":"meta","id":"120248792320420625","n":"Norge 18+ tyrkisk - tyrkiske playables","o":"Tyrkisk playables - omkjoring aug26","s":"tr","fra":"2026-08-30","til":"2026-09-03","dager":5,"kr":642.67,"st":"aktiv","m":"Tyrkisk playables, kr 1 250 totalt til 07.09"},{"k":"meta","id":"120248798052610625","n":"Norge 18-44 engelsk - expats utenfor EØS – kopi – kopi – kopi","o":"Test - xpats kopi","s":"en","fra":"2026-08-30","til":"2026-09-03","dager":5,"kr":1435.44,"st":"aktiv","m":"Engelsk expats (Test - xpats kopi), dagsbudsjett kr 320"},{"k":"google-ads","id":"24209964386","n":"L-appen Android NO","o":"Google App Campaign","s":"no","fra":"2026-09-03","til":"2026-09-03","dager":1,"kr":350,"st":"aktiv","m":""}]/*KAMPANJER*/;
+const KAMPANJER = /*KAMPANJER*/[{"k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","o":"L-appen playables - norsk + arabisk","s":"ar","fra":"2026-08-16","til":"2026-08-26","dager":11,"kr":967.41,"src":"meta-ads-reporting","st":"avsluttet","m":""},{"k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","o":"L-appen playables - norsk + arabisk","s":"en","fra":"2026-08-17","til":"2026-08-26","dager":10,"kr":994.92,"src":"meta-ads-reporting","st":"avsluttet","m":""},{"k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","o":"L-appen playables - norsk + arabisk","s":"no","fra":"2026-08-17","til":"2026-08-26","dager":10,"kr":1224.1,"src":"meta-ads-reporting","st":"avsluttet","m":""},{"k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","o":"Apple Search Ads Norge","s":"no","fra":"2026-08-17","til":"2026-09-03","dager":18,"kr":974.4,"src":"anslag-budsjett","st":"aktiv","m":"budsjett x dager, IKKE avlest forbruk, ASA brukte EUR 94 av 105 de sju dagene til 02.09, start 17.08 er antatt"},{"k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","o":"Apple Search Ads Norge","s":"no","fra":"2026-08-17","til":"2026-09-03","dager":18,"kr":417.6,"src":"anslag-budsjett","st":"aktiv","m":"budsjett x dager, IKKE avlest forbruk, ASA brukte EUR 94 av 105 de sju dagene til 02.09, start 17.08 er antatt"},{"k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","o":"Apple Search Ads Norge","s":"no","fra":"2026-08-17","til":"2026-09-03","dager":18,"kr":2134.4,"src":"anslag-budsjett","st":"aktiv","m":"budsjett x dager, IKKE avlest forbruk, ASA brukte EUR 94 av 105 de sju dagene til 02.09, start 17.08 er antatt"},{"k":"meta","id":"120248621229400625","n":"Norge 18+ arabisk - arabiske playables","o":"L-appen playables - norsk + arabisk – kopi","s":"ar","fra":"2026-08-20","til":"2026-08-20","dager":1,"kr":63.49,"src":"meta-ads-reporting","st":"avsluttet","m":""},{"k":"meta","id":"120248621229490625","n":"Norge 18-24 norsk - unge","o":"L-appen playables - norsk + arabisk – kopi","s":"no","fra":"2026-08-20","til":"2026-08-20","dager":1,"kr":100.75,"src":"meta-ads-reporting","st":"avsluttet","m":""},{"k":"meta","id":"120248621229500625","n":"Norge 18-44 engelsk - expats utenfor EØS","o":"L-appen playables - norsk + arabisk – kopi","s":"en","fra":"2026-08-20","til":"2026-08-20","dager":1,"kr":74.08,"src":"meta-ads-reporting","st":"avsluttet","m":""},{"k":"meta","id":"120248625149430625","n":"Norge 18+ norsk - lenkeklikk App Store","o":"L-appen trafikk - direktelenke App Store (test)","s":"no","fra":"2026-08-21","til":"2026-08-21","dager":1,"kr":239.99,"src":"meta-ads-reporting","st":"avsluttet","m":""},{"k":"meta","id":"120248630876220625","n":"Spansk 18 - 44","o":"Ukrainsk + spansk 3 dager","s":"es","fra":"2026-08-21","til":"2026-08-23","dager":3,"kr":373.16,"src":"meta-ads-reporting","st":"avsluttet","m":""},{"k":"meta","id":"120248631319400625","n":"Ukrainsk 18 - 44 – kopi","o":"Ukrainsk + spansk 3 dager","s":"uk","fra":"2026-08-21","til":"2026-08-23","dager":3,"kr":745.25,"src":"meta-ads-reporting","st":"avsluttet","m":""},{"k":"meta","id":"120248773686080625","n":"Norge 18+ arabisk - arabiske playables – kopi","o":"Arabisk playables - omkjoring aug26","s":"ar","fra":"2026-08-28","til":"2026-09-03","dager":7,"kr":654.34,"src":"meta-ads-reporting","st":"aktiv","m":"Arabisk playables: kr 1 000 totalt, tidsplan 28.08-07.09, lest i Ads Manager 03.09"},{"k":"meta","id":"120248773840210625","n":"Norge 18-24 norsk - unge – kopi","o":"Norsk unge - omkjoring aug26","s":"no","fra":"2026-08-28","til":"2026-09-03","dager":7,"kr":1584.34,"src":"meta-ads-reporting","st":"av 03.09","m":"Norsk unge: Edvard sier han skrudde av de norske Meta-kampanjene 03.09 (ikke bekreftet i Ads Manager). Leverte fra 28.08, kr 1 584 per 03.09"},{"k":"meta","id":"120248773978840625","n":"Norge 18+ norsk - lenkeklikk App Store – kopi","o":"Lenkeklikk l-appen.app - aug26","s":"no","fra":"2026-08-28","til":"2026-09-03","dager":7,"kr":1566.62,"src":"meta-ads-reporting","st":"av 03.09","m":"Lenkeklikk l-appen.app: skrudd av 03.09 sammen med de norske (ikke bekreftet i Ads Manager). Dagsbudsjett kr 300 lest i Ads Manager 03.09"},{"k":"meta","id":"120248791219150625","n":"Norge 18-44 engelsk - expats utenfor EØS – kopi – kopi","o":"Engelsk expats - omkjoring aug26","s":"en","fra":"2026-08-29","til":"2026-08-29","dager":1,"kr":0.44,"src":"meta-ads-reporting","st":"aldri levert","m":"Engelsk expats - omkjoring: kr 0,44 den 29.08, kopi-kopi-kopi-settet tok over 30.08 (slutning, ikke bekreftet)"},{"k":"meta","id":"120248791607810625","n":"Norge 18+ somalisk - somaliske playables","o":"Somalisk playables - omkjoring aug26","s":"so","fra":"2026-08-29","til":"2026-08-29","dager":1,"kr":1.01,"src":"meta-ads-reporting","st":"aldri levert","m":"Somalisk: publisert, men kr 1,01 og 12 eksponeringer 29.08, ellers ingenting. Sjekk status og medier i Ads Manager"},{"k":"meta","id":"120248792320420625","n":"Norge 18+ tyrkisk - tyrkiske playables","o":"Tyrkisk playables - omkjoring aug26","s":"tr","fra":"2026-08-30","til":"2026-09-03","dager":5,"kr":642.67,"src":"meta-ads-reporting","st":"aktiv","m":"Tyrkisk playables: kr 1 250 totalt, tidsplan 29.08-07.09, lest i Ads Manager 03.09"},{"k":"meta","id":"120248798052610625","n":"Norge 18-44 engelsk - expats utenfor EØS – kopi – kopi – kopi","o":"Test - xpats kopi","s":"en","fra":"2026-08-30","til":"2026-09-03","dager":5,"kr":1435.44,"src":"meta-ads-reporting","st":"aktiv","m":"Engelsk expats (Test - xpats kopi): dagsbudsjett kr 320, tidsplan 30.08-07.09, lest i Ads Manager 03.09"},{"k":"google-ads","id":"24209964386","n":"L-appen Android NO","o":"Google App Campaign","s":"no","fra":"2026-09-03","til":"2026-09-03","dager":1,"kr":350,"src":"anslag-budsjett","st":"aktiv","m":"budsjett x dager, IKKE avlest forbruk, kampanjen var under evaluering 03.09 morgen"}]/*KAMPANJER*/;
 const rcPerDag = (() => { const p = {}; KJOP_RC.forEach(t => { p[t.d] = (p[t.d] || 0) + 1; }); return p; })();
 const rcKjop = (fra, til) => KJOP_RC.filter(t => t.d >= fra && t.d <= til).length;
 // Reklamekroner per dag fra REKLAME (forbruksdag, ikke fakturadato). Meta er
@@ -802,12 +802,15 @@ function reklameKr(dato){
   const d = reklamePerDag[dato];
   return d ? d : { meta: 0, asa: 0, google: 0, sum: 0, anslag: 0, sprak: {} };
 }
-// Kroner per spraak per dag. ASA og Google er norske kanaler uten spraak-
-// oppdeling og telles paa 'no' naar medNorskeKanaler er sann.
-function reklameKrSprak(dato, sprak, medNorskeKanaler){
-  const d = reklamePerDag[dato]; if (!d) return 0;
-  if (sprak === 'no' && !medNorskeKanaler) return REKLAME.filter(r => r.d === dato && r.s === 'no' && r.k === 'meta').reduce((a, r) => a + r.kr, 0);
-  return d.sprak[sprak] || 0;
+// Forbruk per dag per kampanje-id, og kroner per spraakgruppe per dag.
+// ASA og Google er norske soekekanaler uten spraakoppdeling og ligger paa
+// norsk som «soek». anslag = minst en av radene er budsjett, ikke avlest.
+const forbrukDag = (() => { const p = {}; REKLAME.forEach(f => { (p[f.d] = p[f.d] || {})[f.id] = f; }); return p; })();
+function reklameKrSprak(dato, g){
+  const ut = { meta: 0, sok: 0, sum: 0, anslag: false };
+  KAMPANJER.forEach(k => { if (sprakGruppe(k.s) !== g) return; const f = (forbrukDag[dato] || {})[k.id]; if (!f) return;
+    ut[k.k === 'meta' ? 'meta' : 'sok'] += f.kr; ut.sum += f.kr; if (f.src.indexOf('anslag') === 0) ut.anslag = true; });
+  return ut;
 }
 const REKLAME_START = REKLAME.length ? REKLAME.map(r => r.d).sort()[0] : LANSERT;
 // REGIMENE: naar reglene endret seg. Kilde: git-loggen i app-expo og konfig.
@@ -815,18 +818,24 @@ const REGIMER = [
   { d: '2026-08-14', t: 'lansering App Store' },
   { d: '2026-08-16', t: 'Meta-annonser fra' },
   { d: '2026-08-17', t: 'Apple Search Ads fra' },
+  { d: '2026-08-21', t: 'Meta: ukrainsk + spansk i 3 dager' },
+  { d: '2026-08-26', t: 'Meta runde 1 slutt' },
+  { d: '2026-08-28', t: 'Meta runde 2: norsk unge, arabisk, lenkeklikk' },
+  { d: '2026-08-30', t: 'Meta: tyrkisk og engelsk fra' },
   { d: '2026-08-26', t: 'Play publisert' },
   { d: '2026-08-30', t: 'b112: dagsrasjon → 5 min tid' },
   { d: '2026-08-30', t: 'b123: 4 min for raske' },
   { d: '2026-08-31', t: 'b125: lesing 0,6 · info 0,3' },
   { d: '2026-08-31', t: 'b126: låsen telles' },
-  { d: '2026-09-02', t: 'Android-betaling på' },
+  { d: '2026-09-02', t: 'Android-betaling på · ASA-budsjett opp' },
+  { d: '2026-09-03', t: 'Google Ads fra · norske Meta-sett av' },
 ];
+REGIMER.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : 0);
 
 function css(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
 const fmtDag = iso => iso.slice(8,10) + '.' + iso.slice(5,7);
 const idagIso = () => new Date().toISOString().slice(0,10);
-const SPRAK_NAVN = { no:'Norsk', en:'Engelsk', ar:'Arabisk', ckb:'Sorani', tr:'Tyrkisk', so:'Somali',
+const SPRAK_NAVN = { no:'Norsk', en:'Engelsk', ar:'Arabisk', ckb:'Sorani', tr:'Tyrkisk', so:'Somali', ru:'Russisk', fa:'Persisk',
   ur:'Urdu', uk:'Ukrainsk', ti:'Tigrinja', es:'Spansk' };
 const sprakNavn = k => SPRAK_NAVN[k] || k || '–';
 const byggNr = r => { const m = String(r.versjon || '').match(/build-(\d+)/); return m ? +m[1] : 0; };
@@ -1062,7 +1071,7 @@ function tegn(){
   siderKort(data);
   avbruddKort(data);
   ukeKort(data);
-  perioderKort(data); reklameSkjemaKort(data);
+  perioderKort(data); reklameSkjemaKort(data); kilderLinje();
   tabell(data);
   const utv = rader.filter(r => r.erUtvikler).length, tst = rader.filter(r => r.erTest).length, forL = rader.filter(r => r.forLansering && !r.erUtvikler && !r.erTest).length;
   document.getElementById('tabellFot').innerHTML = '<b>' + data.length + '</b> av ' + rader.length + ' enheter i basen'
@@ -1093,7 +1102,7 @@ function dekningKort(data){
   document.getElementById('cDekning').innerHTML = felt.map(([navn, v, note]) =>
     lrad(navn, v, n, v + ' <span style="color:var(--muted)">· ' + pct(v, n) + ' · ' + note + '</span>')).join('')
     + '<div class="hint" style="margin-top:10px"><b>Kjøp: RevenueCat ' + rcN + ' transaksjoner / ' + rcK + ' kunder</b> (hentet ' + (KJOP_RC_HENTET || '?').replace('T', ' ') + (KJOP_RC_TEST ? ', ' + KJOP_RC_TEST + ' testkjøp holdt utenfor' : '') + ') mot <b>' + bN
-    + ' med kvittering i backupen</b>. De ' + Math.max(0, rcK - bN) + ' som mangler kjøpte for det meste 17.–30.08, da kjøpsstatus var ute av backupen. '
+    + ' med kvittering i backupen</b>. De ' + Math.max(0, rcK - bN) + ' som mangler kjøpte for det meste 17.-30.08, da kjøpsstatus var ute av backupen. '
     + 'Kjøpstallene under bruker RevenueCat der det er per dato, og backupen der det må være per enhet.</div>';
 }
 
@@ -1225,95 +1234,143 @@ function sisteDager(n){ const ut = []; for (let i = n-1; i >= 0; i--) ut.push(ne
 // dagene i dg. krAv(d) -> { sum, tekst } gir kronene og teksten i tipset.
 // maksN/maksKr kan gis utenfra saa flere diagrammer deler skala.
 function dagDiagram(svg, dg, nye, kjop, krAv, skala){
-  const H = (skala && skala.H) || 190, W = Math.max(320, svg.getBoundingClientRect().width || 700), L = 34, R = 44, T = 10, B = 26;
+  skala = skala || {};
+  const H = skala.H || 190, W = skala.W || Math.max(320, svg.getBoundingClientRect().width || 700), L = 34, R = 44, T = skala.kjopTall ? 16 : 10, B = 26;
   const iw = W - L - R, ih = H - T - B, bw = iw / dg.length;
-  const maksN = Math.max(1, (skala && skala.maksN) || 0, ...dg.map(d => nye[d] || 0)), maksKr = Math.max(1, (skala && skala.maksKr) || 0, ...dg.map(d => krAv(d).sum));
+  const krd = dg.map(d => krAv(d));
+  const harKr = krd.some(x => x.sum > 0);
+  const maksN = Math.max(1, skala.maksN || 0, ...dg.map(d => nye[d] || 0)), maksKr = Math.max(1, skala.maksKr || 0, ...krd.map(x => x.sum));
   let s = '';
+  // skygge: dagene et Meta-sett for spraaket var aktivt
+  if (skala.skygge) dg.forEach((d, i) => { if (skala.skygge.has(d)) s += '<rect x="' + (L + i*bw) + '" y="' + T + '" width="' + bw + '" height="' + ih + '" fill="' + css('--series-2') + '" opacity=".09"/>'; });
   // aksenett
   [0, .5, 1].forEach(f => { const y = T + ih - f*ih; s += '<line x1="' + L + '" x2="' + (W-R) + '" y1="' + y + '" y2="' + y + '" stroke="' + css('--grid') + '"/>'
     + '<text x="' + (L-4) + '" y="' + (y+4) + '" font-size="10" text-anchor="end" fill="' + css('--muted') + '">' + Math.round(maksN*f) + '</text>'
-    + '<text x="' + (W-R+4) + '" y="' + (y+4) + '" font-size="10" fill="' + css('--muted') + '">' + Math.round(maksKr*f) + ' kr</text>'; });
+    + (harKr ? '<text x="' + (W-R+4) + '" y="' + (y+4) + '" font-size="10" fill="' + css('--muted') + '">' + Math.round(maksKr*f) + ' kr</text>' : ''); });
+  const hver = Math.ceil(dg.length / (W < 500 ? 5 : 10));
   dg.forEach((d, i) => {
     const x = L + i*bw, n = nye[d] || 0, k = kjop[d] || 0;
-    const hN = ih * n / maksN, hK = ih * k / maksN;
+    const hN = ih * n / maksN, hK = k ? Math.max(skala.kjopTall ? 3 : 1, ih * k / maksN) : 0;
     s += '<rect x="' + (x+2) + '" y="' + (T+ih-hN) + '" width="' + Math.max(1, bw*.55-2) + '" height="' + hN + '" fill="' + css('--series-1') + '" rx="2"><title>' + fmtDag(d) + ': ' + n + ' nye</title></rect>';
-    s += '<rect x="' + (x+2+bw*.55) + '" y="' + (T+ih-hK) + '" width="' + Math.max(1, bw*.35-2) + '" height="' + hK + '" fill="' + css('--series-3') + '" rx="2"><title>' + fmtDag(d) + ': ' + k + ' kjøp</title></rect>';
-    if (i % Math.ceil(dg.length/10) === 0) s += '<text x="' + (x+bw/2) + '" y="' + (H-8) + '" font-size="10" text-anchor="middle" fill="' + css('--muted') + '">' + fmtDag(d) + '</text>';
+    s += '<rect x="' + (x+2+bw*.55) + '" y="' + (T+ih-hK) + '" width="' + Math.max(1, bw*.35-2) + '" height="' + hK + '" fill="' + css(skala.graaKjop ? '--baseline' : '--series-3') + '" rx="2"><title>' + fmtDag(d) + ': ' + k + ' kjøp' + (skala.graaKjop ? ' uten kjent språk' : '') + '</title></rect>';
+    if (skala.kjopTall && k) s += '<text x="' + (x+2+bw*.55+Math.max(1, bw*.35-2)/2) + '" y="' + (T+ih-hK-2) + '" font-size="9" text-anchor="middle" fill="' + css(skala.graaKjop ? '--muted' : '--series-3') + '">' + k + '</text>';
+    if (i % hver === 0) s += '<text x="' + (x+bw/2) + '" y="' + (H-8) + '" font-size="10" text-anchor="middle" fill="' + css('--muted') + '">' + fmtDag(d) + '</text>';
   });
-  const pts = dg.map((d, i) => (L + i*bw + bw/2) + ',' + (T + ih - ih * krAv(d).sum / maksKr));
-  s += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + css('--series-2') + '" stroke-width="2"/>';
-  dg.forEach((d, i) => { const rk = krAv(d); s += '<circle cx="' + (L + i*bw + bw/2) + '" cy="' + (T + ih - ih*rk.sum/maksKr) + '" r="2.5" fill="' + css('--series-2') + '"><title>' + fmtDag(d) + ': ' + rk.tekst + '</title></circle>'; });
+  if (harKr) {
+    const pts = dg.map((d, i) => (L + i*bw + bw/2) + ',' + (T + ih - ih * krd[i].sum / maksKr));
+    s += '<polyline points="' + pts.join(' ') + '" fill="none" stroke="' + css('--series-2') + '" stroke-width="2"/>';
+    dg.forEach((d, i) => { const rk = krd[i], cx = L + i*bw + bw/2, cy = T + ih - ih*rk.sum/maksKr;
+      s += '<circle cx="' + cx + '" cy="' + cy + '" r="' + (rk.anslag ? 3 : 2.5) + '" ' + (rk.anslag ? 'fill="none" stroke="' + css('--series-2') + '" stroke-width="1.5"' : 'fill="' + css('--series-2') + '"') + '><title>' + fmtDag(d) + ': ' + rk.tekst + (rk.anslag ? ' (anslag)' : '') + '</title></circle>'; });
+  }
+  // stoppstrek: dagen et Meta-sett ble slaatt av (etter dagens soeyle)
+  (skala.stopp || []).forEach(iso => { const i = dg.indexOf(iso); if (i < 0) return; const x = L + (i+1)*bw;
+    s += '<line x1="' + x + '" x2="' + x + '" y1="' + T + '" y2="' + (T+ih) + '" stroke="' + css('--critical') + '" stroke-width="1.5" stroke-dasharray="3,3"><title>Meta-sett slått av ' + fmtDag(iso) + '</title></line>'; });
   svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.innerHTML = s;
   return { maksN, maksKr };
 }
-const krTekst = rk => Math.round(rk.sum) + ' kr (Meta ' + Math.round(rk.meta) + (rk.asa ? ' + ASA ~' + Math.round(rk.asa) : '') + (rk.google ? ' + Google ~' + Math.round(rk.google) : '') + ')';
+const krTekst = rk => (rk.anslag ? '~' : '') + Math.round(rk.sum) + ' kr (Meta ' + Math.round(rk.meta) + (rk.asa ? ' · ASA ~' + Math.round(rk.asa) : '') + (rk.google ? ' · Google ~' + Math.round(rk.google) : '') + ')';
 function dagKort(data){
   const dg = sisteDager(dager);
   const nye = {}, kjop = KJOP_RC.length ? rcPerDag : {};
   data.forEach(r => { const d = nedlastet(r); nye[d] = (nye[d]||0)+1; if (!KJOP_RC.length && kvittert(r)) { const k = kjopsInfo(r).dag; kjop[k] = (kjop[k]||0)+1; } });
-  dagDiagram(document.getElementById('cDag'), dg, nye, kjop, d => { const rk = reklameKr(d); return { sum: rk.sum, tekst: krTekst(rk) }; });
+  dagDiagram(document.getElementById('cDag'), dg, nye, kjop, d => { const rk = reklameKr(d); return { sum: rk.sum, tekst: krTekst(rk), anslag: rk.anslag > 0 }; });
   document.getElementById('cRegime').innerHTML = REGIMER.filter(x => x.d >= dg[0] && x.d <= dg[dg.length-1])
     .map(x => '<span><b>' + fmtDag(x.d) + '</b> ' + x.t + '</span>').join('') || '<span>ingen regimeskifter i vinduet</span>';
 }
-// DAG FOR DAG PER SPRAAK. Spraakene er dem Meta har annonsert paa (KAMPANJER),
-// sortert etter forbruk. Nye og kjoep per spraak er fra backupen (r.sprak);
-// RevenueCat-lista har ikke spraak, saa kjoep per spraak er en nedre grense.
-const SPRAK_KORT = (() => { const sum = {}; REKLAME.forEach(r => { if (r.k === 'meta') sum[r.s] = (sum[r.s] || 0) + r.kr; });
-  return Object.keys(sum).filter(k => sum[k] >= 50).sort((a, b) => sum[b] - sum[a]); })();
+// DAG FOR DAG PER SPRAAK. Faste ruter i fast rekkefoelge, saa et spraak ligger
+// paa samme plass uansett vindu. Spraak Meta har annonsert paa kommer i tillegg
+// (spansk), saa «Andre spraak» (alt med kode), og «Uten kjent spraak» naar den
+// har innhold i vinduet. Nye og kjoep per spraak er fra backupen (r.sprak);
+// RevenueCat-lista har ikke spraak, saa kjoep uten kjent spraak = RevenueCat
+// minus backupens kjoep med spraak, per dag. Da summerer rutene til «Dag for dag».
+const SPRAK_FASTE = ['no', 'ar', 'en', 'tr', 'uk', 'ru'];
+const SPRAK_KAMP = KAMPANJER.filter(k => k.kr >= 50).map(k => k.s).filter((x, i, a) => a.indexOf(x) === i && SPRAK_FASTE.indexOf(x) < 0);
+const SPRAK_RUTER = SPRAK_FASTE.concat(SPRAK_KAMP);
+const sprakGruppe = x => !x ? '?' : SPRAK_RUTER.indexOf(x) > -1 ? x : 'andre';
+const gruppeNavn = g => g === 'andre' ? 'Andre språk' : g === '?' ? 'Uten kjent språk' : sprakNavn(g);
+const gruppeId = g => g === '?' ? 'ukjent' : g;
+const kampAktiv = (k, d) => d >= k.fra && (k.st === 'aktiv' || d <= k.til);
+const kortNavn = k => (k.k === 'meta' ? (/^L-appen playables/.test(k.o) ? k.n.replace(/^Norge 18[+-]?\d*\s*/, '') : k.o.replace(/ - (omkjoring )?aug26$/, '')) : k.n).replace(/[–—]/g, '-');
 function sprakDagKort(data){
-  const dg = sisteDager(dager);
-  const nye = {}, kjop = {};
-  const tell = (o, s, d) => { const m = o[s] || (o[s] = {}); m[d] = (m[d] || 0) + 1; };
-  data.forEach(r => { const s = r.sprak || '?'; tell(nye, s, nedlastet(r)); if (kvittert(r)) tell(kjop, s, kjopsInfo(r).dag); });
-  const iVindu = (m, s) => dg.reduce((a, d) => a + ((m[s] || {})[d] || 0), 0);
-  const krAv = s => d => { const kr = reklameKrSprak(d, s, true), meta = reklameKrSprak(d, s, false);
-    return { sum: kr, tekst: Math.round(kr) + ' kr' + (kr > meta + 0.5 ? ' (Meta ' + Math.round(meta) + ' + ASA/Google ~' + Math.round(kr - meta) + ')' : '') }; };
-  const maksN = Math.max(1, ...SPRAK_KORT.map(s => Math.max(0, ...dg.map(d => (nye[s] || {})[d] || 0))));
-  const maksKr = Math.max(1, ...SPRAK_KORT.map(s => Math.max(0, ...dg.map(d => krAv(s)(d).sum))));
-  const el = document.getElementById('cSprakDag');
+  const dg = sisteDager(dager), siste = dg[dg.length - 1];
+  const nye = {}, kjop = {}, andreKoder = {};
+  const tell = (o, g, d) => { const m = o[g] || (o[g] = {}); m[d] = (m[d] || 0) + 1; };
+  data.forEach(r => { const g = sprakGruppe(r.sprak), d = nedlastet(r); tell(nye, g, d);
+    if (g === 'andre' && dg.indexOf(d) > -1) andreKoder[r.sprak] = (andreKoder[r.sprak] || 0) + 1;
+    if (kvittert(r)) tell(kjop, g, kjopsInfo(r).dag); });
+  const medSprakDag = {}; Object.keys(kjop).filter(g => g !== '?').forEach(g => Object.keys(kjop[g]).forEach(d => { medSprakDag[d] = (medSprakDag[d] || 0) + kjop[g][d]; }));
+  kjop['?'] = {}; dg.forEach(d => { const u = (rcPerDag[d] || 0) - (medSprakDag[d] || 0); if (u > 0) kjop['?'][d] = u; });
+  const iVindu = (m, g) => dg.reduce((a, d) => a + ((m[g] || {})[d] || 0), 0);
+  const grupper = SPRAK_RUTER.concat(['andre']).concat(iVindu(kjop, '?') || iVindu(nye, '?') ? ['?'] : []);
+  const ingenKr = () => ({ sum: 0, tekst: '', anslag: false });
+  const krAv = g => (g === '?' || g === 'andre') ? ingenKr : d => { const kr = reklameKrSprak(d, g);
+    return { sum: kr.sum, anslag: kr.anslag, tekst: (kr.anslag ? '~' : '') + Math.round(kr.sum) + ' kr' + (kr.sok ? ' (Meta ' + Math.round(kr.meta) + ' · søk ~' + Math.round(kr.sok) + ')' : '') }; };
+  const maksN = Math.max(1, ...grupper.map(g => Math.max(0, ...dg.map(d => (nye[g] || {})[d] || 0))));
+  const maksKr = Math.max(1, ...grupper.map(g => Math.max(0, ...dg.map(d => krAv(g)(d).sum))));
   const kr = n => Math.round(n).toLocaleString('nb-NO');
-  el.innerHTML = SPRAK_KORT.map(s => { const n = iVindu(nye, s), k = iVindu(kjop, s), sumKr = dg.reduce((a, d) => a + krAv(s)(d).sum, 0);
-    const aktiv = KAMPANJER.some(x => x.s === s && x.st === 'aktiv');
-    return '<div><div class="hint" style="margin:0 0 4px"><b>' + sprakNavn(s) + '</b> · ' + n + ' nye · ' + k + ' kjøp · ' + kr(sumKr) + ' kr'
-      + (n ? ' · ' + (sumKr ? kr(sumKr / n) + ' kr/ny' : '') : '') + (k && sumKr ? ' · ' + kr(sumKr / k) + ' kr/kjøp' : '')
-      + (aktiv ? '' : ' · <span style="color:var(--critical)">ingen aktiv kampanje</span>') + '</div><svg id="cSprakDag_' + s + '" style="width:100%;display:block"></svg></div>'; }).join('');
-  SPRAK_KORT.forEach(s => dagDiagram(document.getElementById('cSprakDag_' + s), dg, nye[s] || {}, kjop[s] || {}, krAv(s), { maksN, maksKr, H: 150 }));
-  const medSprak = data.filter(kvittert).length, uten = data.filter(r => !r.sprak).length;
-  document.getElementById('cSprakDagHull').textContent = 'Kjøp per språk: backupen har ' + medSprak + ' kjøp med språk mot ' + KJOP_RC.length + ' i RevenueCat, så språkfordelingen av kjøp er en nedre grense. '
-    + uten + ' enheter mangler språk (gammel bunt) og er ikke med i noe kort. Språket er det brukeren har valgt i appen, ikke telefonspråket, og er en proxy for hvilken kampanje som hentet dem. Tallene i overskriften gjelder vinduet (' + dager + ' dager).';
+  document.getElementById('cSprakDag').innerHTML = grupper.map(g => {
+    const n = iVindu(nye, g), k = iVindu(kjop, g);
+    const sett = KAMPANJER.filter(x => sprakGruppe(x.s) === g && x.kr >= 50 && dg.some(d => kampAktiv(x, d)));
+    const sumKr = dg.reduce((a, d) => a + krAv(g)(d).sum, 0), anslag = dg.some(d => krAv(g)(d).anslag), t = anslag ? '~' : '';
+    const deler = [n + ' nye', k + ' kjøp'];
+    if (sett.length) { deler.push(t + kr(sumKr) + ' kr'); if (n) deler.push(t + kr(sumKr / n) + ' kr/ny'); deler.push(k ? t + kr(sumKr / k) + ' kr/kjøp' + (k < 5 ? ' (få kjøp)' : '') : '- kr/kjøp'); }
+    else if (g !== '?' && g !== 'andre') deler.push('ingen kampanje i vinduet');
+    const koder = Object.keys(andreKoder).sort((a, b) => andreKoder[b] - andreKoder[a]);
+    const tittel = '<b>' + gruppeNavn(g) + '</b>' + (g === 'andre' && koder.length ? ' <span style="color:var(--muted)" title="' + koder.map(x => sprakNavn(x) + ' ' + andreKoder[x]).join(', ') + '">(' + koder.join(', ') + ')</span>' : '');
+    const periode = x => fmtDag(x.fra) + '-' + (x.st === 'aktiv' ? '<span style="color:var(--good-text)">pågår</span>' : fmtDag(x.til) + ' <span style="color:var(--critical)">stoppet</span>');
+    const asa = sett.filter(x => x.k === 'apple-search-ads'), rest = sett.filter(x => x.k !== 'apple-search-ads');
+    const fot = sett.length ? rest.map(x => kortNavn(x) + ' ' + periode(x)).concat(asa.length ? ['Apple Search Ads x' + asa.length + ' ' + periode(asa[0])] : []).join(' · ')
+      : (g === '?' ? 'kjøp = RevenueCat minus backupens kjøp med språk' : '');
+    return '<div><div class="hint" style="margin:0 0 4px">' + tittel + ' · ' + deler.join(' · ') + '</div><svg id="cSprakDag_' + gruppeId(g) + '" style="width:100%;height:auto;display:block"></svg>'
+      + (fot ? '<div class="hint" style="margin:4px 0 0">' + fot + '</div>' : '') + '</div>'; }).join('');
+  grupper.forEach(g => { const sett = KAMPANJER.filter(x => x.k === 'meta' && sprakGruppe(x.s) === g && x.kr >= 50);
+    const skygge = new Set(dg.filter(d => sett.some(x => kampAktiv(x, d))));
+    const stopp = sett.filter(x => x.st !== 'aktiv' && dg.indexOf(x.til) > -1 && x.til !== siste).map(x => x.til).filter((x, i, a) => a.indexOf(x) === i);
+    dagDiagram(document.getElementById('cSprakDag_' + gruppeId(g)), dg, nye[g] || {}, kjop[g] || {}, krAv(g), { maksN, maksKr, H: 140, W: 340, kjopTall: true, skygge, stopp, graaKjop: g === '?' }); });
+  const medSprak = dg.reduce((a, d) => a + (medSprakDag[d] || 0), 0), rc = dg.reduce((a, d) => a + (rcPerDag[d] || 0), 0), uten = data.filter(r => !r.sprak).length;
+  document.getElementById('cSprakDagHull').textContent = 'Kjøp per språk er kvitteringer i backupen: ' + medSprak + ' av ' + rc + ' RevenueCat-kjøp i vinduet har kjent språk, resten står i «Uten kjent språk». Kjøpsdagen er utløp minus 120 dager og kan bomme med en dag. '
+    + 'Reklame per språk = Meta-settene rettet mot språket (lest t.o.m. ' + fmtDag(REKLAME_TIL || idagIso()) + '); Apple Search Ads og Google Ads er norske søkeannonser og ligger på Norsk som «søk», som dagsbudsjett (hule punkter) til de er lest. '
+    + 'Språket er valgt av brukeren i appen (ikke telefonspråket) og er en proxy for hvilken kampanje som hentet dem, ikke attribusjon. ' + uten + ' enheter uten språk er gammel bunt. Dagens dag er ikke ferdig. Tallene i overskriftene gjelder vinduet (' + dager + ' dager).';
 }
 
+function kilderLinje(){
+  const fakt = Object.keys(META_KR).sort().pop(), rc = KJOP_RC_HENTET || '';
+  document.getElementById('cKilder').textContent = 'Kilder utenfor basen: Meta-forbruk per annonsesett lest t.o.m. ' + fmtDag(REKLAME_TIL || idagIso()) + ' (Ads Reporting) · Apple Search Ads og Google Ads som budsjettanslag, ikke lest · Meta-fakturaer t.o.m. '
+    + (fakt ? fmtDag(fakt) : '-') + ' · RevenueCat avlest ' + (rc ? fmtDag(rc) + ' kl. ' + rc.slice(11, 16) : '-') + ' · butikkenes nedlastingstall ikke hentet.';
+}
 // REKLAMESKJEMAET (Oekonomi-fanen): forbruk per dag per spraak, kampanjestart
 // og -stopp, avstemming mot fakturaene, nye og kjoep per dag.
 function reklameSkjemaKort(data){
   const idag = idagIso();
   const dg = []; for (let t = Date.parse(REKLAME_START); t <= Date.parse(idag); t += 864e5) dg.push(new Date(t).toISOString().slice(0,10));
-  const sprakene = SPRAK_KORT.slice();
+  const sprakene = SPRAK_RUTER.filter(x => REKLAME.some(r => r.k === 'meta' && r.s === x));
   REKLAME.forEach(r => { if (r.k === 'meta' && sprakene.indexOf(r.s) < 0) sprakene.push(r.s); });
   const nye = {}; data.forEach(r => { const d = nedlastet(r); nye[d] = (nye[d] || 0) + 1; });
   const kr = n => n ? Math.round(n).toLocaleString('nb-NO') : '<span style="color:var(--muted)">·</span>';
   const start = {}, stopp = {};
   // Endagsforsoek under 5 kr (aldri levert) faar ikke markoer - de stoeyer bare
-  KAMPANJER.filter(k => k.k === 'meta' && !(k.dager === 1 && k.kr < 5)).forEach(k => { (start[k.fra] = start[k.fra] || []).push(k); if (k.st !== 'aktiv') (stopp[k.til] = stopp[k.til] || []).push(k); });
-  const merke = (liste, tegn) => (liste || []).map(k => '<span title="' + k.n.replace(/"/g, '&quot;') + (k.o ? ' (' + k.o + ')' : '') + (k.m ? ': ' + k.m : '') + '" style="cursor:help">' + tegn + '</span>').join('');
-  const tot = { faktura: 0, nye: 0, kjop: 0, sum: 0, asa: 0, google: 0 }; const totS = {};
-  let h = '<table><tr><th>dato</th>' + sprakene.map(s => '<th class="h">' + sprakNavn(s) + '</th>').join('') + '<th class="h">ASA ~</th><th class="h">Google ~</th><th class="h">sum</th><th class="h" title="Metas fakturaer (terskelbelastninger) på fakturadato">faktura Meta</th><th class="h">nye</th><th class="h">kjøp RC</th></tr>';
+  KAMPANJER.filter(k => !(k.dager === 1 && k.kr < 5)).forEach(k => { (start[k.fra] = start[k.fra] || []).push(k); if (k.st !== 'aktiv') (stopp[k.til] = stopp[k.til] || []).push(k); });
+  const ren = x => String(x || '').replace(/[–—]/g, '-').replace(/"/g, '&quot;');
+  const merke = (liste, tegn) => (liste || []).map(k => '<span title="' + ren(k.n) + (k.o ? ' (' + ren(k.o) + ')' : '') + (k.m ? ': ' + ren(k.m) : '') + '" style="cursor:help">' + tegn + '</span>').join('');
+  const merkeEn = (liste, tegn) => liste && liste.length ? '<span title="' + liste.map(k => ren(k.n)).join(', ') + '" style="cursor:help">' + tegn + '</span>' : '';
+  const tot = { faktura: 0, nye: 0, kjop: 0, sum: 0, asa: 0, google: 0, meta: 0 }; const totS = {}; let kumMeta = 0, kumFakt = 0;
+  let h = '<table><tr><th>dato</th>' + sprakene.map(s => '<th class="h">' + sprakNavn(s) + '</th>').join('') + '<th class="h">ASA ~</th><th class="h">Google ~</th><th class="h">sum</th><th class="h" title="Metas fakturaer (terskelbelastninger) på fakturadato">faktura Meta</th><th class="h" title="avlest Meta-forbruk hittil minus fakturert hittil">Meta påløpt</th><th class="h">nye</th><th class="h">kjøp RC</th></tr>';
   dg.forEach(d => { const rk = reklameKr(d), meta = {}; REKLAME.forEach(r => { if (r.d === d && r.k === 'meta') meta[r.s] = (meta[r.s] || 0) + r.kr; });
     const fakt = META_KR[d] || 0, n = nye[d] || 0, k = rcPerDag[d] || 0;
-    tot.faktura += fakt; tot.nye += n; tot.kjop += k; tot.sum += rk.sum; tot.asa += rk.asa; tot.google += rk.google;
+    tot.faktura += fakt; tot.nye += n; tot.kjop += k; tot.sum += rk.sum; tot.asa += rk.asa; tot.google += rk.google; tot.meta += rk.meta; kumMeta += rk.meta; kumFakt += fakt;
     sprakene.forEach(s => { totS[s] = (totS[s] || 0) + (meta[s] || 0); });
     const startM = start[d] || [], stoppM = stopp[d] || [];
     h += '<tr' + (d === idag ? ' style="color:var(--muted)"' : '') + '><td>' + fmtDag(d) + (d === idag ? ' <span style="font-size:10px">(i dag, ufullstendig)</span>' : '') + '</td>'
-      + sprakene.map(s => '<td class="h">' + merke(startM.filter(x => x.s === s), '▶') + kr(meta[s]) + merke(stoppM.filter(x => x.s === s), '■') + '</td>').join('')
-      + '<td class="h">' + kr(rk.asa) + '</td><td class="h">' + kr(rk.google) + '</td><td class="h"><b>' + kr(rk.sum) + '</b></td><td class="h">' + kr(fakt) + '</td><td class="h">' + n + '</td><td class="h">' + (k || '<span style="color:var(--muted)">·</span>') + '</td></tr>'; });
-  h += '<tr style="font-weight:700"><td>i alt</td>' + sprakene.map(s => '<td class="h">' + kr(totS[s]) + '</td>').join('') + '<td class="h">' + kr(tot.asa) + '</td><td class="h">' + kr(tot.google) + '</td><td class="h">' + kr(tot.sum) + '</td><td class="h">' + kr(tot.faktura) + '</td><td class="h">' + tot.nye + '</td><td class="h">' + tot.kjop + '</td></tr></table>';
+      + sprakene.map(s => '<td class="h">' + merke(startM.filter(x => x.k === 'meta' && x.s === s), '▶') + kr(meta[s]) + merke(stoppM.filter(x => x.k === 'meta' && x.s === s), '■') + '</td>').join('')
+      + '<td class="h">' + merkeEn(startM.filter(x => x.k === 'apple-search-ads'), '▶') + kr(rk.asa) + '</td><td class="h">' + merkeEn(startM.filter(x => x.k === 'google-ads'), '▶') + kr(rk.google) + '</td><td class="h"><b>' + kr(rk.sum) + '</b></td><td class="h">' + kr(fakt) + '</td><td class="h" style="color:var(--muted)">' + (kumMeta - kumFakt >= 0.5 || kumMeta - kumFakt <= -0.5 ? Math.round(kumMeta - kumFakt).toLocaleString('nb-NO') : '·') + '</td><td class="h">' + n + '</td><td class="h">' + (k || '<span style="color:var(--muted)">·</span>') + '</td></tr>'; });
+  h += '<tr style="font-weight:700"><td>i alt fra ' + fmtDag(REKLAME_START) + '</td>' + sprakene.map(s => '<td class="h">' + kr(totS[s]) + '</td>').join('') + '<td class="h">' + kr(tot.asa) + '</td><td class="h">' + kr(tot.google) + '</td><td class="h">' + kr(tot.sum) + '</td><td class="h">' + kr(tot.faktura) + '</td><td class="h" style="color:var(--muted)">' + Math.round(tot.meta - tot.faktura).toLocaleString('nb-NO') + '</td><td class="h">' + tot.nye + '</td><td class="h">' + tot.kjop + '</td></tr></table>';
   document.getElementById('cReklameSkjema').innerHTML = h;
   const metaSum = REKLAME.filter(r => r.k === 'meta').reduce((a, r) => a + r.kr, 0);
   document.getElementById('cReklameHull').textContent = 'Meta lest t.o.m. ' + fmtDag(REKLAME_TIL || idag) + ': ' + Math.round(metaSum).toLocaleString('nb-NO') + ' kr forbruk mot ' + Math.round(tot.faktura).toLocaleString('nb-NO')
-    + ' kr fakturert (fakturaene henger etter forbruket, og påløpt beløp ligger ikke i basen). ASA og Google er budsjett x dager (ASA: EUR x 11,60), ikke avlest forbruk; ASA brukte om lag 90 % av budsjettet første uke. Nye = første oppstart i backupen; kjøp = RevenueCat-lista.';
+    + ' kr fakturert (fakturaene henger etter forbruket, og påløpt beløp ligger ikke i basen). ASA og Google er budsjett x dager (ASA: EUR x 11,60), ikke avlest forbruk; ASA brukte EUR 94 av 105 mulige de sju dagene fram til 02.09. Meta etterjusterer 1-2 døgn, og dagens tall er lest midt på dagen. Nye = første oppstart i backupen; kjøp = RevenueCat-lista.';
   const st = { aktiv: 'var(--good-text)', 'av 03.09': 'var(--critical)' };
   document.getElementById('cKampanjer').innerHTML = '<table><tr><th>kampanje / annonsesett</th><th>kanal</th><th>språk</th><th class="h">fra</th><th class="h">til</th><th class="h">dager</th><th class="h">kr</th><th>status 03.09</th><th>merknad</th></tr>'
-    + KAMPANJER.slice().sort((a, b) => a.fra < b.fra ? -1 : a.fra > b.fra ? 1 : 0).map(k => '<tr><td>' + k.n + (k.o && k.o !== k.n ? ' <span style="color:var(--muted)">' + k.o + '</span>' : '') + '</td><td>' + k.k + '</td><td>' + sprakNavn(k.s) + '</td><td class="h">' + fmtDag(k.fra) + '</td><td class="h">' + (k.st === 'aktiv' ? '–' : fmtDag(k.til)) + '</td><td class="h">' + k.dager + '</td><td class="h">' + Math.round(k.kr).toLocaleString('nb-NO') + '</td><td style="color:' + (st[k.st] || 'var(--muted)') + '">' + k.st + '</td><td style="color:var(--muted)">' + (k.m || '') + '</td></tr>').join('') + '</table>';
+    + KAMPANJER.slice().sort((a, b) => a.fra < b.fra ? -1 : a.fra > b.fra ? 1 : 0).map(k => '<tr><td>' + ren(k.n) + (k.o && k.o !== k.n ? ' <span style="color:var(--muted)">' + ren(k.o) + '</span>' : '') + '</td><td>' + k.k + '</td><td>' + sprakNavn(k.s) + '</td><td class="h">' + fmtDag(k.fra) + '</td><td class="h">' + (k.st === 'aktiv' ? '–' : fmtDag(k.til)) + '</td><td class="h">' + k.dager + '</td><td class="h">' + Math.round(k.kr).toLocaleString('nb-NO') + '</td><td style="color:' + (st[k.st] || 'var(--muted)') + '">' + k.st + '</td><td style="color:var(--muted)">' + (k.m || '') + '</td></tr>').join('') + '</table>';
 }
 function aktivKort(data){
   const dg = sisteDager(dager), per = {};
@@ -1390,18 +1447,18 @@ function avbruddKort(data){
 function ukeStart(d){ const t = new Date(Date.parse(d)); const dag = (t.getUTCDay() + 6) % 7; t.setUTCDate(t.getUTCDate() - dag); return t.toISOString().slice(0,10); }
 function ukeKort(data){
   const per = {};
-  const u = d => (per[d] = per[d] || { nye: 0, kjop: 0, kr: 0, meta: 0, asa: 0 });
+  const u = d => (per[d] = per[d] || { nye: 0, kjop: 0, kr: 0, meta: 0, asa: 0, google: 0 });
   data.forEach(r => { u(ukeStart(nedlastet(r))).nye++; if (!KJOP_RC.length && kvittert(r)) u(ukeStart(kjopsInfo(r).dag)).kjop++; });
   KJOP_RC.forEach(t => { u(ukeStart(t.d)).kjop++; });
-  Object.keys(reklamePerDag).forEach(d => { const rk = reklameKr(d), w = u(ukeStart(d)); w.kr += rk.sum; w.meta += rk.meta; w.asa += rk.asa + rk.google; });
+  Object.keys(reklamePerDag).forEach(d => { const rk = reklameKr(d), w = u(ukeStart(d)); w.kr += rk.sum; w.meta += rk.meta; w.asa += rk.asa; w.google += rk.google; });
   const uker = Object.keys(per).filter(k => k >= ukeStart(LANSERT)).sort();
   const kr = n => Math.round(n).toLocaleString('nb-NO') + ' kr';
   const tot = { nye:0, kjop:0, kr:0 };
   let s = '<table><tr><th>uke fra</th><th class="h">nye</th><th class="h">kjøp</th><th class="h">konv.</th><th class="h">reklame</th><th class="h">kr / ny</th><th class="h">kr / kjøp</th><th class="h">netto</th><th class="h">resultat</th></tr>';
   uker.forEach(k => { const w = per[k]; tot.nye += w.nye; tot.kjop += w.kjop; tot.kr += w.kr;
     const netto = w.kjop * PRIS_KR * BUTIKK_ANDEL;
-    s += '<tr><td>' + fmtDag(k) + '</td><td class="h">' + w.nye + '</td><td class="h">' + w.kjop + '</td><td class="h">' + pct(w.kjop, w.nye)
-      + '</td><td class="h" title="Meta ' + kr(w.meta) + ' + ASA ~' + kr(w.asa) + '">' + kr(w.kr) + '</td><td class="h">' + (w.nye ? kr(w.kr / w.nye) : '–')
+    s += '<tr><td>' + fmtDag(k) + (k === ukeStart(idagIso()) ? ' <span style="color:var(--muted)">(pågår)</span>' : '') + '</td><td class="h">' + w.nye + '</td><td class="h">' + w.kjop + '</td><td class="h">' + pct(w.kjop, w.nye)
+      + '</td><td class="h" title="Meta ' + kr(w.meta) + ' · ASA ~' + kr(w.asa) + ' · Google ~' + kr(w.google) + '">' + kr(w.kr) + '</td><td class="h">' + (w.nye ? kr(w.kr / w.nye) : '–')
       + '</td><td class="h">' + (w.kjop ? kr(w.kr / w.kjop) : '–') + '</td><td class="h">' + kr(netto) + '</td><td class="h" style="color:' + (netto - w.kr >= 0 ? 'var(--good-text)' : 'var(--critical)') + '">' + kr(netto - w.kr) + '</td></tr>'; });
   const nettoT = tot.kjop * PRIS_KR * BUTIKK_ANDEL;
   s += '<tr style="font-weight:700"><td>i alt</td><td class="h">' + tot.nye + '</td><td class="h">' + tot.kjop + '</td><td class="h">' + pct(tot.kjop, tot.nye) + '</td><td class="h">' + kr(tot.kr)
