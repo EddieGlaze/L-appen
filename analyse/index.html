@@ -265,7 +265,7 @@
   <div class="kort" data-fane="bruk enheter"><h3>Kan jeg stole på tallene?</h3>
     <div class="hint">Hvert kort under måler på den delen av basen som HAR feltet. Her er nevnerne, så et tall aldri leses som «alle».</div>
     <div id="cDekning"></div>
-    <div class="hull">Kilder utenfor basen: Meta-bilag hentet t.o.m. 02.09 · Apple Search Ads ingen bilag · RevenueCat manuelt avlest 01.09 · butikkenes nedlastingstall ikke hentet.</div>
+    <div class="hull">Kilder utenfor basen: Meta-bilag hentet t.o.m. 02.09 · Apple Search Ads ingen bilag · RevenueCat avlest 03.09 kl. 10:55 · butikkenes nedlastingstall ikke hentet.</div>
   </div>
 
   <!-- 1. FOER KJOEP -->
@@ -743,6 +743,8 @@ window.addEventListener('fanebytte', function (e) {
 const URL_BASE = 'https://kbhekpqyfduhdfoshdvl.supabase.co/rest/v1/fremdrift_enhet';
 let NOKKEL = null;   // settes av innloggingen
 const UTVIKLER = ['b9de0f22-8f80-4815-9d93-105a4e5d2cda', 'a986fd4c-f435-4ee5-b1e9-6b039936f54d'];
+// Enheter med testkjoep (kompisens Android 02.09) - holdes utenfor som utviklerenhetene
+const TEST_ENHETER = ['f1e307f8-8272-4465-8c4e-1210852ba37a'];
 const LANSERT = '2026-08-14';
 const PRIS_KR = 149, BUTIKK_ANDEL = 0.85;
 let rader = [], dager = 14, hentetTotal = 0;
@@ -763,9 +765,12 @@ const ASA_START = '2026-08-17', ASA_EUR_DAG = 15, EUR_NOK = 11.6;
 // appen fra seg fikk aldri et build som sendte proUtlop. Lista limes inn fra
 // RevenueCat Overview og parses av scripts/78-revenuecat-liste.js; ved bygging
 // byttes blokka mellom markoerene ut med data/kjop/<nyeste>.json.
-// {d: kjoepsdato (kan bomme med en dag), b: 'appstore'|'play', k: kunde-id, usd}
-const KJOP_RC = /*KJOP_RC*/[{"d":"2026-09-02","b":"appstore","k":"?","usd":15.97},{"d":"2026-09-02","b":"play","k":"e623..0572","usd":15.97},{"d":"2026-09-02","b":"appstore","k":"afcc..dff1","usd":15.97},{"d":"2026-09-01","b":"appstore","k":"5f42..da0c","usd":15.97},{"d":"2026-09-01","b":"appstore","k":"4c59..228e","usd":15.97},{"d":"2026-08-31","b":"appstore","k":"4dbf..f240","usd":15.97},{"d":"2026-08-31","b":"appstore","k":"fa51..df76","usd":15.91},{"d":"2026-08-31","b":"appstore","k":"adc5..6705","usd":15.91},{"d":"2026-08-30","b":"appstore","k":"5977..279d","usd":15.91},{"d":"2026-08-30","b":"appstore","k":"2a6f..5cee","usd":15.91},{"d":"2026-08-30","b":"appstore","k":"2a6f..5cee","usd":15.91},{"d":"2026-08-30","b":"appstore","k":"9e10..1ecd","usd":15.89},{"d":"2026-08-30","b":"appstore","k":"a296..d0ba","usd":15.89},{"d":"2026-08-29","b":"appstore","k":"67a7..b61c","usd":15.89},{"d":"2026-08-28","b":"appstore","k":"0211..91f8","usd":15.98},{"d":"2026-08-26","b":"appstore","k":"4ddd..da6c","usd":15.99},{"d":"2026-08-23","b":"appstore","k":"8191..ceb4","usd":16.02},{"d":"2026-08-23","b":"appstore","k":"12f0..f4d8","usd":16.03},{"d":"2026-08-23","b":"appstore","k":"90ac..2801","usd":16.03},{"d":"2026-08-23","b":"appstore","k":"6ad2..84d1","usd":16.03},{"d":"2026-08-22","b":"appstore","k":"ff97..b567","usd":16.03},{"d":"2026-08-22","b":"appstore","k":"1b48..2701","usd":16.03},{"d":"2026-08-21","b":"appstore","k":"188e..dff6","usd":15.95},{"d":"2026-08-21","b":"appstore","k":"d1ba..80df","usd":15.95},{"d":"2026-08-21","b":"appstore","k":"ce05..307d","usd":15.95},{"d":"2026-08-21","b":"appstore","k":"38a9..d8e7","usd":15.95},{"d":"2026-08-21","b":"appstore","k":"3641..6b1e","usd":15.95},{"d":"2026-08-20","b":"appstore","k":"df6d..b3c5","usd":0},{"d":"2026-08-20","b":"appstore","k":"616b..843b","usd":15.97},{"d":"2026-08-18","b":"appstore","k":"753f..f6f6","usd":15.82},{"d":"2026-08-18","b":"appstore","k":"211c..ac4b","usd":15.82},{"d":"2026-08-18","b":"appstore","k":"af31..3ecb","usd":15.82},{"d":"2026-08-18","b":"appstore","k":"829c..7eba","usd":15.82},{"d":"2026-08-18","b":"appstore","k":"258e..26fb","usd":15.82},{"d":"2026-08-17","b":"appstore","k":"7cfd..8251","usd":15.82},{"d":"2026-08-14","b":"appstore","k":"602c..abf2","usd":15.67}]/*KJOP_RC*/;
-const KJOP_RC_HENTET = /*KJOP_RC_HENTET*/"2026-09-02T18:30"/*KJOP_RC_HENTET*/;
+// {d: kjoepsdato (kan bomme med en dag), b: 'appstore'|'play', k: kunde-id, usd, t: 1 = testkjoep}
+// Testkjoep (data/kjop/testkunder.json) ligger i lista, men holdes utenfor alle tall.
+const KJOP_RC_ALLE = /*KJOP_RC*/[{"d":"2026-09-03","b":"appstore","k":"763e..79f8","usd":15.99},{"d":"2026-09-02","b":"appstore","k":"1228..136b","usd":15.97},{"d":"2026-09-02","b":"appstore","k":"68c7..1d5c","usd":15.97},{"d":"2026-09-02","b":"play","k":"e623..0572","usd":15.97,"t":1},{"d":"2026-09-02","b":"appstore","k":"afcc..dff1","usd":15.97},{"d":"2026-09-01","b":"appstore","k":"5f42..da0c","usd":15.97},{"d":"2026-09-01","b":"appstore","k":"4c59..228e","usd":15.97},{"d":"2026-09-01","b":"appstore","k":"4dbf..f240","usd":15.97},{"d":"2026-08-31","b":"appstore","k":"fa51..df76","usd":15.91},{"d":"2026-08-31","b":"appstore","k":"adc5..6705","usd":15.91},{"d":"2026-08-31","b":"appstore","k":"435e..7055","usd":15.91},{"d":"2026-08-31","b":"appstore","k":"7503..18ea","usd":15.91},{"d":"2026-08-31","b":"appstore","k":"7503..18ea","usd":15.91},{"d":"2026-08-30","b":"appstore","k":"d159..acfa","usd":15.89},{"d":"2026-08-30","b":"appstore","k":"a296..d0ba","usd":15.89},{"d":"2026-08-29","b":"appstore","k":"f423..348b","usd":15.89},{"d":"2026-08-28","b":"appstore","k":"0211..91f8","usd":15.98},{"d":"2026-08-26","b":"appstore","k":"4ddd..da6c","usd":15.99},{"d":"2026-08-24","b":"appstore","k":"8191..ceb4","usd":16.02},{"d":"2026-08-23","b":"appstore","k":"12f0..f4d8","usd":16.03},{"d":"2026-08-23","b":"appstore","k":"90ac..2801","usd":16.03},{"d":"2026-08-23","b":"appstore","k":"6ad2..84d1","usd":16.03},{"d":"2026-08-22","b":"appstore","k":"ff97..b567","usd":16.03},{"d":"2026-08-22","b":"appstore","k":"1b48..2701","usd":16.03},{"d":"2026-08-21","b":"appstore","k":"188e..dff6","usd":15.95},{"d":"2026-08-21","b":"appstore","k":"d1ba..80df","usd":15.95},{"d":"2026-08-21","b":"appstore","k":"ce05..307d","usd":15.95},{"d":"2026-08-21","b":"appstore","k":"38a9..d8e7","usd":15.95},{"d":"2026-08-21","b":"appstore","k":"3641..6b1e","usd":15.95},{"d":"2026-08-20","b":"appstore","k":"df6d..b3c5","usd":0},{"d":"2026-08-20","b":"appstore","k":"616b..843b","usd":15.97},{"d":"2026-08-18","b":"appstore","k":"753f..f6f6","usd":15.82},{"d":"2026-08-18","b":"appstore","k":"211c..ac4b","usd":15.82},{"d":"2026-08-18","b":"appstore","k":"af31..3ecb","usd":15.82},{"d":"2026-08-18","b":"appstore","k":"829c..7eba","usd":15.82},{"d":"2026-08-18","b":"appstore","k":"258e..26fb","usd":15.82},{"d":"2026-08-17","b":"appstore","k":"7cfd..8251","usd":15.82},{"d":"2026-08-14","b":"appstore","k":"602c..abf2","usd":15.67}]/*KJOP_RC*/;
+const KJOP_RC = KJOP_RC_ALLE.filter(t => !t.t);
+const KJOP_RC_TEST = KJOP_RC_ALLE.length - KJOP_RC.length;
+const KJOP_RC_HENTET = /*KJOP_RC_HENTET*/"2026-09-03T10:55"/*KJOP_RC_HENTET*/;
 const rcPerDag = (() => { const p = {}; KJOP_RC.forEach(t => { p[t.d] = (p[t.d] || 0) + 1; }); return p; })();
 const rcKjop = (fra, til) => KJOP_RC.filter(t => t.d >= fra && t.d <= til).length;
 function reklameKr(dato){
@@ -962,7 +967,7 @@ async function hent(){
       return { id: r.device_id, oppdatert: r.oppdatert, sprak: r.sprak, foerste: r.foerste,
         tid: parseInt(r.tid || '0', 10) || 0,
         tidDager: (r.tidDager && typeof r.tidDager === 'object') ? r.tidDager : {},
-        telSprak: r.telSprak || null, erUtvikler: UTVIKLER.includes(r.device_id),
+        telSprak: r.telSprak || null, erUtvikler: UTVIKLER.includes(r.device_id), erTest: TEST_ENHETER.includes(r.device_id),
         plattform: r.plattform || null,
         hendelser: (r.hendelser && typeof r.hendelser === 'object') ? r.hendelser : null,
         lampeblitz: Array.isArray(r.lampeblitz) ? r.lampeblitz : null,
@@ -990,7 +995,7 @@ function utvalg(){
   const visTest = document.getElementById('visTest').checked;
   const kunGP = document.getElementById('kunGP').checked, kunAS = document.getElementById('kunAS').checked;
   const pfOk = r => (!kunGP && !kunAS) || (kunGP && r.plattform === 'android') || (kunAS && r.plattform === 'ios');
-  return rader.filter(r => !r.erUtvikler && (visTest || !r.forLansering) && pfOk(r));
+  return rader.filter(r => !r.erUtvikler && !r.erTest && (visTest || !r.forLansering) && pfOk(r));
 }
 
 function tegn(){
@@ -1027,9 +1032,10 @@ function tegn(){
   ukeKort(data);
   perioderKort(data);
   tabell(data);
-  const utv = rader.filter(r => r.erUtvikler).length, forL = rader.filter(r => r.forLansering && !r.erUtvikler).length;
+  const utv = rader.filter(r => r.erUtvikler).length, tst = rader.filter(r => r.erTest).length, forL = rader.filter(r => r.forLansering && !r.erUtvikler && !r.erTest).length;
   document.getElementById('tabellFot').innerHTML = '<b>' + data.length + '</b> av ' + rader.length + ' enheter i basen'
     + (utv ? ' · ' + utv + ' utviklerenheter utelatt' : '')
+    + (tst ? ' · ' + tst + ' testenhet utelatt (kompisens Android-kjøp)' : '')
     + (forL && !document.getElementById('visTest').checked ? ' · ' + forL + ' fra testperioden utelatt' : '')
     + (rader.length < hentetTotal ? ' · <b style="color:var(--critical)">tjeneren har ' + hentetTotal + ' rader, ikke alle ble hentet</b>' : '')
     + ' · rader slettes 90 dager etter siste aktivitet';
@@ -1054,7 +1060,7 @@ function dekningKort(data){
   const rcN = KJOP_RC.length, rcK = new Set(KJOP_RC.map(t => t.k)).size, bN = data.filter(r => r.proUtlop > 0).length;
   document.getElementById('cDekning').innerHTML = felt.map(([navn, v, note]) =>
     lrad(navn, v, n, v + ' <span style="color:var(--muted)">· ' + pct(v, n) + ' · ' + note + '</span>')).join('')
-    + '<div class="hint" style="margin-top:10px"><b>Kjøp: RevenueCat ' + rcN + ' transaksjoner / ' + rcK + ' kunder</b> (hentet ' + (KJOP_RC_HENTET || '?').replace('T', ' ') + ') mot <b>' + bN
+    + '<div class="hint" style="margin-top:10px"><b>Kjøp: RevenueCat ' + rcN + ' transaksjoner / ' + rcK + ' kunder</b> (hentet ' + (KJOP_RC_HENTET || '?').replace('T', ' ') + (KJOP_RC_TEST ? ', ' + KJOP_RC_TEST + ' testkjøp holdt utenfor' : '') + ') mot <b>' + bN
     + ' med kvittering i backupen</b>. De ' + Math.max(0, rcK - bN) + ' som mangler kjøpte for det meste 17.–30.08, da kjøpsstatus var ute av backupen. '
     + 'Kjøpstallene under bruker RevenueCat der det er per dato, og backupen der det må være per enhet.</div>';
 }
