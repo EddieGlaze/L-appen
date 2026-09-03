@@ -940,8 +940,16 @@ function dagerSidenAktiv(r){
 // Utloep over 150 dager fram er det doble (regnefeilen rettet i build-136) -
 // da trekkes 240. Kode holdes helt adskilt.
 const erBlitz = x => !!(x && x.temaer && x.temaer.indexOf('Skiltblitz') > -1);
+// Potten gikk tom (build-137+): null der maalingen ikke finnes
+const pottTom = r => r.laasTraff ? ((+r.laasTraff.i_runde || 0) + (+r.laasTraff.utenfor || 0)) : null;
+const maalerPott = r => { const m = /build-(\d+)/.exec(r.versjon || ''); return !!(m && +m[1] >= 137) || !!r.laasTraff; };
+const VEI_NAVN = { laas: 'låsen', profil: 'Profil', profil_forleng: 'Profil (forleng)', dialog_info: 'dialog (info)', dialog_prove: 'dialog (prøve)', dialog_antall: 'dialog (antall)', dialog_laas: 'dialog (lås)' };
+const veiNavn = v => VEI_NAVN[v] || (v || '?').replace(/_/g, ' ');
 function kjopsInfo(r){
   if (r.proUtlop > 0) {
+    // Kjoepsposten fra appen (build-137+) gir eksakt tidspunkt og vei
+    const post = (r.kjopPost || []).filter(p => p && p.dato).sort((a, b) => a.dato < b.dato ? -1 : a.dato > b.dato ? 1 : 0)[0];
+    if (post) { const ms = Date.parse(post.dato); if (gyldigMs(ms)) return { betalt: true, kilde: 'kjop', kjopMs: ms, dag: new Date(ms + 2 * 36e5).toISOString().slice(0,10), klemt: false, vei: post.vei || null, eksakt: true }; }
     const igjen = (r.proUtlop - Date.now()) / 864e5;
     let kjopMs = r.proUtlop - (igjen > 150 ? 240 : 120) * 864e5;
     const start = Date.parse(nedlastet(r)), naa = Date.now();
@@ -988,7 +996,7 @@ async function hent(){
       + 'proUtlop:stats->>proUtlop,kodeUtlop:stats->>kodeUtlop,hendelser:stats->hendelser,'
       + 'lampeblitz:stats->lampeblitz,bruk:stats->bruk,versjon:stats->>versjon,skjermSek:stats->skjermSek,'
       + 'oevetimer:stats->oevetimer,tempoSek:stats->>tempoSek,versjonlogg:stats->versjonlogg,'
-      + 'plattform:stats->>plattform,avbrutte:stats->avbrutte');
+      + 'plattform:stats->>plattform,avbrutte:stats->avbrutte,laasTraff:maaling->laas_traff,kjopPost:maaling->kjop');
     const SIDE = 500, raa = []; let total = null;
     for (let fra = 0; ; fra += SIDE) {
       const res = await fetch(URL_BASE + '?select=' + sel + '&order=oppdatert.desc,device_id.asc', { headers: {
@@ -1023,6 +1031,9 @@ async function hent(){
         tempoSek: parseInt(r.tempoSek || '0', 10) || 0,
         versjonlogg: Array.isArray(r.versjonlogg) ? r.versjonlogg : [],
         avbrutte: Array.isArray(r.avbrutte) ? r.avbrutte : [],
+        // maaling (build-137+): laas_traff = potten gikk tom {i_runde, utenfor}; kjop = kjoepsposter {dato, vei, ...}
+        laasTraff: (r.laasTraff && typeof r.laasTraff === 'object') ? r.laasTraff : null,
+        kjopPost: Array.isArray(r.kjopPost) ? r.kjopPost : null,
         proUtlop: parseInt(r.proUtlop || '0', 10) || 0, kodeUtlop: parseInt(r.kodeUtlop || '0', 10) || 0,
         runder, forLansering: spor.some(d => d < LANSERT) };
     });
@@ -1053,13 +1064,15 @@ function tegn(){
   const maal = data.filter(maalbar);
   const laast = maal.filter(r => hend(r, 'laas_vist') > 0).length;
   const kjopMaal = maal.filter(kvittert).length;
+  // Potten gikk tom: bare enheter paa build-137+ maaler det
+  const pottEnh = maal.filter(maalerPott), pottTraff = pottEnh.filter(r => pottTom(r) > 0).length, pottSum = pottEnh.reduce((a, r) => a + (pottTom(r) || 0), 0);
 
   document.getElementById('fliser').innerHTML = [
     flis('Enheter', data.length, 'i utvalget'),
     flis('Aktive i dag', aktivIdag, data.filter(r => aktiveDager(r).some(d => d >= uke)).length + ' siste 7 dager', aktivIdag > 0),
     flis('Nye i dag', nye.filter(d => d === idag).length, nye.filter(d => d >= uke).length + ' siste 7 dager'),
     flis('Kjøpt i dag', kjop.filter(d => d === idag).length, kjop.filter(d => d >= uke).length + ' siste 7 dager · ' + kjop.length + ' i alt' + (KJOP_RC.length ? ' (RevenueCat)' : ''), kjop.length > 0),
-    flis('Møtt låsen', laast, pct(laast, maal.length) + ' av ' + maal.length + ' målbare'),
+    flis('Møtt låsen', laast, pct(laast, maal.length) + ' av ' + maal.length + ' målbare' + (pottEnh.length ? ' · pott tom ' + pottSum + ' ganger hos ' + pottTraff + ' av ' + pottEnh.length + ' som måler (build-137+)' : '')),
     flis('Konvertering', pct(kjopMaal, maal.length), kjopMaal + ' kjøp av ' + maal.length + ' som kan låses og måles', kjopMaal > 0),
   ].join('');
 
@@ -1501,7 +1514,7 @@ const KOLONNER = [
   { k:'id', t:'enhet' }, { k:'sprak', t:'språk' }, { k:'bygg', t:'modell', tall:1 },
   { k:'foerste', t:'lastet ned', tall:1 }, { k:'hatt', t:'hatt', tall:1, h:1 }, { k:'oppdatert', t:'sist aktiv', tall:1 },
   { k:'skjerm', t:'på skjerm', tall:1, h:1 }, { k:'spill', t:'i spill', tall:1, h:1 }, { k:'lesing', t:'lesing', tall:1, h:1 }, { k:'runder', t:'runder', tall:1, h:1 },
-  { k:'laast', t:'låst', tall:1, h:1 }, { k:'kjopt', t:'kjøpt', tall:1 }, { k:'aktiv', t:'aktivitet', tall:1 },
+  { k:'laast', t:'låst', tall:1, h:1 }, { k:'pott', t:'pott tom', tall:1, h:1 }, { k:'kjopt', t:'kjøpt', tall:1 }, { k:'aktiv', t:'aktivitet', tall:1 },
 ];
 let tabSort = { kol:'foerste', ned:true };
 function sortVerdi(r, k){
@@ -1510,7 +1523,7 @@ function sortVerdi(r, k){
   if (k === 'hatt') return dagerHatt(r) ?? -1; if (k === 'oppdatert') return r.oppdatert;
   if (k === 'skjerm') return paaSkjerm(r) ?? -1; if (k === 'spill') return iSpill(r) ?? -1; if (k === 'lesing') return lesing(r) ?? -1;
   if (k === 'runder') return r.runder.length + (r.lampeblitz || []).length;
-  if (k === 'laast') return hend(r, 'laas_vist');
+  if (k === 'laast') return hend(r, 'laas_vist'); if (k === 'pott') return pottTom(r) ?? -1;
   if (k === 'kjopt') { const i = kjopsInfo(r); return i.kjopMs || (i.dag ? Date.parse(i.dag) : 0); }
   if (k === 'aktiv') return aktiveDager(r).length;
   return 0;
@@ -1543,10 +1556,12 @@ function sideDetalj(r){
       minutter(v) + (bes(k) ? ' <span style="color:var(--muted)">· ' + bes(k) + '×' + (samtidig ? ' · ' + Math.round(v / bes(k)) + ' s' : '') + '</span>' : ''), kvittert(r))).join('') + '</div>';
 }
 function hendelseDetalj(r){
-  if (!r.hendelser) return '';
+  if (!r.hendelser && !r.laasTraff && !r.kjopPost) return '';
   const rekkef = ['runde_start','runde_fullfort','prove_start','prove_fullfort','prove_avbrutt','blitz_start','laas_vist',
     'betaldialog_info','betaldialog_prove','betaldialog_antall','betaldialog_laas','kjop_start','kjop_fullfort','kode_innlost','blitzgave_blitz','blitzgave_lampeblitz','anmeld_trykk'];
   const deler = rekkef.filter(k => hend(r, k)).map(k => k.replace(/_/g, ' ') + ' <b>' + hend(r, k) + '</b>');
+  if (r.laasTraff) deler.push('pott tom <b>' + pottTom(r) + '</b> <span style="color:var(--muted)">(i runde ' + (+r.laasTraff.i_runde || 0) + ' · utenfor ' + (+r.laasTraff.utenfor || 0) + ')</span>');
+  (r.kjopPost || []).forEach(p => { if (p && p.dato) deler.push('kjøpt via <b>' + veiNavn(p.vei) + '</b> <span style="color:var(--muted)">' + fmtDag(p.dato) + ' ' + new Date(Date.parse(p.dato) + 2 * 36e5).toISOString().slice(11,16) + (p.sekSidenStart != null ? ' · ' + p.sekSidenStart + ' s etter oppstart' : '') + (p.innebygd ? ' · innebygd bunt' : '') + '</span>'); });
   return deler.length ? '<div class="detblokk"><div class="tit">hendelser</div>' + deler.join(' &nbsp;·&nbsp; ') + '</div>' : '';
 }
 function dagDetalj(r){
@@ -1583,7 +1598,8 @@ function tabell(data){
       + '<td class="h">' + strek(lesing(r)) + '</td>'
       + '<td class="h">' + (r.runder.length + (r.lampeblitz || []).length) + '</td>'
       + '<td class="h">' + (kanMaales(r) ? (hend(r,'laas_vist') || '0') : '<span style="color:var(--muted)">–</span>') + '</td>'
-      + '<td>' + (ki.kilde === 'kjop' ? (ki.klemt ? '~' : '') + fmtDag(ki.dag) : ki.kilde === 'antatt' ? '<span style="color:var(--muted)">~' + fmtDag(ki.dag) + '</span>' : '–') + '</td>'
+      + '<td class="h">' + (pottTom(r) === null ? (maalerPott(r) ? '<span title="måler, potten har ikke gått tom">0</span>' : '<span style="color:var(--muted)" title="krever build-137">–</span>') : '<span title="potten gikk tom: i runde ' + (+r.laasTraff.i_runde || 0) + ' · utenfor ' + (+r.laasTraff.utenfor || 0) + '">' + pottTom(r) + '</span>') + '</td>'
+      + '<td>' + (ki.kilde === 'kjop' ? (ki.klemt ? '~' : '') + fmtDag(ki.dag) + (ki.vei ? ' <span style="color:var(--muted)" title="kjøpstidspunkt og vei fra appen">via ' + veiNavn(ki.vei) + '</span>' : '') : ki.kilde === 'antatt' ? '<span style="color:var(--muted)">~' + fmtDag(ki.dag) + '</span>' : '–') + '</td>'
       + '<td>' + dagStripe(r) + '</td></tr>';
     s += '<tr id="det' + i + '" style="display:none"><td></td><td colspan="' + KOLONNER.length + '" style="padding:4px 0 12px">'
       + '<div class="rute2" style="margin:0">' + '<div>' + sideDetalj(r) + '</div><div>' + dagDetalj(r) + hendelseDetalj(r) + '</div></div></td></tr>';
