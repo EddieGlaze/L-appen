@@ -958,10 +958,18 @@ function kjopsInfo(r){
     return { betalt: true, kilde: 'kjop', kjopMs, dag: new Date(kjopMs).toISOString().slice(0,10), klemt: utenfor };
   }
   if (r.kodeUtlop > 0) return { betalt: false, kilde: 'kode' };
-  // Quiz er laast til 5 spoersmaal foer kjoep (10/20/45 krever full tilgang),
-  // og Skiltblitz er 10 skilt gratis, 20 med full tilgang. En slik runde uten
-  // kvittering er et antatt kjoep (eller gratiskode/Android foer 02.09).
-  const store = (r.runder || []).filter(x => x && !x.prove && x.dato && (erBlitz(x) ? (x.av || 0) >= 20 : (x.av || 0) >= 10)).map(x => x.dato).sort();
+  // ANTATT KJOEP: bare runder som ALDRI har vaert gratis.
+  //
+  // Quiz med 20 eller 45 spoersmaal, og Skiltblitz med 20 skilt (gratis har
+  // alltid vaert to brett, altsaa 10). Quiz paa 10 teller IKKE: gratisgrensen
+  // per runde var 10 spoersmaal fra lanseringen til build-105 den 30.08 kl.
+  // 12:49, da den ble senket til 5. En 10-runde spilt foer det er helt vanlig
+  // gratisbruk. Og av de 35 enhetene med en 10-runde paa eller etter dagen de
+  // fikk build-105+, har ingen en slik runde dagen ETTER - versjonstempelet
+  // settes ved oppstart og OTA-en aktiveres foerst ved omstart, saa runden kan
+  // like gjerne vaere spilt paa den gamle bunten samme dag. Med 10 inne var
+  // 286 av 942 enheter uten kvittering «antatt»; naa er de 23.
+  const store = (r.runder || []).filter(x => x && !x.prove && x.dato && (x.av || 0) >= 20).map(x => x.dato).sort();
   if (store.length) return { betalt: true, kilde: 'antatt', dag: store[0] };
   return { betalt: false };
 }
@@ -1587,7 +1595,7 @@ function tabell(data){
     s += '<tr class="' + (sov ? 'sovende' : '') + '" style="cursor:pointer" data-rad="' + i + '">'
       + '<td style="width:14px;color:var(--muted)"><span id="pil' + i + '">›</span></td>'
       + '<td>' + pfMerke(r) + r.id.slice(0,8) + (reinstallert(r) ? '<span class="merke" title="runder i skyen, men tellerne er tomme: trolig slettet og lastet ned på nytt">⟲</span>' : '')
-      + (ki.kilde === 'kjop' ? '<span class="merke betalt">betalt</span>' : '') + (ki.kilde === 'antatt' ? '<span class="merke" title="quiz med 10+ spørsmål eller blitz med 20 skilt uten kvittering - krever full tilgang">antatt</span>' : '') + (r.kodeUtlop > 0 ? '<span class="merke">kode</span>' : '') + '</td>'
+      + (ki.kilde === 'kjop' ? '<span class="merke betalt">betalt</span>' : '') + (ki.kilde === 'antatt' ? '<span class="merke" title="quiz med 20 eller 45 spørsmål, eller blitz med 20 skilt, uten kvittering. Slike runder har aldri vært gratis. Quiz på 10 teller ikke: det var gratisgrensen fram til 30.08">antatt</span>' : '') + (r.kodeUtlop > 0 ? '<span class="merke">kode</span>' : '') + '</td>'
       + '<td title="' + sprakNavn(r.sprak || '') + (region(r) ? ' · ' + region(r) : '') + '">' + (r.sprak || '–') + '</td>'
       + '<td><span class="bygg n' + nivaa(r).n + '" title="' + nivaa(r).navn + (r.versjon ? ' · ' + r.versjon : '') + '">' + nivaa(r).kort + '</span></td>'
       + '<td>' + (n.anslag ? '<span class="anslag" title="utledet av eldste spor">~' + fmtDag(n.dato) + (n.mettet ? '+' : '') + '</span>' : fmtDag(n.dato)) + '</td>'
