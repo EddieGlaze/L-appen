@@ -42,6 +42,8 @@
     --muted:#898781; --grid:#e1e0d9; --baseline:#c3c2b7; --border:rgba(11,11,11,0.10);
     --series-1:#2a78d6; --series-2:#d98a2b; --series-3:#5aa469; --seq-250:#86b6ef;
     --good-text:#006300; --critical:#d03b3b;
+    --warn:#7a5600; --warn-flate:#fff5d4; --warn-kant:#e4bd57;
+    --gul:#e8a800; --gul-kant:#7a5600;
   }
   @media (prefers-color-scheme: dark) {
     :root:where(:not([data-theme="light"])) {
@@ -50,6 +52,8 @@
       --muted:#898781; --grid:#2c2c2a; --baseline:#383835; --border:rgba(255,255,255,0.10);
       --series-1:#3987e5; --series-2:#e59a3c; --series-3:#6cb87a; --seq-250:#1c5cab;
       --good-text:#0ca30c; --critical:#d03b3b;
+    --warn:#e6ab34; --warn-flate:#2f2712; --warn-kant:#6b5620;
+    --gul:#f0b429; --gul-kant:#5a4718;
     }
   }
   :root[data-theme="dark"] {
@@ -58,6 +62,8 @@
     --muted:#898781; --grid:#2c2c2a; --baseline:#383835; --border:rgba(255,255,255,0.10);
     --series-1:#3987e5; --series-2:#e59a3c; --series-3:#6cb87a; --seq-250:#1c5cab;
     --good-text:#0ca30c; --critical:#d03b3b;
+    --warn:#e6ab34; --warn-flate:#2f2712; --warn-kant:#6b5620;
+    --gul:#f0b429; --gul-kant:#5a4718;
   }
   * { margin:0; padding:0; box-sizing:border-box; }
   body { background:var(--plane); color:var(--text-primary);
@@ -88,6 +94,18 @@
   .flis .tall { font-size:27px; font-weight:700; margin-top:2px; line-height:1.15; }
   .flis .under { font-size:11.5px; color:var(--text-secondary); margin-top:2px; }
   .flis .under.god { color:var(--good-text); }
+  /* Gul flis: enheter som staar ved sperren akkurat naa. Ingen animasjon -
+     tallet endrer seg bare naar man trykker Oppdater, og en pulserende
+     prikk paa et frosset tall lyver om hvor ferskt det er. */
+  .flis.varsel { background:var(--warn-flate); border-color:var(--warn-kant); }
+  .flis.varsel .tall, .flis.varsel .navn { color:var(--warn); }
+  .flis.varsel .under { color:var(--warn); }
+  .flis.trykk { cursor:pointer; }
+  .flis.trykk:hover { border-color:var(--warn); }
+  .flis .merkelapp { display:inline-block; font-size:10px; font-weight:700; letter-spacing:.04em;
+                     text-transform:uppercase; color:var(--warn); margin-left:6px; vertical-align:2px; }
+  .prikkLaas { display:inline-block; width:8px; height:8px; border-radius:50%;
+               background:var(--warn); margin-right:5px; vertical-align:1px; }
 
   .seksjon { margin:26px 0 8px; }
   .seksjon h2 { font-size:15px; font-weight:700; }
@@ -143,6 +161,11 @@
   .merke { display:inline-block; font-size:10.5px; padding:1px 7px; border-radius:9px;
            border:1px solid var(--border); color:var(--muted); margin-left:6px; }
   .merke.betalt { color:var(--good-text); border-color:var(--good-text); }
+  /* Naar kjoepet skjedde. Maalt tidspunkt staar rett fram; utledet dato er
+     dempet og faar tilde, saa de 35 av 48 uten kjoepspost ikke ser like
+     sikre ut som de 13 som er maalt. */
+  .kjoptNaar { font-size:10.5px; color:var(--muted); margin-left:5px; cursor:help; }
+  .kjoptNaar.utledet { opacity:.7; border-bottom:1px dotted var(--muted); }
   .anslag { border-bottom:1px dotted var(--muted); cursor:help; }
   .pf { display:inline-block; font-size:9.5px; font-weight:700; letter-spacing:.03em;
         padding:1px 4px; border-radius:4px; margin-right:5px; vertical-align:1px; }
@@ -159,6 +182,35 @@
   .dpunkt { width:8px; height:8px; border-radius:50%; flex:none; background:var(--series-1); }
   .dpunkt.av { background:transparent; box-shadow:inset 0 0 0 1.5px var(--baseline); }
   .dpunkt.kjop { background:var(--critical); box-shadow:0 0 0 2px var(--surface-1), 0 0 0 3.5px var(--critical); }
+  /* Laasemerket legges GULT OVER den blaa dagprikken. Doegnet leses venstre
+     mot hoyre, saa venstre halvdel er morgenlaasen kl. 06 og hoyre halvdel er
+     kveldslaasen kl. 16. Hel gul prikk = begge laasene samme doegn. */
+  /* Laasemerket er en RING rundt dagprikken, ikke en farge paa den: prikken
+     skal fortsatt vaere like liten som naboene og fortsatt si «aktiv dag».
+     Ringen er den samme figuren som kjoepsprikken bruker, i gult.
+     Halv ring = én av dagens to laaser, hel ring = begge. Doegnet leses
+     venstre mot hoyre, saa venstre halvring er morgenlaasen kl. 06 og hoyre
+     er kveldslaasen kl. 16. */
+  /* FYLT halvsirkel BAK dagprikken, ikke en tynn ring rundt: den tynne
+     ringen forsvant paa 8 px. Prikken beholder stoerrelsen og den blaa
+     fargen, halvsirkelen stikker ut 3 px - akkurat bredden paa mellomrommet
+     i stripa, saa naboer moetes uten aa overlappe. */
+  /* Malerekkefoelgen gjoer jobben: forelderens bakgrunn, saa ::before, saa
+     ::after. Halvsirkelen tegnes i ::before og den blaa prikken paa nytt i
+     ::after, oppaa. Proevd med z-index:-1 foerst - da forsvant haloen bak
+     tabellcellens egen bakgrunn og ingenting var synlig. */
+  .dpunkt.laas { position:relative; }
+  .dpunkt.laas::before { content:''; position:absolute; inset:-3px;
+    border-radius:50%; background:var(--gul); }
+  .dpunkt.laas::after { content:''; position:absolute; inset:0;
+    border-radius:50%; background:var(--series-1); }
+  .dpunkt.laasM::before { clip-path:inset(0 50% 0 0); }
+  .dpunkt.laasK::before { clip-path:inset(0 0 0 50%); }
+  /* Uviss bolk: hel sirkel, men dempet, saa den ikke leses som «begge». */
+  .dpunkt.laasU::before { opacity:.45; }
+  .prikkLaas.laasM { background:linear-gradient(90deg,var(--gul) 0 50%,var(--series-1) 50% 100%); }
+  .prikkLaas.laasK { background:linear-gradient(90deg,var(--series-1) 0 50%,var(--gul) 50% 100%); }
+  .prikkLaas.laasB, .prikkLaas.laasU { background:var(--gul); }
   .dhopp { font-size:10.5px; font-weight:700; color:var(--muted); padding:0 3px; }
   .detblokk { margin-top:10px; font-size:11.5px; }
   .detblokk .tit { color:var(--muted); margin-bottom:3px; }
@@ -386,6 +438,7 @@
       <b>Låst</b> = ganger låseskjermen ble vist.
       Alt tre fra build-126 - eldre rader viser «–», ikke null.
       Tid appen har ligget åpen i bakgrunnen er <b>ikke</b> med i noen kolonne.</div>
+    <div id="laasFilter" style="display:none;margin-bottom:10px"></div>
     <div style="overflow-x:auto"><table id="tabell"></table></div>
     <div class="fot" id="tabellFot"></div>
   </div>
@@ -757,6 +810,7 @@ window.addEventListener('fanebytte', function (e) {
 <script>
 'use strict';
 const URL_BASE = 'https://kbhekpqyfduhdfoshdvl.supabase.co/rest/v1/fremdrift_enhet';
+const URL_KONFIG = URL_BASE.replace('fremdrift_enhet', 'konfig');
 let NOKKEL = null;   // settes av innloggingen
 const UTVIKLER = ['b9de0f22-8f80-4815-9d93-105a4e5d2cda', 'a986fd4c-f435-4ee5-b1e9-6b039936f54d'];
 // Enheter med testkjoep (kompisens Android 02.09) - holdes utenfor som utviklerenhetene
@@ -764,6 +818,14 @@ const TEST_ENHETER = ['f1e307f8-8272-4465-8c4e-1210852ba37a'];
 const LANSERT = '2026-08-14';
 const PRIS_KR = 149, BUTIKK_ANDEL = 0.85;
 let rader = [], dager = 14, hentetTotal = 0;
+// Gratisgrensene slik de staar i Supabase akkurat naa. Appen leser samme
+// tabell ved hver oppstart (hentGrenser i src/tilgang.ts), saa naar Edvard
+// endrer en verdi der, foelger denne sida etter av seg selv. Standardene er
+// GRENSER_STANDARD i koden - de gjelder til en rad overstyrer dem.
+let KONFIG = { tidBudsjettMin: 5, tidBudsjettRaskMin: 4, tempoGrenseSek: 120 };
+// Hvilken flis som er trykket: null, 'idag' eller 'noensinne'. Gjelder BARE
+// tabellen - diagrammene bruker alltid hele utvalget.
+let tabellFilter = null;
 
 // META-FAKTURAER PER FAKTURADATO (okonomi/data/meta-transaksjoner-2026.csv,
 // status Betalt, paafyll holdt utenfor). Fylles av bygg-analyse-data.js og
@@ -777,15 +839,15 @@ const META_KR = /*META_KR*/{"2026-09-01":894,"2026-08-31":894,"2026-08-30":1265.
 // byttes blokka mellom markoerene ut med data/kjop/<nyeste>.json.
 // {d: kjoepsdato (kan bomme med en dag), b: 'appstore'|'play', k: kunde-id, usd, t: 1 = testkjoep}
 // Testkjoep (data/kjop/testkunder.json) ligger i lista, men holdes utenfor alle tall.
-const KJOP_RC_ALLE = /*KJOP_RC*/[{"d":"2026-09-03","b":"appstore","k":"6d1a..8cc5","usd":15.99},{"d":"2026-09-03","b":"appstore","k":"f803..4853","usd":15.99},{"d":"2026-09-03","b":"appstore","k":"d0d0..7da4","usd":15.99},{"d":"2026-09-03","b":"appstore","k":"1228..136b","usd":15.97},{"d":"2026-09-02","b":"appstore","k":"5dbe..0b7e","usd":15.97},{"d":"2026-09-02","b":"play","k":"e623..0572","usd":15.97,"t":1},{"d":"2026-09-01","b":"appstore","k":"afcc..dff1","usd":15.97},{"d":"2026-09-01","b":"appstore","k":"5f42..da0c","usd":15.97},{"d":"2026-09-01","b":"appstore","k":"8046..4043","usd":15.97},{"d":"2026-09-01","b":"appstore","k":"4dbf..f240","usd":15.97},{"d":"2026-08-31","b":"appstore","k":"fa51..df76","usd":15.91},{"d":"2026-08-31","b":"appstore","k":"adc5..6705","usd":15.91},{"d":"2026-08-31","b":"appstore","k":"435e..7055","usd":15.91},{"d":"2026-08-31","b":"appstore","k":"7503..18ea","usd":15.91},{"d":"2026-08-31","b":"appstore","k":"7503..18ea","usd":15.91},{"d":"2026-08-30","b":"appstore","k":"d159..acfa","usd":15.89},{"d":"2026-08-30","b":"appstore","k":"a296..d0ba","usd":15.89},{"d":"2026-08-29","b":"appstore","k":"f423..348b","usd":15.89},{"d":"2026-08-28","b":"appstore","k":"0211..91f8","usd":15.98},{"d":"2026-08-26","b":"appstore","k":"4ddd..da6c","usd":15.99},{"d":"2026-08-24","b":"appstore","k":"8191..ceb4","usd":16.02},{"d":"2026-08-23","b":"appstore","k":"12f0..f4d8","usd":16.03},{"d":"2026-08-23","b":"appstore","k":"90ac..2801","usd":16.03},{"d":"2026-08-23","b":"appstore","k":"6ad2..84d1","usd":16.03},{"d":"2026-08-22","b":"appstore","k":"ff97..b567","usd":16.03},{"d":"2026-08-22","b":"appstore","k":"1b48..2701","usd":16.03},{"d":"2026-08-21","b":"appstore","k":"188e..dff6","usd":15.95},{"d":"2026-08-21","b":"appstore","k":"d1ba..80df","usd":15.95},{"d":"2026-08-21","b":"appstore","k":"ce05..307d","usd":15.95},{"d":"2026-08-21","b":"appstore","k":"38a9..d8e7","usd":15.95},{"d":"2026-08-21","b":"appstore","k":"3641..6b1e","usd":15.95},{"d":"2026-08-20","b":"appstore","k":"df6d..b3c5","usd":0},{"d":"2026-08-20","b":"appstore","k":"616b..843b","usd":15.97},{"d":"2026-08-18","b":"appstore","k":"753f..f6f6","usd":15.82},{"d":"2026-08-18","b":"appstore","k":"211c..ac4b","usd":15.82},{"d":"2026-08-18","b":"appstore","k":"af31..3ecb","usd":15.82},{"d":"2026-08-18","b":"appstore","k":"829c..7eba","usd":15.82},{"d":"2026-08-18","b":"appstore","k":"258e..26fb","usd":15.82},{"d":"2026-08-17","b":"appstore","k":"7cfd..8251","usd":15.82},{"d":"2026-08-14","b":"appstore","k":"602c..abf2","usd":15.67}]/*KJOP_RC*/;
+const KJOP_RC_ALLE = /*KJOP_RC*/[{"d":"2026-08-14","b":"appstore","k":"602c..abf2","usd":15.67},{"d":"2026-08-18","b":"appstore","k":"753f..f6f6","usd":15.82},{"d":"2026-08-18","b":"appstore","k":"211c..ac4b","usd":15.82},{"d":"2026-08-18","b":"appstore","k":"af31..3ecb","usd":15.82},{"d":"2026-08-18","b":"appstore","k":"829c..7eba","usd":15.82},{"d":"2026-08-18","b":"appstore","k":"258e..26fb","usd":15.82},{"d":"2026-08-18","b":"appstore","k":"7cfd..8251","usd":15.82},{"d":"2026-08-20","b":"appstore","k":"df6d..b3c5","usd":0},{"d":"2026-08-20","b":"appstore","k":"616b..843b","usd":15.97},{"d":"2026-08-21","b":"appstore","k":"188e..dff6","usd":15.95},{"d":"2026-08-21","b":"appstore","k":"d1ba..80df","usd":15.95},{"d":"2026-08-21","b":"appstore","k":"ce05..307d","usd":15.95},{"d":"2026-08-21","b":"appstore","k":"38a9..d8e7","usd":15.95},{"d":"2026-08-21","b":"appstore","k":"3641..6b1e","usd":15.95},{"d":"2026-08-22","b":"appstore","k":"ff97..b567","usd":16.03},{"d":"2026-08-22","b":"appstore","k":"1b48..2701","usd":16.03},{"d":"2026-08-23","b":"appstore","k":"12f0..f4d8","usd":16.03},{"d":"2026-08-23","b":"appstore","k":"90ac..2801","usd":16.03},{"d":"2026-08-23","b":"appstore","k":"6ad2..84d1","usd":16.03},{"d":"2026-08-24","b":"appstore","k":"8191..ceb4","usd":16.02},{"d":"2026-08-26","b":"appstore","k":"4ddd..da6c","usd":15.99},{"d":"2026-08-28","b":"appstore","k":"0211..91f8","usd":15.98},{"d":"2026-08-29","b":"appstore","k":"f423..348b","usd":15.89},{"d":"2026-08-30","b":"appstore","k":"d159..acfa","usd":15.89},{"d":"2026-08-30","b":"appstore","k":"a296..d0ba","usd":15.89},{"d":"2026-08-31","b":"appstore","k":"fa51..df76","usd":15.91},{"d":"2026-08-31","b":"appstore","k":"adc5..6705","usd":15.91},{"d":"2026-08-31","b":"appstore","k":"435e..7055","usd":15.91},{"d":"2026-08-31","b":"appstore","k":"7503..18ea","usd":15.91},{"d":"2026-08-31","b":"appstore","k":"7503..18ea","usd":15.91},{"d":"2026-09-01","b":"appstore","k":"afcc..dff1","usd":15.97},{"d":"2026-09-01","b":"appstore","k":"5f42..da0c","usd":15.97},{"d":"2026-09-01","b":"appstore","k":"8046..4043","usd":15.97},{"d":"2026-09-01","b":"appstore","k":"4dbf..f240","usd":15.97},{"d":"2026-09-02","b":"appstore","k":"5dbe..0b7e","usd":15.97},{"d":"2026-09-02","b":"play","k":"e623..0572","usd":15.97,"t":1},{"d":"2026-09-02","b":"ukjent","k":"?","usd":15.97},{"d":"2026-09-03","b":"appstore","k":"6d1a..8cc5","usd":15.99},{"d":"2026-09-03","b":"appstore","k":"f803..4853","usd":15.99},{"d":"2026-09-03","b":"appstore","k":"d0d0..7da4","usd":15.99},{"d":"2026-09-03","b":"appstore","k":"1228..136b","usd":15.97},{"d":"2026-09-04","b":"ukjent","k":"?","usd":16.04},{"d":"2026-09-04","b":"ukjent","k":"?","usd":16.04},{"d":"2026-09-04","b":"ukjent","k":"?","usd":16.04},{"d":"2026-09-05","b":"ukjent","k":"?","usd":16.49},{"d":"2026-09-05","b":"ukjent","k":"?","usd":16.49},{"d":"2026-09-05","b":"ukjent","k":"?","usd":16.49},{"d":"2026-09-05","b":"ukjent","k":"?","usd":16.49},{"d":"2026-09-05","b":"ukjent","k":"?","usd":16.49},{"d":"2026-09-05","b":"ukjent","k":"?","usd":16.49}]/*KJOP_RC*/;
 const KJOP_RC = KJOP_RC_ALLE.filter(t => !t.t);
 const KJOP_RC_TEST = KJOP_RC_ALLE.length - KJOP_RC.length;
-const KJOP_RC_HENTET = /*KJOP_RC_HENTET*/"2026-09-03T16:20"/*KJOP_RC_HENTET*/;
+const KJOP_RC_HENTET = /*KJOP_RC_HENTET*/"2026-09-06T10:00"/*KJOP_RC_HENTET*/;
 // REKLAMEFORBRUK PER DAG PER KAMPANJE - fra butikk/reklame/annonseforbruk.csv
 // (Meta lest fra Ads Reporting per annonsesett; Apple Search Ads og Google Ads
 // er budsjettanslag til de er lest av). Fylles av butikk/bygg-analyse-data.js.
 // {d: dato, k: kanal, id, n: kampanje/annonsesett, s: spraak, kr: NOK, src: kilde}
-const REKLAME = /*REKLAME*/[{"d":"2026-08-16","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":65.34,"src":"meta-ads-reporting"},{"d":"2026-08-17","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-17","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-17","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-17","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":124.35,"src":"meta-ads-reporting"},{"d":"2026-08-17","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":42.45,"src":"meta-ads-reporting"},{"d":"2026-08-17","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":40.75,"src":"meta-ads-reporting"},{"d":"2026-08-18","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-18","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-18","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-18","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":99.19,"src":"meta-ads-reporting"},{"d":"2026-08-18","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":182.67,"src":"meta-ads-reporting"},{"d":"2026-08-18","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":115.9,"src":"meta-ads-reporting"},{"d":"2026-08-19","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-19","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-19","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-19","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":21.32,"src":"meta-ads-reporting"},{"d":"2026-08-19","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":60.33,"src":"meta-ads-reporting"},{"d":"2026-08-19","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":58.36,"src":"meta-ads-reporting"},{"d":"2026-08-20","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-20","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-20","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-20","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":27.94,"src":"meta-ads-reporting"},{"d":"2026-08-20","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":61.28,"src":"meta-ads-reporting"},{"d":"2026-08-20","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":77.51,"src":"meta-ads-reporting"},{"d":"2026-08-20","k":"meta","id":"120248621229400625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":63.49,"src":"meta-ads-reporting"},{"d":"2026-08-20","k":"meta","id":"120248621229490625","n":"Norge 18-24 norsk - unge","s":"no","kr":100.75,"src":"meta-ads-reporting"},{"d":"2026-08-20","k":"meta","id":"120248621229500625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":74.08,"src":"meta-ads-reporting"},{"d":"2026-08-21","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-21","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-21","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-21","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":129.11,"src":"meta-ads-reporting"},{"d":"2026-08-21","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":210.55,"src":"meta-ads-reporting"},{"d":"2026-08-21","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":170.06,"src":"meta-ads-reporting"},{"d":"2026-08-21","k":"meta","id":"120248625149430625","n":"Norge 18+ norsk - lenkeklikk App Store","s":"no","kr":239.99,"src":"meta-ads-reporting"},{"d":"2026-08-21","k":"meta","id":"120248630876220625","n":"Spansk 18 - 44","s":"es","kr":89.66,"src":"meta-ads-reporting"},{"d":"2026-08-21","k":"meta","id":"120248631319400625","n":"Ukrainsk 18 - 44 – kopi","s":"uk","kr":335.13,"src":"meta-ads-reporting"},{"d":"2026-08-22","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-22","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-22","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-22","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":277.56,"src":"meta-ads-reporting"},{"d":"2026-08-22","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":304.31,"src":"meta-ads-reporting"},{"d":"2026-08-22","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":315.81,"src":"meta-ads-reporting"},{"d":"2026-08-22","k":"meta","id":"120248630876220625","n":"Spansk 18 - 44","s":"es","kr":277.51,"src":"meta-ads-reporting"},{"d":"2026-08-22","k":"meta","id":"120248631319400625","n":"Ukrainsk 18 - 44 – kopi","s":"uk","kr":375.34,"src":"meta-ads-reporting"},{"d":"2026-08-23","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-23","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-23","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-23","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":98.86,"src":"meta-ads-reporting"},{"d":"2026-08-23","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":53.96,"src":"meta-ads-reporting"},{"d":"2026-08-23","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":194.86,"src":"meta-ads-reporting"},{"d":"2026-08-23","k":"meta","id":"120248630876220625","n":"Spansk 18 - 44","s":"es","kr":5.99,"src":"meta-ads-reporting"},{"d":"2026-08-23","k":"meta","id":"120248631319400625","n":"Ukrainsk 18 - 44 – kopi","s":"uk","kr":34.78,"src":"meta-ads-reporting"},{"d":"2026-08-24","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-24","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-24","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-24","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":73.82,"src":"meta-ads-reporting"},{"d":"2026-08-24","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":44.88,"src":"meta-ads-reporting"},{"d":"2026-08-24","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":143.98,"src":"meta-ads-reporting"},{"d":"2026-08-25","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-25","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-25","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-25","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":48.99,"src":"meta-ads-reporting"},{"d":"2026-08-25","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":32.61,"src":"meta-ads-reporting"},{"d":"2026-08-25","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":103.5,"src":"meta-ads-reporting"},{"d":"2026-08-26","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-26","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-26","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-26","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":0.93,"src":"meta-ads-reporting"},{"d":"2026-08-26","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":1.88,"src":"meta-ads-reporting"},{"d":"2026-08-26","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":3.37,"src":"meta-ads-reporting"},{"d":"2026-08-27","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-27","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-27","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-28","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-28","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-28","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-28","k":"meta","id":"120248773686080625","n":"Norge 18+ arabisk - arabiske playables – kopi","s":"ar","kr":9.7,"src":"meta-ads-reporting"},{"d":"2026-08-28","k":"meta","id":"120248773840210625","n":"Norge 18-24 norsk - unge – kopi","s":"no","kr":29.26,"src":"meta-ads-reporting"},{"d":"2026-08-28","k":"meta","id":"120248773978840625","n":"Norge 18+ norsk - lenkeklikk App Store – kopi","s":"no","kr":106.25,"src":"meta-ads-reporting"},{"d":"2026-08-29","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-29","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-29","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-29","k":"meta","id":"120248773686080625","n":"Norge 18+ arabisk - arabiske playables – kopi","s":"ar","kr":100.24,"src":"meta-ads-reporting"},{"d":"2026-08-29","k":"meta","id":"120248773840210625","n":"Norge 18-24 norsk - unge – kopi","s":"no","kr":260.29,"src":"meta-ads-reporting"},{"d":"2026-08-29","k":"meta","id":"120248773978840625","n":"Norge 18+ norsk - lenkeklikk App Store – kopi","s":"no","kr":118.02,"src":"meta-ads-reporting"},{"d":"2026-08-29","k":"meta","id":"120248791219150625","n":"Norge 18-44 engelsk - expats utenfor EØS – kopi – kopi","s":"en","kr":0.44,"src":"meta-ads-reporting"},{"d":"2026-08-29","k":"meta","id":"120248791607810625","n":"Norge 18+ somalisk - somaliske playables","s":"so","kr":1.01,"src":"meta-ads-reporting"},{"d":"2026-08-30","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-30","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-30","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-30","k":"meta","id":"120248773686080625","n":"Norge 18+ arabisk - arabiske playables – kopi","s":"ar","kr":177.16,"src":"meta-ads-reporting"},{"d":"2026-08-30","k":"meta","id":"120248773840210625","n":"Norge 18-24 norsk - unge – kopi","s":"no","kr":411.03,"src":"meta-ads-reporting"},{"d":"2026-08-30","k":"meta","id":"120248773978840625","n":"Norge 18+ norsk - lenkeklikk App Store – kopi","s":"no","kr":305.92,"src":"meta-ads-reporting"},{"d":"2026-08-30","k":"meta","id":"120248792320420625","n":"Norge 18+ tyrkisk - tyrkiske playables","s":"tr","kr":117,"src":"meta-ads-reporting"},{"d":"2026-08-30","k":"meta","id":"120248798052610625","n":"Norge 18-44 engelsk - expats utenfor EØS – kopi – kopi – kopi","s":"en","kr":274.18,"src":"meta-ads-reporting"},{"d":"2026-08-31","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-08-31","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-08-31","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-08-31","k":"meta","id":"120248773686080625","n":"Norge 18+ arabisk - arabiske playables – kopi","s":"ar","kr":127.91,"src":"meta-ads-reporting"},{"d":"2026-08-31","k":"meta","id":"120248773840210625","n":"Norge 18-24 norsk - unge – kopi","s":"no","kr":303.3,"src":"meta-ads-reporting"},{"d":"2026-08-31","k":"meta","id":"120248773978840625","n":"Norge 18+ norsk - lenkeklikk App Store – kopi","s":"no","kr":289.04,"src":"meta-ads-reporting"},{"d":"2026-08-31","k":"meta","id":"120248792320420625","n":"Norge 18+ tyrkisk - tyrkiske playables","s":"tr","kr":146.77,"src":"meta-ads-reporting"},{"d":"2026-08-31","k":"meta","id":"120248798052610625","n":"Norge 18-44 engelsk - expats utenfor EØS – kopi – kopi – kopi","s":"en","kr":396.73,"src":"meta-ads-reporting"},{"d":"2026-09-01","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":46.4,"src":"anslag-budsjett"},{"d":"2026-09-01","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-09-01","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":104.4,"src":"anslag-budsjett"},{"d":"2026-09-01","k":"meta","id":"120248773686080625","n":"Norge 18+ arabisk - arabiske playables – kopi","s":"ar","kr":109.51,"src":"meta-ads-reporting"},{"d":"2026-09-01","k":"meta","id":"120248773840210625","n":"Norge 18-24 norsk - unge – kopi","s":"no","kr":274.13,"src":"meta-ads-reporting"},{"d":"2026-09-01","k":"meta","id":"120248773978840625","n":"Norge 18+ norsk - lenkeklikk App Store – kopi","s":"no","kr":362.26,"src":"meta-ads-reporting"},{"d":"2026-09-01","k":"meta","id":"120248792320420625","n":"Norge 18+ tyrkisk - tyrkiske playables","s":"tr","kr":165.08,"src":"meta-ads-reporting"},{"d":"2026-09-01","k":"meta","id":"120248798052610625","n":"Norge 18-44 engelsk - expats utenfor EØS – kopi – kopi – kopi","s":"en","kr":363.86,"src":"meta-ads-reporting"},{"d":"2026-09-02","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":116,"src":"anslag-budsjett"},{"d":"2026-09-02","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-09-02","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":232,"src":"anslag-budsjett"},{"d":"2026-09-02","k":"meta","id":"120248773686080625","n":"Norge 18+ arabisk - arabiske playables – kopi","s":"ar","kr":100.31,"src":"meta-ads-reporting"},{"d":"2026-09-02","k":"meta","id":"120248773840210625","n":"Norge 18-24 norsk - unge – kopi","s":"no","kr":247.77,"src":"meta-ads-reporting"},{"d":"2026-09-02","k":"meta","id":"120248773978840625","n":"Norge 18+ norsk - lenkeklikk App Store – kopi","s":"no","kr":310.76,"src":"meta-ads-reporting"},{"d":"2026-09-02","k":"meta","id":"120248792320420625","n":"Norge 18+ tyrkisk - tyrkiske playables","s":"tr","kr":165.87,"src":"meta-ads-reporting"},{"d":"2026-09-02","k":"meta","id":"120248798052610625","n":"Norge 18-44 engelsk - expats utenfor EØS – kopi – kopi – kopi","s":"en","kr":330.4,"src":"meta-ads-reporting"},{"d":"2026-09-03","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":116,"src":"anslag-budsjett"},{"d":"2026-09-03","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":23.2,"src":"anslag-budsjett"},{"d":"2026-09-03","k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","s":"no","kr":232,"src":"anslag-budsjett"},{"d":"2026-09-03","k":"google-ads","id":"24209964386","n":"L-appen Android NO","s":"no","kr":350,"src":"anslag-budsjett"},{"d":"2026-09-03","k":"meta","id":"120248773686080625","n":"Norge 18+ arabisk - arabiske playables – kopi","s":"ar","kr":29.51,"src":"meta-ads-reporting"},{"d":"2026-09-03","k":"meta","id":"120248773840210625","n":"Norge 18-24 norsk - unge – kopi","s":"no","kr":58.56,"src":"meta-ads-reporting"},{"d":"2026-09-03","k":"meta","id":"120248773978840625","n":"Norge 18+ norsk - lenkeklikk App Store – kopi","s":"no","kr":74.37,"src":"meta-ads-reporting"},{"d":"2026-09-03","k":"meta","id":"120248792320420625","n":"Norge 18+ tyrkisk - tyrkiske playables","s":"tr","kr":47.95,"src":"meta-ads-reporting"},{"d":"2026-09-03","k":"meta","id":"120248798052610625","n":"Norge 18-44 engelsk - expats utenfor EØS – kopi – kopi – kopi","s":"en","kr":70.27,"src":"meta-ads-reporting"}]/*REKLAME*/;
+const REKLAME = /*REKLAME*/[{"d":"2026-08-16","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":65.34,"src":"meta-ads-reporting"},{"d":"2026-08-17","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":124.35,"src":"meta-ads-reporting"},{"d":"2026-08-17","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":42.45,"src":"meta-ads-reporting"},{"d":"2026-08-17","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":40.75,"src":"meta-ads-reporting"},{"d":"2026-08-17","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":16.51,"src":"apple-faktura"},{"d":"2026-08-17","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":22.35,"src":"apple-faktura"},{"d":"2026-08-18","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":99.19,"src":"meta-ads-reporting"},{"d":"2026-08-18","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":182.67,"src":"meta-ads-reporting"},{"d":"2026-08-18","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":115.9,"src":"meta-ads-reporting"},{"d":"2026-08-18","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":16.51,"src":"apple-faktura"},{"d":"2026-08-18","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":22.35,"src":"apple-faktura"},{"d":"2026-08-19","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":21.32,"src":"meta-ads-reporting"},{"d":"2026-08-19","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":60.33,"src":"meta-ads-reporting"},{"d":"2026-08-19","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":58.36,"src":"meta-ads-reporting"},{"d":"2026-08-19","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":16.51,"src":"apple-faktura"},{"d":"2026-08-19","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":22.35,"src":"apple-faktura"},{"d":"2026-08-20","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":27.94,"src":"meta-ads-reporting"},{"d":"2026-08-20","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":61.28,"src":"meta-ads-reporting"},{"d":"2026-08-20","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":77.51,"src":"meta-ads-reporting"},{"d":"2026-08-20","k":"meta","id":"120248621229400625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":63.49,"src":"meta-ads-reporting"},{"d":"2026-08-20","k":"meta","id":"120248621229490625","n":"Norge 18-24 norsk - unge","s":"no","kr":100.75,"src":"meta-ads-reporting"},{"d":"2026-08-20","k":"meta","id":"120248621229500625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":74.08,"src":"meta-ads-reporting"},{"d":"2026-08-20","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":16.51,"src":"apple-faktura"},{"d":"2026-08-20","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":22.35,"src":"apple-faktura"},{"d":"2026-08-21","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":129.11,"src":"meta-ads-reporting"},{"d":"2026-08-21","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":210.55,"src":"meta-ads-reporting"},{"d":"2026-08-21","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":170.06,"src":"meta-ads-reporting"},{"d":"2026-08-21","k":"meta","id":"120248625149430625","n":"Norge 18+ norsk - lenkeklikk App Store","s":"no","kr":239.99,"src":"meta-ads-reporting"},{"d":"2026-08-21","k":"meta","id":"120248630876220625","n":"Spansk 18 - 44","s":"es","kr":89.66,"src":"meta-ads-reporting"},{"d":"2026-08-21","k":"meta","id":"120248631319400625","n":"Ukrainsk 18 - 44 – kopi","s":"uk","kr":335.13,"src":"meta-ads-reporting"},{"d":"2026-08-21","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":16.51,"src":"apple-faktura"},{"d":"2026-08-21","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":22.35,"src":"apple-faktura"},{"d":"2026-08-22","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":277.56,"src":"meta-ads-reporting"},{"d":"2026-08-22","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":304.31,"src":"meta-ads-reporting"},{"d":"2026-08-22","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":315.81,"src":"meta-ads-reporting"},{"d":"2026-08-22","k":"meta","id":"120248630876220625","n":"Spansk 18 - 44","s":"es","kr":277.51,"src":"meta-ads-reporting"},{"d":"2026-08-22","k":"meta","id":"120248631319400625","n":"Ukrainsk 18 - 44 – kopi","s":"uk","kr":375.34,"src":"meta-ads-reporting"},{"d":"2026-08-22","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":16.51,"src":"apple-faktura"},{"d":"2026-08-22","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":22.35,"src":"apple-faktura"},{"d":"2026-08-23","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":98.86,"src":"meta-ads-reporting"},{"d":"2026-08-23","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":53.96,"src":"meta-ads-reporting"},{"d":"2026-08-23","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":194.86,"src":"meta-ads-reporting"},{"d":"2026-08-23","k":"meta","id":"120248630876220625","n":"Spansk 18 - 44","s":"es","kr":5.99,"src":"meta-ads-reporting"},{"d":"2026-08-23","k":"meta","id":"120248631319400625","n":"Ukrainsk 18 - 44 – kopi","s":"uk","kr":34.78,"src":"meta-ads-reporting"},{"d":"2026-08-23","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":16.51,"src":"apple-faktura"},{"d":"2026-08-23","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":22.35,"src":"apple-faktura"},{"d":"2026-08-24","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":73.82,"src":"meta-ads-reporting"},{"d":"2026-08-24","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":44.88,"src":"meta-ads-reporting"},{"d":"2026-08-24","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":143.98,"src":"meta-ads-reporting"},{"d":"2026-08-24","k":"apple-search-ads","id":"2144471320","n":"Teoriprøve - generisk","s":"no","kr":99.18,"src":"apple-faktura"},{"d":"2026-08-24","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":40.63,"src":"apple-faktura"},{"d":"2026-08-24","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":12.11,"src":"apple-faktura"},{"d":"2026-08-25","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":48.99,"src":"meta-ads-reporting"},{"d":"2026-08-25","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":32.61,"src":"meta-ads-reporting"},{"d":"2026-08-25","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":103.5,"src":"meta-ads-reporting"},{"d":"2026-08-25","k":"apple-search-ads","id":"2144471320","n":"Teoriprøve - generisk","s":"no","kr":99.18,"src":"apple-faktura"},{"d":"2026-08-25","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":40.63,"src":"apple-faktura"},{"d":"2026-08-25","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":12.11,"src":"apple-faktura"},{"d":"2026-08-26","k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","s":"ar","kr":0.93,"src":"meta-ads-reporting"},{"d":"2026-08-26","k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","s":"en","kr":1.88,"src":"meta-ads-reporting"},{"d":"2026-08-26","k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","s":"no","kr":3.37,"src":"meta-ads-reporting"},{"d":"2026-08-26","k":"apple-search-ads","id":"2144471320","n":"Teoriprøve - generisk","s":"no","kr":99.18,"src":"apple-faktura"},{"d":"2026-08-26","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":40.63,"src":"apple-faktura"},{"d":"2026-08-26","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":12.11,"src":"apple-faktura"},{"d":"2026-08-27","k":"apple-search-ads","id":"2144471320","n":"Teoriprøve - generisk","s":"no","kr":99.18,"src":"apple-faktura"},{"d":"2026-08-27","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":40.63,"src":"apple-faktura"},{"d":"2026-08-27","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":12.11,"src":"apple-faktura"},{"d":"2026-08-28","k":"meta","id":"120248773686080625","n":"Norge 18+ arabisk - arabiske playables – kopi","s":"ar","kr":9.7,"src":"meta-ads-reporting"},{"d":"2026-08-28","k":"meta","id":"120248773840210625","n":"Norge 18-24 norsk - unge – kopi","s":"no","kr":29.26,"src":"meta-ads-reporting"},{"d":"2026-08-28","k":"meta","id":"120248773978840625","n":"Norge 18+ norsk - lenkeklikk App Store – kopi","s":"no","kr":106.25,"src":"meta-ads-reporting"},{"d":"2026-08-28","k":"apple-search-ads","id":"2144471320","n":"Teoriprøve - generisk","s":"no","kr":99.18,"src":"apple-faktura"},{"d":"2026-08-28","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":40.63,"src":"apple-faktura"},{"d":"2026-08-28","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":12.11,"src":"apple-faktura"},{"d":"2026-08-29","k":"meta","id":"120248773686080625","n":"Norge 18+ arabisk - arabiske playables – kopi","s":"ar","kr":100.24,"src":"meta-ads-reporting"},{"d":"2026-08-29","k":"meta","id":"120248773840210625","n":"Norge 18-24 norsk - unge – kopi","s":"no","kr":260.29,"src":"meta-ads-reporting"},{"d":"2026-08-29","k":"meta","id":"120248773978840625","n":"Norge 18+ norsk - lenkeklikk App Store – kopi","s":"no","kr":118.02,"src":"meta-ads-reporting"},{"d":"2026-08-29","k":"meta","id":"120248791219150625","n":"Norge 18-44 engelsk - expats utenfor EØS – kopi – kopi","s":"en","kr":0.44,"src":"meta-ads-reporting"},{"d":"2026-08-29","k":"meta","id":"120248791607810625","n":"Norge 18+ somalisk - somaliske playables","s":"so","kr":1.01,"src":"meta-ads-reporting"},{"d":"2026-08-29","k":"apple-search-ads","id":"2144471320","n":"Teoriprøve - generisk","s":"no","kr":99.18,"src":"apple-faktura"},{"d":"2026-08-29","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":40.63,"src":"apple-faktura"},{"d":"2026-08-29","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":12.11,"src":"apple-faktura"},{"d":"2026-08-30","k":"meta","id":"120248773686080625","n":"Norge 18+ arabisk - arabiske playables – kopi","s":"ar","kr":177.16,"src":"meta-ads-reporting"},{"d":"2026-08-30","k":"meta","id":"120248773840210625","n":"Norge 18-24 norsk - unge – kopi","s":"no","kr":411.03,"src":"meta-ads-reporting"},{"d":"2026-08-30","k":"meta","id":"120248773978840625","n":"Norge 18+ norsk - lenkeklikk App Store – kopi","s":"no","kr":305.92,"src":"meta-ads-reporting"},{"d":"2026-08-30","k":"meta","id":"120248792320420625","n":"Norge 18+ tyrkisk - tyrkiske playables","s":"tr","kr":117,"src":"meta-ads-reporting"},{"d":"2026-08-30","k":"meta","id":"120248798052610625","n":"Norge 18-44 engelsk - expats utenfor EØS – kopi – kopi – kopi","s":"en","kr":274.18,"src":"meta-ads-reporting"},{"d":"2026-08-30","k":"apple-search-ads","id":"2144471320","n":"Teoriprøve - generisk","s":"no","kr":99.18,"src":"apple-faktura"},{"d":"2026-08-30","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":40.63,"src":"apple-faktura"},{"d":"2026-08-30","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":12.11,"src":"apple-faktura"},{"d":"2026-08-31","k":"meta","id":"120248773686080625","n":"Norge 18+ arabisk - arabiske playables – kopi","s":"ar","kr":127.91,"src":"meta-ads-reporting"},{"d":"2026-08-31","k":"meta","id":"120248773840210625","n":"Norge 18-24 norsk - unge – kopi","s":"no","kr":303.3,"src":"meta-ads-reporting"},{"d":"2026-08-31","k":"meta","id":"120248773978840625","n":"Norge 18+ norsk - lenkeklikk App Store – kopi","s":"no","kr":289.04,"src":"meta-ads-reporting"},{"d":"2026-08-31","k":"meta","id":"120248792320420625","n":"Norge 18+ tyrkisk - tyrkiske playables","s":"tr","kr":146.77,"src":"meta-ads-reporting"},{"d":"2026-08-31","k":"meta","id":"120248798052610625","n":"Norge 18-44 engelsk - expats utenfor EØS – kopi – kopi – kopi","s":"en","kr":396.73,"src":"meta-ads-reporting"},{"d":"2026-08-31","k":"apple-search-ads","id":"2144471320","n":"Teoriprøve - generisk","s":"no","kr":280.95,"src":"apple-faktura"},{"d":"2026-08-31","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":160.28,"src":"apple-faktura"},{"d":"2026-08-31","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":11.63,"src":"apple-faktura"},{"d":"2026-09-01","k":"meta","id":"120248773686080625","n":"Norge 18+ arabisk - arabiske playables – kopi","s":"ar","kr":109.51,"src":"meta-ads-reporting"},{"d":"2026-09-01","k":"meta","id":"120248773840210625","n":"Norge 18-24 norsk - unge – kopi","s":"no","kr":274.13,"src":"meta-ads-reporting"},{"d":"2026-09-01","k":"meta","id":"120248773978840625","n":"Norge 18+ norsk - lenkeklikk App Store – kopi","s":"no","kr":362.26,"src":"meta-ads-reporting"},{"d":"2026-09-01","k":"meta","id":"120248792320420625","n":"Norge 18+ tyrkisk - tyrkiske playables","s":"tr","kr":165.08,"src":"meta-ads-reporting"},{"d":"2026-09-01","k":"meta","id":"120248798052610625","n":"Norge 18-44 engelsk - expats utenfor EØS – kopi – kopi – kopi","s":"en","kr":363.86,"src":"meta-ads-reporting"},{"d":"2026-09-01","k":"apple-search-ads","id":"2144471320","n":"Teoriprøve - generisk","s":"no","kr":280.95,"src":"apple-faktura"},{"d":"2026-09-01","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":160.28,"src":"apple-faktura"},{"d":"2026-09-01","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":11.63,"src":"apple-faktura"},{"d":"2026-09-02","k":"meta","id":"120248773686080625","n":"Norge 18+ arabisk - arabiske playables – kopi","s":"ar","kr":100.31,"src":"meta-ads-reporting"},{"d":"2026-09-02","k":"meta","id":"120248773840210625","n":"Norge 18-24 norsk - unge – kopi","s":"no","kr":247.77,"src":"meta-ads-reporting"},{"d":"2026-09-02","k":"meta","id":"120248773978840625","n":"Norge 18+ norsk - lenkeklikk App Store – kopi","s":"no","kr":310.76,"src":"meta-ads-reporting"},{"d":"2026-09-02","k":"meta","id":"120248792320420625","n":"Norge 18+ tyrkisk - tyrkiske playables","s":"tr","kr":165.87,"src":"meta-ads-reporting"},{"d":"2026-09-02","k":"meta","id":"120248798052610625","n":"Norge 18-44 engelsk - expats utenfor EØS – kopi – kopi – kopi","s":"en","kr":330.4,"src":"meta-ads-reporting"},{"d":"2026-09-02","k":"apple-search-ads","id":"2144471320","n":"Teoriprøve - generisk","s":"no","kr":280.95,"src":"apple-faktura"},{"d":"2026-09-02","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":160.28,"src":"apple-faktura"},{"d":"2026-09-02","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":11.63,"src":"apple-faktura"},{"d":"2026-09-03","k":"google-ads","id":"24209964386","n":"L-appen Android NO","s":"no","kr":350,"src":"anslag-budsjett"},{"d":"2026-09-03","k":"meta","id":"120248773686080625","n":"Norge 18+ arabisk - arabiske playables – kopi","s":"ar","kr":29.51,"src":"meta-ads-reporting"},{"d":"2026-09-03","k":"meta","id":"120248773840210625","n":"Norge 18-24 norsk - unge – kopi","s":"no","kr":58.56,"src":"meta-ads-reporting"},{"d":"2026-09-03","k":"meta","id":"120248773978840625","n":"Norge 18+ norsk - lenkeklikk App Store – kopi","s":"no","kr":74.37,"src":"meta-ads-reporting"},{"d":"2026-09-03","k":"meta","id":"120248792320420625","n":"Norge 18+ tyrkisk - tyrkiske playables","s":"tr","kr":47.95,"src":"meta-ads-reporting"},{"d":"2026-09-03","k":"meta","id":"120248798052610625","n":"Norge 18-44 engelsk - expats utenfor EØS – kopi – kopi – kopi","s":"en","kr":70.27,"src":"meta-ads-reporting"},{"d":"2026-09-03","k":"apple-search-ads","id":"2144471320","n":"Teoriprøve - generisk","s":"no","kr":280.95,"src":"apple-faktura"},{"d":"2026-09-03","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":160.28,"src":"apple-faktura"},{"d":"2026-09-03","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":11.63,"src":"apple-faktura"},{"d":"2026-09-04","k":"apple-search-ads","id":"2144471320","n":"Teoriprøve - generisk","s":"no","kr":280.95,"src":"apple-faktura"},{"d":"2026-09-04","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":160.28,"src":"apple-faktura"},{"d":"2026-09-04","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":11.63,"src":"apple-faktura"},{"d":"2026-09-05","k":"apple-search-ads","id":"2144471320","n":"Teoriprøve - generisk","s":"no","kr":280.95,"src":"apple-faktura"},{"d":"2026-09-05","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":160.28,"src":"apple-faktura"},{"d":"2026-09-05","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":11.63,"src":"apple-faktura"},{"d":"2026-09-06","k":"apple-search-ads","id":"2144471320","n":"Teoriprøve - generisk","s":"no","kr":280.95,"src":"apple-faktura"},{"d":"2026-09-06","k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","s":"no","kr":160.28,"src":"apple-faktura"},{"d":"2026-09-06","k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","s":"no","kr":11.63,"src":"apple-faktura"}]/*REKLAME*/;
 const REKLAME_TIL = /*REKLAME_TIL*/"2026-09-03"/*REKLAME_TIL*/;
 // KAMPANJELISTA - butikk/reklame/kampanjer.csv: {k: kanal, id, n, o: overordnet, s, fra, til, dager, kr, st: status, m: merknad}
 const KAMPANJER = /*KAMPANJER*/[{"k":"meta","id":"120248533625140625","n":"Norge 18+ arabisk - arabiske playables","o":"L-appen playables - norsk + arabisk","s":"ar","fra":"2026-08-16","til":"2026-08-26","dager":11,"kr":967.41,"src":"meta-ads-reporting","st":"avsluttet","m":""},{"k":"meta","id":"120248541280570625","n":"Norge 18-44 engelsk - expats utenfor EØS","o":"L-appen playables - norsk + arabisk","s":"en","fra":"2026-08-17","til":"2026-08-26","dager":10,"kr":994.92,"src":"meta-ads-reporting","st":"avsluttet","m":""},{"k":"meta","id":"120248565944590625","n":"Norge 18-24 norsk - unge","o":"L-appen playables - norsk + arabisk","s":"no","fra":"2026-08-17","til":"2026-08-26","dager":10,"kr":1224.1,"src":"meta-ads-reporting","st":"avsluttet","m":""},{"k":"apple-search-ads","id":"2144469579","n":"Konkurrenter","o":"Apple Search Ads Norge","s":"no","fra":"2026-08-17","til":"2026-09-03","dager":18,"kr":974.4,"src":"anslag-budsjett","st":"aktiv","m":"budsjett x dager, IKKE avlest forbruk, ASA brukte EUR 94 av 105 de sju dagene til 02.09, start 17.08 er antatt"},{"k":"apple-search-ads","id":"2144470463","n":"Merkevare - eget navn","o":"Apple Search Ads Norge","s":"no","fra":"2026-08-17","til":"2026-09-03","dager":18,"kr":417.6,"src":"anslag-budsjett","st":"aktiv","m":"budsjett x dager, IKKE avlest forbruk, ASA brukte EUR 94 av 105 de sju dagene til 02.09, start 17.08 er antatt"},{"k":"apple-search-ads","id":"2144471320","n":"Teoriproeve - generisk","o":"Apple Search Ads Norge","s":"no","fra":"2026-08-17","til":"2026-09-03","dager":18,"kr":2134.4,"src":"anslag-budsjett","st":"aktiv","m":"budsjett x dager, IKKE avlest forbruk, ASA brukte EUR 94 av 105 de sju dagene til 02.09, start 17.08 er antatt"},{"k":"meta","id":"120248621229400625","n":"Norge 18+ arabisk - arabiske playables","o":"L-appen playables - norsk + arabisk – kopi","s":"ar","fra":"2026-08-20","til":"2026-08-20","dager":1,"kr":63.49,"src":"meta-ads-reporting","st":"avsluttet","m":""},{"k":"meta","id":"120248621229490625","n":"Norge 18-24 norsk - unge","o":"L-appen playables - norsk + arabisk – kopi","s":"no","fra":"2026-08-20","til":"2026-08-20","dager":1,"kr":100.75,"src":"meta-ads-reporting","st":"avsluttet","m":""},{"k":"meta","id":"120248621229500625","n":"Norge 18-44 engelsk - expats utenfor EØS","o":"L-appen playables - norsk + arabisk – kopi","s":"en","fra":"2026-08-20","til":"2026-08-20","dager":1,"kr":74.08,"src":"meta-ads-reporting","st":"avsluttet","m":""},{"k":"meta","id":"120248625149430625","n":"Norge 18+ norsk - lenkeklikk App Store","o":"L-appen trafikk - direktelenke App Store (test)","s":"no","fra":"2026-08-21","til":"2026-08-21","dager":1,"kr":239.99,"src":"meta-ads-reporting","st":"avsluttet","m":""},{"k":"meta","id":"120248630876220625","n":"Spansk 18 - 44","o":"Ukrainsk + spansk 3 dager","s":"es","fra":"2026-08-21","til":"2026-08-23","dager":3,"kr":373.16,"src":"meta-ads-reporting","st":"avsluttet","m":""},{"k":"meta","id":"120248631319400625","n":"Ukrainsk 18 - 44 – kopi","o":"Ukrainsk + spansk 3 dager","s":"uk","fra":"2026-08-21","til":"2026-08-23","dager":3,"kr":745.25,"src":"meta-ads-reporting","st":"avsluttet","m":""},{"k":"meta","id":"120248773686080625","n":"Norge 18+ arabisk - arabiske playables – kopi","o":"Arabisk playables - omkjoring aug26","s":"ar","fra":"2026-08-28","til":"2026-09-03","dager":7,"kr":654.34,"src":"meta-ads-reporting","st":"aktiv","m":"Arabisk playables: kr 1 000 totalt, tidsplan 28.08-07.09, lest i Ads Manager 03.09"},{"k":"meta","id":"120248773840210625","n":"Norge 18-24 norsk - unge – kopi","o":"Norsk unge - omkjoring aug26","s":"no","fra":"2026-08-28","til":"2026-09-03","dager":7,"kr":1584.34,"src":"meta-ads-reporting","st":"av 03.09","m":"Norsk unge: Edvard sier han skrudde av de norske Meta-kampanjene 03.09 (ikke bekreftet i Ads Manager). Leverte fra 28.08, kr 1 584 per 03.09"},{"k":"meta","id":"120248773978840625","n":"Norge 18+ norsk - lenkeklikk App Store – kopi","o":"Lenkeklikk l-appen.app - aug26","s":"no","fra":"2026-08-28","til":"2026-09-03","dager":7,"kr":1566.62,"src":"meta-ads-reporting","st":"av 03.09","m":"Lenkeklikk l-appen.app: skrudd av 03.09 sammen med de norske (ikke bekreftet i Ads Manager). Dagsbudsjett kr 300 lest i Ads Manager 03.09"},{"k":"meta","id":"120248791219150625","n":"Norge 18-44 engelsk - expats utenfor EØS – kopi – kopi","o":"Engelsk expats - omkjoring aug26","s":"en","fra":"2026-08-29","til":"2026-08-29","dager":1,"kr":0.44,"src":"meta-ads-reporting","st":"aldri levert","m":"Engelsk expats - omkjoring: kr 0,44 den 29.08, kopi-kopi-kopi-settet tok over 30.08 (slutning, ikke bekreftet)"},{"k":"meta","id":"120248791607810625","n":"Norge 18+ somalisk - somaliske playables","o":"Somalisk playables - omkjoring aug26","s":"so","fra":"2026-08-29","til":"2026-08-29","dager":1,"kr":1.01,"src":"meta-ads-reporting","st":"aldri levert","m":"Somalisk: publisert, men kr 1,01 og 12 eksponeringer 29.08, ellers ingenting. Sjekk status og medier i Ads Manager"},{"k":"meta","id":"120248792320420625","n":"Norge 18+ tyrkisk - tyrkiske playables","o":"Tyrkisk playables - omkjoring aug26","s":"tr","fra":"2026-08-30","til":"2026-09-03","dager":5,"kr":642.67,"src":"meta-ads-reporting","st":"aktiv","m":"Tyrkisk playables: kr 1 250 totalt, tidsplan 29.08-07.09, lest i Ads Manager 03.09"},{"k":"meta","id":"120248798052610625","n":"Norge 18-44 engelsk - expats utenfor EØS – kopi – kopi – kopi","o":"Test - xpats kopi","s":"en","fra":"2026-08-30","til":"2026-09-03","dager":5,"kr":1435.44,"src":"meta-ads-reporting","st":"aktiv","m":"Engelsk expats (Test - xpats kopi): dagsbudsjett kr 320, tidsplan 30.08-07.09, lest i Ads Manager 03.09"},{"k":"google-ads","id":"24209964386","n":"L-appen Android NO","o":"Google App Campaign","s":"no","fra":"2026-09-03","til":"2026-09-03","dager":1,"kr":350,"src":"anslag-budsjett","st":"aktiv","m":"budsjett x dager, IKKE avlest forbruk, kampanjen var under evaluering 03.09 morgen"}]/*KAMPANJER*/;
@@ -891,6 +953,25 @@ const vektTekst = k => { const v = SKJERM_VEKT[k]; return v === undefined ? '0' 
 
 const MS_GULV = Date.parse('2020-01-01T00:00:00Z');
 const gyldigMs = t => Number.isFinite(t) && t > MS_GULV && t < Date.now() + 864e5;
+// OSLO-TID, OG HVORFOR BARE HER
+//
+// Dagsnoeklene i basen er UTC. Appen skriver tidDager (App.tsx:3887), runder
+// (4305 og 5161) og lampeblitz med toISOString, saa hele stripa, idagIso og
+// alle datonoekler MAA bli staaende i UTC. Gjor vi dem osloske, sprikere de
+// mot dataene og merkene havner paa nabocella - samme feil som ble rettet
+// 04.09 for laasemerket.
+//
+// Disse to brukes derfor BARE der et menneske skal lese et klokkeslett.
+// toLocaleString taaler sommer- og vintertid; en fast «+ 2 * 36e5» gjor det
+// ikke, og blir feil fra 25. oktober.
+// Delene hentes hver for seg og settes sammen selv, saa formen blir «07.09.
+// 16:30» som resten av sida (fmtDag). nb-NO gir «7.9., 16:30» rett ut av
+// boksen. hourCycle h23 sikrer 00:30, ikke 24:30.
+const OSLO_FMT = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Oslo',
+  day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+const osloDeler = ms => { const o = {}; OSLO_FMT.formatToParts(new Date(ms)).forEach(p => o[p.type] = p.value); return o; };
+const osloKl = ms => { if (!gyldigMs(ms)) return ''; const d = osloDeler(ms); return d.hour + ':' + d.minute; };
+const osloTid = ms => { if (!gyldigMs(ms)) return ''; const d = osloDeler(ms); return d.day + '.' + d.month + '. ' + d.hour + ':' + d.minute; };
 function nedlastKilde(r){
   let dato = null, kilde = null, mettet = false, sort = null;
   const bud = (d, k, mett, full) => {
@@ -945,11 +1026,32 @@ const pottTom = r => r.laasTraff ? ((+r.laasTraff.i_runde || 0) + (+r.laasTraff.
 const maalerPott = r => { const m = /build-(\d+)/.exec(r.versjon || ''); return !!(m && +m[1] >= 137) || !!r.laasTraff; };
 const VEI_NAVN = { laas: 'låsen', profil: 'Profil', profil_forleng: 'Profil (forleng)', dialog_info: 'dialog (info)', dialog_prove: 'dialog (prøve)', dialog_antall: 'dialog (antall)', dialog_laas: 'dialog (lås)' };
 const veiNavn = v => VEI_NAVN[v] || (v || '?').replace(/_/g, ' ');
+// NAAR KJOEPET SKJEDDE, til visning ved «betalt»-merket.
+//
+// Bare de nyeste kjoepene har et eksakt tidspunkt: maaling.kjop kom i
+// build-137. For de eldre er dagen regnet BAKOVER fra proUtlop minus 120
+// doegn, og den utledningen er usikker der tilgangen er forlenget - og helt
+// ubrukelig der ki.klemt er satt, altsaa der resultatet maatte tvinges inn i
+// vinduet mellom nedlasting og naa. Maalt og utledet skal derfor aldri se
+// like sikre ut.
+function kjoptNaar(ki){
+  if (ki.eksakt && gyldigMs(ki.kjopMs))
+    return '<span class="kjoptNaar" title="eksakt tidspunkt fra appens kjøpspost (maaling.kjop), norsk tid">' + osloTid(ki.kjopMs) + '</span>';
+  if (!ki.dag) return '';
+  return '<span class="kjoptNaar utledet" title="ingen kjøpspost - den kom i build-137. Dagen er regnet ut fra proUtlop minus 120 døgn'
+    + (ki.klemt ? ', og måtte i tillegg tvinges inn i vinduet mellom nedlasting og nå. Regn den som en pekepinn, ikke en dato' : ', og er usikker der tilgangen er forlenget')
+    + '">~' + fmtDag(ki.dag) + '</span>';
+}
 function kjopsInfo(r){
   if (r.proUtlop > 0) {
     // Kjoepsposten fra appen (build-137+) gir eksakt tidspunkt og vei
     const post = (r.kjopPost || []).filter(p => p && p.dato).sort((a, b) => a.dato < b.dato ? -1 : a.dato > b.dato ? 1 : 0)[0];
-    if (post) { const ms = Date.parse(post.dato); if (gyldigMs(ms)) return { betalt: true, kilde: 'kjop', kjopMs: ms, dag: new Date(ms + 2 * 36e5).toISOString().slice(0,10), klemt: false, vei: post.vei || null, eksakt: true }; }
+    // dag er en NOEKKEL, ikke et klokkeslett: den slaas opp i stripa (rom(dag))
+    // og telles per dato i tegn(). Stripa er UTC, saa dag maa vaere UTC. Her
+    // stod det «ms + 2 * 36e5», som gjorde grenen uenig med grenen under: et
+    // kjoep mellom midnatt og kl. 02 norsk tid fikk ringen paa dagen ETTER
+    // aktiviteten. Klokkeslettet vises med osloKl der det skal leses.
+    if (post) { const ms = Date.parse(post.dato); if (gyldigMs(ms)) return { betalt: true, kilde: 'kjop', kjopMs: ms, dag: new Date(ms).toISOString().slice(0,10), klemt: false, vei: post.vei || null, eksakt: true }; }
     const igjen = (r.proUtlop - Date.now()) / 864e5;
     let kjopMs = r.proUtlop - (igjen > 150 ? 240 : 120) * 864e5;
     const start = Date.parse(nedlastet(r)), naa = Date.now();
@@ -969,7 +1071,11 @@ function kjopsInfo(r){
   // settes ved oppstart og OTA-en aktiveres foerst ved omstart, saa runden kan
   // like gjerne vaere spilt paa den gamle bunten samme dag. Med 10 inne var
   // 286 av 942 enheter uten kvittering «antatt»; naa er de 23.
-  const store = (r.runder || []).filter(x => x && !x.prove && x.dato && (x.av || 0) >= 20).map(x => x.dato).sort();
+  // Dash-blitz holdes utenfor: den er gratis uten tak, og fra build-141 skrives
+  // den til samme liste som de andre. Uten dette filteret ville en lang
+  // Dash-runde blitt lest som et kjoep.
+  const erDash = (x) => Array.isArray(x.temaer) && x.temaer.some(t => String(t).indexOf('Dash') === 0);
+  const store = (r.runder || []).filter(x => x && !x.prove && x.dato && !erDash(x) && (x.av || 0) >= 20).map(x => x.dato).sort();
   if (store.length) return { betalt: true, kilde: 'antatt', dag: store[0] };
   return { betalt: false };
 }
@@ -988,7 +1094,161 @@ const sperrespor = r => {
   if (harRasjon(r) && (+b.quiz || 0) >= 3) return 'rasjon brukt opp';
   return null;
 };
-const erRaskTempo = r => r.tempoSek > 0 && r.tempoSek * 5 < 120;
+const erRaskTempo = r => r.tempoSek > 0 && r.tempoSek * 5 < KONFIG.tempoGrenseSek;
+
+// LAASEMERKER PER DAG
+//
+// Potten aapner TO ganger i doegnet: kl. 06, som starter et nytt app-doegn
+// (NULLSTILL_KL, src/tilgang.ts:157), og kl. 16, kveldspotten - men den siste
+// bare de foerste tidBolkDager doegnene (App.tsx:3475-3479). En bruker kan
+// derfor moete to laaser samme doegn.
+//
+// Merket er en RING rundt dagprikken i aktivitetsstripa, ikke en farge paa
+// den: prikken skal fortsatt si «aktiv dag». Venstre halvring er
+// morgenlaasen, hoyre er kveldslaasen, hel ring er begge. Ringen tegnes paa
+// HVER dag den gjelder, saa stripa viser hvor mange dager brukeren naadde
+// taket og hvor mange den ikke gjorde.
+const BOLK_KL = 16;
+// Slingringsmonn rundt kl. 16 for tidssone og sommertid.
+const BOLK_MONN = 2*3600e3;
+// appDag() i appen bruker LOKAL dato med nullstilling kl. 06. Vi regner i
+// Oslo-tid; for enheter i andre soner kan doegnnoekkelen ligge inntil ett
+// doegn unna. Merket settes uansett paa den dagen enheten SELV noterte, saa
+// avviket flytter et merke, det finner ikke opp et.
+function appDagAv(ms){
+  const d = new Date(ms - 6*3600e3);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+const appDagOslo = f => appDagAv(Date.now() + (f || 0)*864e5);
+// Har enheten full tilgang akkurat naa? Avgjoer om bruk-objektet er levende
+// eller frosset: tidstelleren stopper ved harFull (App.tsx:3649).
+const harTilgangNaa = r => { const n = Date.now(); return (r.proUtlop || 0) > n || (r.kodeUtlop || 0) > n; };
+// Potten enheten FAKTISK kjoerer, slik den selv rapporterte den ved siste puls
+// (maaling.konfig, App.tsx:4684). Aldri gjett naar raden vet: konfig-tabellen
+// kan overstyre grensene, og et tempo som endrer seg flytter potten mellom
+// 300 og 240 midt i et doegn. Fall tilbake paa standarden bare for enheter
+// uten maaling (foer build-137).
+function potteSekFor(r){
+  // Enheten sier det selv naar den kan (build-137+): potteSek er den potten
+  // den FAKTISK kjoerte ved siste puls, og den er dermed riktig ogsaa for
+  // rader skrevet foer en konfigendring.
+  const k = r.konfig && Number(r.konfig.potteSek);
+  if (k > 0) return k;
+  // Ellers: regn den ut slik appen gjoer (App.tsx:3550-3553), fra dagens
+  // konfig. Merk at det er dagens verdi, ikke den som gjaldt da raden ble
+  // skrevet - for enheter uten maaling har vi ingen bedre kilde.
+  const rask = erRaskTempo(r) && KONFIG.tidBudsjettRaskMin > 0;
+  const min = rask ? KONFIG.tidBudsjettRaskMin : KONFIG.tidBudsjettMin;
+  return Math.max(0, Math.round(min * 60)) || 300;
+}
+// Var kveldspotten i det hele tatt tilgjengelig dette doegnet? Kvoten er
+// tidBolkDager doegn (3), sporet i bolkDager - samme regel som bolkAktiv i
+// App.tsx:3475-3477. Er den brukt opp, har doegnet BARE én pott, og da er
+// skillet morgen/kveld meningsloest: hele ringen betyr «dagens tid brukt opp».
+function kveldMulig(r, dag){
+  const bd = r.bolkDager || [];
+  const kvote = (r.konfig && Number(r.konfig.bolker) > 0) ? Number(r.konfig.bolker) : 3;
+  return bd.length < kvote || bd.includes(dag);
+}
+
+// { '2026-09-04': { morgen:true, kveld:true } } for dagene sperren ble moett.
+function laasDagerRaa(r){
+  const ut = {};
+  const rom = dag => ut[dag] || (ut[dag] = {});
+
+  // 1) Oektloggen (maaling.okt, build-137+): hver oekt med laas > 0 er en dag
+  //    med sperre. Laasen kom et sted mellom start og start+sek. Ligger hele
+  //    intervallet foer kl. 16, var det morgenlaasen; helt etter, kveldslaasen;
+  //    strekker det seg over 16, vet vi at den kom, men ikke i hvilken bolk.
+  for (const o of (r.okt || [])) {
+    if (!o || !o.start || !((+o.laas || 0) > 0)) continue;
+    const f = Date.parse(o.start);
+    if (!gyldigMs(f)) continue;
+    const t = f + (+o.sek || 0) * 1000;
+    const dag = appDagAv(f);
+    if (!kveldMulig(r, dag)) { rom(dag).enePott = true; continue; }
+    // Grensa regnes i NETTLESERENS sone, mens appen bruker enhetens egen.
+    // Derfor et slingringsmonn: bare oekter som ligger klart paa én side av
+    // kl. 16 faar en bolk, resten faar prikket ring. Uten monnet ville hver
+    // enhet i en annen sone blitt feilplassert nettopp i doegnets travleste
+    // laasetime.
+    const gr = Date.parse(dag + 'T' + BOLK_KL + ':00');
+    rom(dag)[t <= gr - BOLK_MONN ? 'morgen' : f >= gr + BOLK_MONN ? 'kveld' : 'uviss'] = true;
+  }
+
+  // 2) bruk: enhetens naavaerende doegn. Eneste stedet vi kjenner bolken
+  //    eksakt, saa den overstyrer oektloggens gjetning for den ene dagen.
+  //    tidBolkDag settes i det kveldspotten deles ut (App.tsx:3566), saa er
+  //    den satt for doegnet, teller tidSekBrukt KVELDSpotten.
+  const b = r.bruk;
+  if (b && b.dag && (+b.tidSekBrukt || 0) >= potteSekFor(r)) {
+    // HVILKEN CELLE. Stripa er indeksert paa UTC-kalenderdato (tidDager,
+    // runder og lampeblitz bruker alle toISOString), mens b.dag er app-doegnet
+    // - lokal dato forskjovet 6 timer. De to spriker for alt som skjer mellom
+    // midnatt og kl. 06, og da havnet ringen paa nabocella. Maalt 04.09: 22 av
+    // 161 merker, og ett av dem paa en dag uten aktivitet i det hele tatt.
+    //
+    // Potten gikk tom i det raden sist ble skrevet, saa oppdatert ER
+    // tidspunktet. App-doegnet b.dag dekker UTC-datoene b.dag og dagen etter;
+    // ligger oppdatert innenfor, er den eksakt. Ellers faller vi tilbake.
+    //
+    // MEN oppdatert kan bare brukes naar bruk-objektet fortsatt er levende.
+    // Tidstelleren stopper ved harFull (App.tsx:3649), saa hos en som har
+    // kjoept staar bruk frosset paa kjoepsdagen mens raden skrives videre hver
+    // oekt. Da drar oppdatert fra, og merket havnet paa en dag ETTER kjoepet -
+    // altsaa mens de hadde full tilgang. Funnet av Edvard 04.09 paa da18b808
+    // og f803ccb4: begge kjoepte 03.09, bruk.dag = 03.09, oppdatert = 04.09.
+    const frosset = harTilgangNaa(r);
+    const oppd = new Date(r.oppdatert).toISOString().slice(0,10);
+    const nesteDag = new Date(Date.parse(b.dag) + 864e5).toISOString().slice(0,10);
+    const dag = (!frosset && (oppd === b.dag || oppd === nesteDag)) ? oppd : b.dag;
+    const o = rom(dag);
+    delete o.uviss;
+    // Merk: INGEN sjekk paa aktiv tilgang. Tidstelleren stopper ved harFull
+    // (App.tsx:3649), saa den som moette laasen og deretter kjoepte, sitter
+    // igjen med et frosset bruk-objekt med full pott. Hen moette laasen den
+    // dagen, og merket hoerer der.
+    if (!kveldMulig(r, b.dag)) o.enePott = true;   // kvoten foelger app-doegnet
+    else o[b.tidBolkDag === b.dag ? 'kveld' : 'morgen'] = true;
+  }
+
+  // 3) maaling.laas_dag fra A9: telt i appen, eksakt, overstyrer alt.
+  const ld = r.laasDag;
+  if (ld) for (const dag of Object.keys(ld)) {
+    const v = ld[dag] || {}, o = {};
+    if ((+v.morgen || 0) > 0) o.morgen = true;
+    if ((+v.kveld || 0) > 0) o.kveld = true;
+    if (o.morgen || o.kveld) ut[dag] = o;
+  }
+  return ut;
+}
+// Kalles for hver rad i tabellen, i flisa og i filteret - regn det én gang.
+const laasBuffer = new WeakMap();
+function laasDager(r){
+  let v = laasBuffer.get(r);
+  if (!v) { v = laasDagerRaa(r); laasBuffer.set(r, v); }
+  return v;
+}
+// Naboflisene («Aktive i dag», «Nye i dag», «Kjopt i dag») bruker alle
+// idagIso(). Skal tallene staa side om side, maa de mene det samme med «i dag».
+const laasIDag = r => laasDager(r)[idagIso()] || null;
+// Hel ring = all gratistid for doegnet brukt opp. Det er sant baade naar
+// begge pottene gikk tom og naar doegnet bare hadde én pott.
+// Flisene som kan trykkes. Testen MAA gi samme tall som flisa viser, ellers
+// er det forvirrende aa trykke paa 96 og faa 40 rader.
+const FILTRE = {
+  idag: { test: laasIDag, navn: 'har møtt låsen i dag' },
+  // Samme regnestykke som flisa «Møtt låsen»: laas_vist blant de maalbare.
+  noensinne: { test: r => maalbar(r) && hend(r, 'laas_vist') > 0,
+    navn: 'har møtt låsen minst én gang' },
+};
+const laasKlasse = o => 'laas ' + ((o.enePott || (o.morgen && o.kveld)) ? 'laasB'
+  : o.morgen ? 'laasM' : o.kveld ? 'laasK' : 'laasB laasU');
+const laasTekst = o => o.enePott ? 'brukte opp dagens eneste pott (kveldspotten var oppbrukt)'
+  : o.morgen && o.kveld ? 'møtte begge dagens låser'
+  : o.morgen ? 'møtte morgenlåsen, kveldspotten sto igjen'
+  : o.kveld ? 'møtte kveldslåsen'
+  : 'møtte låsen, men vi vet ikke i hvilken bolk';
 const region = r => { const v = String(r.telSprak || ''); const i = v.indexOf('-'); return i > 0 ? v.slice(i+1) : null; };
 function pfMerke(r){
   if (r.plattform === 'android') return '<span class="pf gp" title="Google Play">GP</span>';
@@ -1004,7 +1264,21 @@ async function hent(){
       + 'proUtlop:stats->>proUtlop,kodeUtlop:stats->>kodeUtlop,hendelser:stats->hendelser,'
       + 'lampeblitz:stats->lampeblitz,bruk:stats->bruk,versjon:stats->>versjon,skjermSek:stats->skjermSek,'
       + 'oevetimer:stats->oevetimer,tempoSek:stats->>tempoSek,versjonlogg:stats->versjonlogg,'
-      + 'plattform:stats->>plattform,avbrutte:stats->avbrutte,laasTraff:maaling->laas_traff,kjopPost:maaling->kjop');
+      + 'plattform:stats->>plattform,avbrutte:stats->avbrutte,laasTraff:maaling->laas_traff,kjopPost:maaling->kjop,'
+      // bolkDager: hvilke app-doegn kveldspotten faktisk ble delt ut.
+      // laasDag: per-doegn-tellingen A9 ber om. Finnes ikke i dagens binaer -
+      // naar den kommer, tenner den hele prikken av seg selv.
+      + 'bolkDager:stats->bolkDager,laasDag:maaling->laas_dag,okt:maaling->okt,konfig:maaling->konfig');
+    // Konfigen foerst: den avgjoer hvor stor potten er, og dermed naar en
+    // enhet regnes som laast. Feiler den, staar standardene.
+    try {
+      const kres = await fetch(URL_KONFIG + '?select=nokkel,verdi',
+        { headers: { apikey: NOKKEL, Authorization: 'Bearer ' + NOKKEL } });
+      if (kres.ok) for (const rad of await kres.json()) {
+        const v = Number(rad.verdi);
+        if (rad.nokkel in KONFIG && Number.isFinite(v)) KONFIG[rad.nokkel] = v;
+      }
+    } catch { /* offline eller sperret: bruk standardene */ }
     const SIDE = 500, raa = []; let total = null;
     for (let fra = 0; ; fra += SIDE) {
       const res = await fetch(URL_BASE + '?select=' + sel + '&order=oppdatert.desc,device_id.asc', { headers: {
@@ -1041,6 +1315,10 @@ async function hent(){
         avbrutte: Array.isArray(r.avbrutte) ? r.avbrutte : [],
         // maaling (build-137+): laas_traff = potten gikk tom {i_runde, utenfor}; kjop = kjoepsposter {dato, vei, ...}
         laasTraff: (r.laasTraff && typeof r.laasTraff === 'object') ? r.laasTraff : null,
+        bolkDager: Array.isArray(r.bolkDager) ? r.bolkDager : [],
+        laasDag: (r.laasDag && typeof r.laasDag === 'object') ? r.laasDag : null,
+        okt: Array.isArray(r.okt) ? r.okt : [],
+        konfig: (r.konfig && typeof r.konfig === 'object') ? r.konfig : null,
         kjopPost: Array.isArray(r.kjopPost) ? r.kjopPost : null,
         proUtlop: parseInt(r.proUtlop || '0', 10) || 0, kodeUtlop: parseInt(r.kodeUtlop || '0', 10) || 0,
         runder, forLansering: spor.some(d => d < LANSERT) };
@@ -1074,15 +1352,68 @@ function tegn(){
   const kjopMaal = maal.filter(kvittert).length;
   // Potten gikk tom: bare enheter paa build-137+ maaler det
   const pottEnh = maal.filter(maalerPott), pottTraff = pottEnh.filter(r => pottTom(r) > 0).length, pottSum = pottEnh.reduce((a, r) => a + (pottTom(r) || 0), 0);
+  // Ved sperren naa: gult naar noen staar der. Vinduet er 20 min; timetallet
+  // staar under, saa en tom flis midt paa natta ikke leses som at sperren
+  // aldri treffer.
+  const merker = data.map(laasIDag).filter(Boolean);
+  const nMorgen = merker.filter(m => !m.enePott && m.morgen && !m.kveld).length;
+  const nKveld = merker.filter(m => !m.enePott && m.kveld && !m.morgen).length;
+  const nBegge = merker.filter(m => m.enePott || (m.morgen && m.kveld)).length;
 
   document.getElementById('fliser').innerHTML = [
     flis('Enheter', data.length, 'i utvalget'),
     flis('Aktive i dag', aktivIdag, data.filter(r => aktiveDager(r).some(d => d >= uke)).length + ' siste 7 dager', aktivIdag > 0),
     flis('Nye i dag', nye.filter(d => d === idag).length, nye.filter(d => d >= uke).length + ' siste 7 dager'),
     flis('Kjøpt i dag', kjop.filter(d => d === idag).length, kjop.filter(d => d >= uke).length + ' siste 7 dager · ' + kjop.length + ' i alt' + (KJOP_RC.length ? ' (RevenueCat)' : ''), kjop.length > 0),
-    flis('Møtt låsen', laast, pct(laast, maal.length) + ' av ' + maal.length + ' målbare' + (pottEnh.length ? ' · pott tom ' + pottSum + ' ganger hos ' + pottTraff + ' av ' + pottEnh.length + ' som måler (build-137+)' : '')),
+    flis('Møtt låsen i dag', merker.length,
+      (merker.length
+        ? [nMorgen && nMorgen + ' morgen', nKveld && nKveld + ' kveld',
+           nBegge && nBegge + ' all tid brukt opp'].filter(Boolean).join(' · ')
+          + ' · <b>trykk for å se dem</b>'
+        : 'ingen har brukt opp gratistiden i dag ennå'),
+      false,
+      { klasse: (merker.length ? 'varsel' : '') + (merker.length || tabellFilter ? ' trykk' : ''),
+        id: 'flisLaas', data: 'idag',
+        tittel: 'Enheter som har brukt opp gratistiden i inneværende app-døgn og '
+          + 'ikke har betalt tilgang. Døgnet skifter kl. 06, og da nullstilles merket. '
+          + 'Potten deles ut to ganger: kl. 06 og kl. 16 (kveldspotten, bare de første '
+          + 'døgnene), så «morgen» og «kveld» er hver sin lås. Hel prikk («begge») '
+          + 'krever per-døgn-tellingen A9 ber om: kveldsnullstillingen tømmer '
+          + 'tidSekBrukt, så sporet av morgenlåsen er borte etter kl. 16.' }),
+    flis('Møtt låsen', laast,
+      pct(laast, maal.length) + ' av ' + maal.length + ' målbare'
+      + (pottEnh.length ? ' · pott tom ' + pottSum + ' ganger hos ' + pottTraff + ' av ' + pottEnh.length + ' som måler (build-137+)' : '')
+      + (laast ? ' · <b>trykk for å se dem</b>' : ''),
+      false,
+      { klasse: (laast || tabellFilter ? 'trykk' : ''), id: 'flisLaasAlle', data: 'noensinne',
+        tittel: 'Enheter som har fått låseskjermen minst én gang, noensinne. '
+          + 'Teller laas_vist blant dem som både kan låses og måles, så nevneren '
+          + 'er de målbare - ikke alle enheter.' }),
     flis('Konvertering', pct(kjopMaal, maal.length), kjopMaal + ' kjøp av ' + maal.length + ' som kan låses og måles', kjopMaal > 0),
   ].join('');
+
+  // Begge laaseflisene er knapper. Trykk paa den som alt er valgt slaar av;
+  // trykk paa den andre bytter. Flisa er bare klikkbar naar den har et tall,
+  // eller naar et filter staar paa (ellers ville man ikke faatt skrudd det av
+  // fra Bruk-fanen).
+  document.querySelectorAll('.flis[data-filter]').forEach(fl => {
+    fl.addEventListener('click', () => {
+      const m = fl.dataset.filter;
+      tabellFilter = tabellFilter === m ? null : m;
+      tegn();
+      if (!tabellFilter) return;
+      // Tabellen ligger paa Enhetene-fanen. Bytt dit, ellers skjer det
+      // tilsynelatende ingenting naar man trykker fra Bruk-fanen.
+      const fane = document.querySelector('.fane[data-vis="enheter"]');
+      if (fane) fane.click();
+      // Fanebyttet skjuler halve sida, saa hoyden endrer seg. Rulles det i
+      // samme slengen, lander man et vilkaarlig sted. Vent en tegning.
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const t = document.getElementById('laasFilter');
+        if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }));
+    });
+  });
 
   dekningKort(data);
   traktKort(maal, data);
@@ -1097,7 +1428,16 @@ function tegn(){
   avbruddKort(data);
   ukeKort(data);
   perioderKort(data); reklameSkjemaKort(data); kilderLinje();
-  tabell(data);
+  // Filteret gjelder bare tabellen. Diagrammene over skal fortsatt vise alt.
+  const valgt = tabellFilter ? FILTRE[tabellFilter] : null;
+  const tabData = valgt ? data.filter(valgt.test) : data;
+  const fEl = document.getElementById('laasFilter');
+  fEl.style.display = valgt ? 'block' : 'none';
+  if (valgt) fEl.innerHTML = '<span class="prikkLaas laasB"></span><b>Viser bare de '
+    + tabData.length + ' som ' + valgt.navn + '.</b> <button id="laasAv">Vis alle igjen</button>';
+  tabell(tabData);
+  const av = document.getElementById('laasAv');
+  if (av) av.addEventListener('click', () => { tabellFilter = null; tegn(); });
   const utv = rader.filter(r => r.erUtvikler).length, tst = rader.filter(r => r.erTest).length, forL = rader.filter(r => r.forLansering && !r.erUtvikler && !r.erTest).length;
   document.getElementById('tabellFot').innerHTML = '<b>' + data.length + '</b> av ' + rader.length + ' enheter i basen'
     + (utv ? ' · ' + utv + ' utviklerenheter utelatt' : '')
@@ -1106,8 +1446,13 @@ function tegn(){
     + (rader.length < hentetTotal ? ' · <b style="color:var(--critical)">tjeneren har ' + hentetTotal + ' rader, ikke alle ble hentet</b>' : '')
     + ' · rader slettes 90 dager etter siste aktivitet';
 }
-function flis(navn, tall, under, god){
-  return '<div class="flis"><div class="navn">' + navn + '</div><div class="tall">' + tall
+function flis(navn, tall, under, god, opt){
+  const o = opt || {};
+  return '<div class="flis' + (o.klasse ? ' ' + o.klasse : '') + '"'
+    + (o.id ? ' id="' + o.id + '"' : '') + (o.data ? ' data-filter="' + o.data + '"' : '')
+    + (o.tittel ? ' title="' + o.tittel + '"' : '')
+    + '><div class="navn">' + navn + (o.merkelapp ? '<span class="merkelapp">' + o.merkelapp + '</span>' : '')
+    + '</div><div class="tall">' + tall
     + '</div><div class="under' + (god ? ' god' : '') + '">' + under + '</div></div>';
 }
 
@@ -1123,10 +1468,16 @@ function dekningKort(data){
     ['kvittering (proUtlop)', data.filter(r => r.proUtlop > 0).length, 'kjøpere i backupen'],
     ['reinstallert (anslag)', data.filter(reinstallert).length, 'runder i sky, tellere tomme'],
   ];
-  const rcN = KJOP_RC.length, rcK = new Set(KJOP_RC.map(t => t.k)).size, bN = data.filter(r => r.proUtlop > 0).length;
+  // Transaksjoner uten id (bare i CSV-en, ikke i den innlimte lista) faar '?'
+  // av byggeskriptet. De ville kollapset til én kunde i et Set, saa de telles
+  // for seg i stedet for aa understate kundetallet.
+  const rcN = KJOP_RC.length;
+  const rcUkjent = KJOP_RC.filter(t => t.k === '?').length;
+  const rcK = new Set(KJOP_RC.filter(t => t.k !== '?').map(t => t.k)).size;
+  const bN = data.filter(r => r.proUtlop > 0).length;
   document.getElementById('cDekning').innerHTML = felt.map(([navn, v, note]) =>
     lrad(navn, v, n, v + ' <span style="color:var(--muted)">· ' + pct(v, n) + ' · ' + note + '</span>')).join('')
-    + '<div class="hint" style="margin-top:10px"><b>Kjøp: RevenueCat ' + rcN + ' transaksjoner / ' + rcK + ' kunder</b> (hentet ' + (KJOP_RC_HENTET || '?').replace('T', ' ') + (KJOP_RC_TEST ? ', ' + KJOP_RC_TEST + ' testkjøp holdt utenfor' : '') + ') mot <b>' + bN
+    + '<div class="hint" style="margin-top:10px"><b>Kjøp: RevenueCat ' + rcN + ' transaksjoner / ' + rcK + ' kjente kunder' + (rcUkjent ? ' + ' + rcUkjent + ' uten id' : '') + '</b> (hentet ' + (KJOP_RC_HENTET || '?').replace('T', ' ') + (KJOP_RC_TEST ? ', ' + KJOP_RC_TEST + ' testkjøp holdt utenfor' : '') + ') mot <b>' + bN
     + ' med kvittering i backupen</b>. De ' + Math.max(0, rcK - bN) + ' som mangler kjøpte for det meste 17.-30.08, da kjøpsstatus var ute av backupen. '
     + 'Kjøpstallene under bruker RevenueCat der det er per dato, og backupen der det må være per enhet.</div>';
 }
@@ -1538,18 +1889,31 @@ function sortVerdi(r, k){
 }
 function dagStripe(r){
   const start = nedlastet(r), aktive = new Set(aktiveDager(r)), ki = kjopsInfo(r);
+  const nAktive = aktive.size;
   const kjopsdag = ki.betalt ? ki.dag : null, dg = [];
-  for (let t = Date.parse(start); t <= Date.parse(idagIso()); t += 864e5) { const d = new Date(t).toISOString().slice(0,10); dg.push({ d, paa: aktive.has(d), kjop: d === kjopsdag }); }
+  // Laasedagene er app-doegn (lokal dato, nullstilt kl. 06), stripa er
+  // UTC-datoer. De to faller sammen for alt annet enn timene rett etter
+  // midnatt, og merket settes uansett paa den dagen enheten selv noterte.
+  const ld = laasDager(r);
+  const laasteDager = Object.keys(ld);
+  // En dag der potten gikk tom VAR en aktiv dag, selv om dagboka (UTC-datert)
+  // ikke har rukket aa notere den. Og stripa maa strekke seg dit.
+  laasteDager.forEach(d => aktive.add(d));
+  const sisteDag = laasteDager.reduce((a, d) => d > a ? d : a, idagIso());
+  for (let t = Date.parse(start); t <= Date.parse(sisteDag); t += 864e5) { const d = new Date(t).toISOString().slice(0,10); dg.push({ d, paa: aktive.has(d), kjop: d === kjopsdag }); }
+  const laas = d => ld[d] ? ' ' + laasKlasse(ld[d]) : '';
+  const laasTit = d => ld[d] ? ' - ' + laasTekst(ld[d]) : '';
   let ut = '', i = 0;
   while (i < dg.length) {
     if (dg[i].kjop) { ut += '<span class="dpunkt kjop" title="' + dg[i].d + ' - kjøp"></span>'; i++; }
-    else if (dg[i].paa) { ut += '<span class="dpunkt" title="' + dg[i].d + '"></span>'; i++; }
+    else if (dg[i].paa) { ut += '<span class="dpunkt' + laas(dg[i].d) + '" title="' + dg[i].d + laasTit(dg[i].d) + '"></span>'; i++; }
     else { let j = i; while (j < dg.length && !dg[j].paa && !dg[j].kjop) j++; const n = j - i;
       if (n > 3) ut += '<span class="dhopp" title="' + n + ' dager uten aktivitet">' + n + '</span>';
       else for (let k = i; k < j; k++) ut += '<span class="dpunkt av" title="' + dg[k].d + '"></span>';
       i = j; }
   }
-  return '<span class="dstripe" title="' + aktive.size + ' aktive av ' + dg.length + ' dager">' + ut + '</span>';
+  return '<span class="dstripe" title="' + nAktive + ' aktive av ' + dg.length + ' dager'
+    + (laasteDager.length ? ' · nådde taket ' + laasteDager.length + ' av dem' : '') + '">' + ut + '</span>';
 }
 function sideDetalj(r){
   if (!r.skjermSek) return '<div class="detblokk"><div class="tit">tid per side</div><span style="color:var(--muted)">krever build-126</span></div>';
@@ -1569,7 +1933,7 @@ function hendelseDetalj(r){
     'betaldialog_info','betaldialog_prove','betaldialog_antall','betaldialog_laas','kjop_start','kjop_fullfort','kode_innlost','blitzgave_blitz','blitzgave_lampeblitz','anmeld_trykk'];
   const deler = rekkef.filter(k => hend(r, k)).map(k => k.replace(/_/g, ' ') + ' <b>' + hend(r, k) + '</b>');
   if (r.laasTraff) deler.push('pott tom <b>' + pottTom(r) + '</b> <span style="color:var(--muted)">(i runde ' + (+r.laasTraff.i_runde || 0) + ' · utenfor ' + (+r.laasTraff.utenfor || 0) + ')</span>');
-  (r.kjopPost || []).forEach(p => { if (p && p.dato) deler.push('kjøpt via <b>' + veiNavn(p.vei) + '</b> <span style="color:var(--muted)">' + fmtDag(p.dato) + ' ' + new Date(Date.parse(p.dato) + 2 * 36e5).toISOString().slice(11,16) + (p.sekSidenStart != null ? ' · ' + p.sekSidenStart + ' s etter oppstart' : '') + (p.innebygd ? ' · innebygd bunt' : '') + '</span>'); });
+  (r.kjopPost || []).forEach(p => { if (p && p.dato) deler.push('kjøpt via <b>' + veiNavn(p.vei) + '</b> <span style="color:var(--muted)" title="norsk tid">' + (osloTid(Date.parse(p.dato)) || fmtDag(p.dato)) + (p.sekSidenStart != null ? ' · ' + p.sekSidenStart + ' s etter oppstart' : '') + (p.innebygd ? ' · innebygd bunt' : '') + '</span>'); });
   return deler.length ? '<div class="detblokk"><div class="tit">hendelser</div>' + deler.join(' &nbsp;·&nbsp; ') + '</div>' : '';
 }
 function dagDetalj(r){
@@ -1592,15 +1956,17 @@ function tabell(data){
   const strek = v => v === null ? '<span style="color:var(--muted)" title="krever build-126">–</span>' : minutter(v);
   sortert.forEach((r, i) => {
     const ki = kjopsInfo(r), n = nedlastKilde(r), sov = dagerSidenAktiv(r) > 5;
+    const vl = laasIDag(r);
     s += '<tr class="' + (sov ? 'sovende' : '') + '" style="cursor:pointer" data-rad="' + i + '">'
       + '<td style="width:14px;color:var(--muted)"><span id="pil' + i + '">›</span></td>'
-      + '<td>' + pfMerke(r) + r.id.slice(0,8) + (reinstallert(r) ? '<span class="merke" title="runder i skyen, men tellerne er tomme: trolig slettet og lastet ned på nytt">⟲</span>' : '')
-      + (ki.kilde === 'kjop' ? '<span class="merke betalt">betalt</span>' : '') + (ki.kilde === 'antatt' ? '<span class="merke" title="quiz med 20 eller 45 spørsmål, eller blitz med 20 skilt, uten kvittering. Slike runder har aldri vært gratis. Quiz på 10 teller ikke: det var gratisgrensen fram til 30.08">antatt</span>' : '') + (r.kodeUtlop > 0 ? '<span class="merke">kode</span>' : '') + '</td>'
+      + '<td>' + (vl ? '<span class="prikkLaas ' + laasKlasse(vl) + '" title="i dag: ' + laasTekst(vl) + '"></span>' : '')
+      + pfMerke(r) + r.id.slice(0,8) + (reinstallert(r) ? '<span class="merke" title="runder i skyen, men tellerne er tomme: trolig slettet og lastet ned på nytt">⟲</span>' : '')
+      + (ki.kilde === 'kjop' ? '<span class="merke betalt">betalt</span>' + kjoptNaar(ki) : '') + (ki.kilde === 'antatt' ? '<span class="merke" title="quiz med 20 eller 45 spørsmål, eller blitz med 20 skilt, uten kvittering. Slike runder har aldri vært gratis. Quiz på 10 teller ikke: det var gratisgrensen fram til 30.08">antatt</span>' : '') + (r.kodeUtlop > 0 ? '<span class="merke">kode</span>' : '') + '</td>'
       + '<td title="' + sprakNavn(r.sprak || '') + (region(r) ? ' · ' + region(r) : '') + '">' + (r.sprak || '–') + '</td>'
       + '<td><span class="bygg n' + nivaa(r).n + '" title="' + nivaa(r).navn + (r.versjon ? ' · ' + r.versjon : '') + '">' + nivaa(r).kort + '</span></td>'
       + '<td>' + (n.anslag ? '<span class="anslag" title="utledet av eldste spor">~' + fmtDag(n.dato) + (n.mettet ? '+' : '') + '</span>' : fmtDag(n.dato)) + '</td>'
       + '<td class="h">' + (dagerHatt(r) ? dagerHatt(r) + ' d' : '–') + '</td>'
-      + '<td>' + fmtDag(r.oppdatert) + ' ' + r.oppdatert.slice(11,16) + '</td>'
+      + '<td title="norsk tid">' + (osloTid(Date.parse(r.oppdatert)) || (fmtDag(r.oppdatert) + ' ' + r.oppdatert.slice(11,16))) + '</td>'
       + '<td class="h">' + strek(paaSkjerm(r)) + '</td>'
       + '<td class="h">' + strek(iSpill(r)) + '</td>'
       + '<td class="h">' + strek(lesing(r)) + '</td>'
