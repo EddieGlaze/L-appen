@@ -366,6 +366,16 @@
     <svg id="cDag" width="100%" height="190"></svg>
     <div class="regime" id="cRegime"></div>
   </div>
+  <div class="kort" data-fane="bruk"><h3>Låsen dag for dag</h3>
+    <div class="hint">Søyler: <span style="color:var(--series-1)">■</span> enheter som møtte låsen den dagen
+      · <span style="color:var(--series-3)">■</span> av dem, de som <b>kjøpte samme døgn</b> (tallet står over søylen).
+      Linje: <span style="color:var(--series-2)">andelen</span> av de loggende enhetene som møtte låsen, høyre akse.
+      <b>Les linja, ikke søylene.</b> Søylene stiger fordi stadig flere enheter fører øktlogg - den kom i build-137 -
+      ikke fordi flere møter låsen. Nevneren er enheter med minst én økt registrert den dagen; da er «ingen lås»
+      et målt nei. Kjøpssøyla teller bare kjøp med eksakt tidspunkt, og alle de målte lå <b>etter</b> låsen samme døgn.</div>
+    <svg id="cLaasDag" width="100%" height="190"></svg>
+    <div class="hint" id="cLaasHint" style="margin-top:8px"></div>
+  </div>
   <div class="kort" data-fane="bruk"><h3>Dag for dag per språk</h3>
     <div class="hint">Samme tegning som over, én rute per <b>appspråk</b> (språket brukeren valgte i appen) og <b>samme skala i alle rutene</b>, også kronene.
       <span style="color:var(--series-1)">■</span> nye enheter · <span style="color:var(--series-3)">■</span> kjøp med kvittering i backupen (tallet står over søylen; nedre grense, se under)
@@ -460,46 +470,47 @@
      ================================================================== -->
 <div data-fane="okonomi" style="display:none">
 
-  <div class="ok-stempel" id="okStempel"></div>
+  <div class="seksjon"><h2>Regnskapet</h2>
+    <div class="sp" id="okStempel"></div></div>
 
   <div class="fliser" id="okFliser"></div>
 
-  <div class="rute2">
-    <div class="kort"><h2>Inntekten</h2>
-      <div class="hint">RevenueCat viser det <b>kundene betalte</b>. Det som havner på
-        konto er noe helt annet: Apple er merchant of record, krever inn den norske
-        momsen og tar sin provisjon før utbetaling. Begge tall står under - det
-        uthevede er det som skal føres</div>
-      <div id="okInntekt"></div>
-    </div>
-    <div class="kort"><h2>Kostnadene</h2>
-      <div class="hint">registrerte bilag, fordelt på leverandør. Alle beløp omregnet
-        til kroner</div>
-      <div id="okKostnad"></div>
-    </div>
-  </div>
-
-  <div class="kort"><h2>Måned for måned</h2>
-    <div class="hint">inntekt mot kostnad. Inntektssøylen bygger på Apples
-      finansrapport der den finnes, og på RevenueCat-anslaget der den ikke gjør det -
-      anslagene er skravert</div>
-    <div id="okMaaned"></div>
-  </div>
-
-  <div class="kort"><h2>Tåler annonsekronene seg selv?</h2>
-    <div class="hint">hva en ny bruker er verdt, mot hva en ny bruker koster. Ligger
-      kostnaden under verdien, tjener annonsekronen seg inn. Begge tall er per
-      bruker som faktisk åpnet appen - nedlastinger som aldri ble åpnet finnes ikke
-      i noen av tallene</div>
+  <div class="kort"><h3>Tåler annonsekronene seg selv?</h3>
+    <div class="hint">hva et kjøp gir, mot hva det koster å skaffe. Per <b>kjøp</b>,
+      ikke per bruker: kjøpslista er fersk, mens brukertallet fra RevenueCats
+      oversikt blir gammelt mellom hver avlesning</div>
     <div id="okBreakeven"></div>
   </div>
 
   <div class="rute2">
-    <div class="kort"><h2>MVA-stillingen</h2>
+    <div class="kort"><h3>Annonsekronene, kanal for kanal</h3>
+      <div class="hint">påløpt forbruk, altså hva kampanjene faktisk brukte.
+        Kilden står under hver kanal - et dagsbudsjett er en påstand, ikke et
+        målt tall, og er merket deretter</div>
+      <div id="okKanaler"></div>
+    </div>
+    <div class="kort"><h3>Inntekten</h3>
+      <div class="hint">RevenueCat viser det <b>kundene betalte</b>. Det som havner på
+        konto er noe annet: Apple er merchant of record, krever inn den norske
+        momsen og tar sin provisjon før utbetaling</div>
+      <div id="okInntekt"></div>
+    </div>
+  </div>
+
+  <div class="kort"><h3>Påløpt mot fakturert</h3>
+    <div class="hint">to tall om de samme pengene, og de skal ikke være like.
+      <b>Påløpt</b> er hva kampanjene brukte. <b>Fakturert</b> er hva det finnes
+      bilag for. Meta belaster ved terskler, så fakturaene henger etter forbruket -
+      differansen er en kostnad som er påløpt, men ennå ikke bokført</div>
+    <div id="okAvvik"></div>
+  </div>
+
+  <div class="rute2">
+    <div class="kort"><h3>MVA-stillingen</h3>
       <div class="hint">hva som faktisk gir penger tilbake, og hva som bare går rundt</div>
       <div id="okMva"></div>
     </div>
-    <div class="kort"><h2>Innsamlingen</h2>
+    <div class="kort"><h3>Innsamlingen</h3>
       <div class="hint">hvor langt bilagene er hentet. Kjør
         <code>node okonomi/scripts/81-okonomi-status.js</code> for hele lista</div>
       <div id="okInnsamling"></div>
@@ -535,7 +546,7 @@
 'use strict';
 
 const OKONOMI_DATA = /*DATA*/{
-  "bygget": "2026-09-01",
+  "bygget": "2026-09-08",
   "vindu": 28,
   "revenuecat": {
     "dato": "2026-09-01",
@@ -545,7 +556,7 @@ const OKONOMI_DATA = /*DATA*/{
     "nye28": 715,
     "aktive28": 726
   },
-  "antallBilag": 2,
+  "antallBilag": 5,
   "harUtgifter": true,
   "fortTilOgMed": null,
   "perLeverandor": [
@@ -553,18 +564,23 @@ const OKONOMI_DATA = /*DATA*/{
       "navn": "meta",
       "sum": 8426.4,
       "reklame": true
+    },
+    {
+      "navn": "apple-search-ads",
+      "sum": 4505.56,
+      "reklame": true
     }
   ],
   "perMaaned": [
     {
       "maaned": "2026-08",
-      "kostnad": 7532.4,
+      "kostnad": 8867.91,
       "inntekt": 0,
       "inntektErAnslag": false
     },
     {
       "maaned": "2026-09",
-      "kostnad": 894,
+      "kostnad": 4064.05,
       "inntekt": 3045.6248,
       "inntektErAnslag": true
     }
@@ -572,57 +588,118 @@ const OKONOMI_DATA = /*DATA*/{
   "kilder": [
     {
       "navn": "Apple - faktisk utbetaling og finansrapport",
-      "hentetTilOgMed": null
+      "hentetTilOgMed": null,
+      "dataLestTilOgMed": null
     },
     {
       "navn": "Meta - annonsefakturaer",
-      "hentetTilOgMed": "2026-09-02"
+      "hentetTilOgMed": "2026-09-02",
+      "dataLestTilOgMed": "2026-09-02"
     },
     {
       "navn": "Apple Search Ads - annonsefakturaer",
-      "hentetTilOgMed": null
+      "hentetTilOgMed": "2026-09-07",
+      "dataLestTilOgMed": "2026-09-06"
     },
     {
       "navn": "Anthropic - Claude Code",
-      "hentetTilOgMed": null
+      "hentetTilOgMed": null,
+      "dataLestTilOgMed": null
     },
     {
       "navn": "Apple Developer Program",
-      "hentetTilOgMed": null
+      "hentetTilOgMed": null,
+      "dataLestTilOgMed": null
     },
     {
       "navn": "Google Play Console - registrering",
-      "hentetTilOgMed": null
+      "hentetTilOgMed": null,
+      "dataLestTilOgMed": null
     },
     {
       "navn": "Supabase - database og backup",
-      "hentetTilOgMed": null
+      "hentetTilOgMed": null,
+      "dataLestTilOgMed": null
     },
     {
       "navn": "Expo / EAS - byggetjeneste",
-      "hentetTilOgMed": null
+      "hentetTilOgMed": null,
+      "dataLestTilOgMed": null
     },
     {
       "navn": "Domenet l-appen.app",
-      "hentetTilOgMed": null
+      "hentetTilOgMed": null,
+      "dataLestTilOgMed": null
     },
     {
       "navn": "Kontoutdrag fra banken",
-      "hentetTilOgMed": null
+      "hentetTilOgMed": null,
+      "dataLestTilOgMed": null
+    },
+    {
+      "navn": "Annonseforbruk per dag (reklametraadens maaling)",
+      "hentetTilOgMed": null,
+      "dataLestTilOgMed": "2026-09-06"
     }
   ],
+  "kjop": {
+    "fil": "revenuecat-2026-09-05.json",
+    "antall": 49,
+    "bruttoUsd": 768.4900000000001,
+    "bruttoNok": 7200.751300000001,
+    "nettoNok": 4896.510884000001,
+    "fra": "2026-08-14",
+    "til": "2026-09-05"
+  },
+  "annonse": {
+    "perKanal": [
+      {
+        "kanal": "Meta",
+        "sum": 10668.010000000002,
+        "fra": "2026-08-16",
+        "til": "2026-09-03",
+        "kilde": "meta-ads-reporting",
+        "erAnslag": false
+      },
+      {
+        "kanal": "Apple Search Ads",
+        "sum": 4505.480000000001,
+        "fra": "2026-08-17",
+        "til": "2026-09-06",
+        "kilde": "apple-faktura",
+        "erAnslag": false
+      },
+      {
+        "kanal": "Google Ads",
+        "sum": 350,
+        "fra": "2026-09-03",
+        "til": "2026-09-03",
+        "kilde": "anslag-budsjett",
+        "erAnslag": true
+      }
+    ],
+    "paalopt": 15523.490000000003,
+    "paaloptAnslag": 350,
+    "bokfort": 12931.96,
+    "ikkeFakturert": 2591.5300000000043,
+    "fra": "2026-08-16",
+    "til": "2026-09-06"
+  },
   "tall": {
     "brutto28": 4478.86,
     "inntekt28Netto": 3045.6248,
     "inntektErAnslag": true,
-    "kostnad28": 8426.4,
-    "annonse28": 8426.4,
-    "kostnadTotalt": 8426.4,
-    "resultat28": -5380.7752,
+    "kostnad28": 12931.96,
+    "annonse28": 12931.96,
+    "kostnadTotalt": 12931.96,
+    "resultat28": -9886.3352,
     "nye28": 715,
     "verdiPerBruker": 4.259615104895105,
-    "kostPerBruker": 11.785174825174824,
-    "norskInngaaendeMva": 0
+    "kostPerBruker": 18.086657342657343,
+    "norskInngaaendeMva": 0,
+    "annonsePerKjop": 316.80591836734703,
+    "inntektPerKjop": 99.92879355102043,
+    "resultatPeriode": -10626.979116000002
   }
 }/*DATA*/;
 if (!OKONOMI_DATA) return;
@@ -631,18 +708,19 @@ const D = OKONOMI_DATA;
 const kr = n => Math.round(n).toLocaleString('nb-NO') + ' kr';
 const kr2 = n => n.toLocaleString('nb-NO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' kr';
 const esc = s => String(s).replace(/[&<>]/g, t => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[t]));
+const dag = s => s ? s.slice(8, 10) + '.' + s.slice(5, 7) + '.' : '';
 
 /* Enkel liggende søyle i sidens egen palett. Bredden leses av beholderen,
    med samme fallback som resten av sida bruker. */
 function soyler(vert, rader, farge) {
   if (!rader.length) return '<div class="ok-tom">ingen tall registrert ennå</div>';
-  const B = (vert.clientWidth || 460), hoy = 22, mellom = 6, navnB = Math.min(150, B * 0.38);
+  const B = (vert.clientWidth || 460), hoy = 22, mellom = 6, navnB = Math.min(160, B * 0.34);
   const maks = Math.max.apply(null, rader.map(r => Math.abs(r.verdi))) || 1;
   const H = rader.length * (hoy + mellom);
   let s = '<svg viewBox="0 0 ' + B + ' ' + H + '" width="100%" height="' + H + '">';
   rader.forEach((r, i) => {
     const y = i * (hoy + mellom);
-    const b = Math.max(1, (B - navnB - 78) * (Math.abs(r.verdi) / maks));
+    const b = Math.max(1, (B - navnB - 96) * (Math.abs(r.verdi) / maks));
     s += '<text x="0" y="' + (y + 15) + '" font-size="12" fill="var(--text-secondary)">'
       + esc(r.navn) + '</text>'
       + '<rect x="' + navnB + '" y="' + (y + 3) + '" width="' + b + '" height="' + (hoy - 6)
@@ -666,140 +744,176 @@ function rad(navn, verdi, klasse) {
 
 function tegnOkonomi() {
   const t = D.tall;
+  const a = D.annonse;
+  const k = D.kjop;
 
   /* --- stempel ----------------------------------------------------- */
-  const rc = D.revenuecat;
   document.getElementById('okStempel').innerHTML =
     'tallene er bygget ' + D.bygget
-    + (rc ? ' · RevenueCat lest ' + rc.dato + ' (' + (rc.kilde === 'api' ? 'API' : 'manuelt avlest') + ')'
-      : ' · RevenueCat ikke hentet')
-    + ' · ' + D.antallBilag + ' bilag registrert'
+    + (k ? ' · ' + k.antall + ' kjøp ' + dag(k.fra) + '-' + dag(k.til) : ' · ingen kjøpsliste')
+    + (a.fra ? ' · annonseforbruk ' + dag(a.fra) + '-' + dag(a.til) : '')
+    + ' · ' + D.antallBilag + ' bilagslinjer'
     + (D.fortTilOgMed ? ' · ført i Fiken t.o.m. ' + D.fortTilOgMed : ' · ingenting ført i Fiken ennå');
 
   /* --- fliser ------------------------------------------------------ */
+  const overTaket = t.annonsePerKjop > t.inntektPerKjop;
   document.getElementById('okFliser').innerHTML = [
-    flis('Inntekt siste 28 d', kr(t.inntekt28Netto),
-      t.inntektErAnslag ? 'anslag, netto etter mva og Apple' : 'netto, fra finansrapport'),
-    flis('Kostnad siste 28 d', kr(t.kostnad28), D.antallBilag ? 'registrerte bilag' : 'ingen bilag ennå'),
-    /* Uten et eneste utgiftsbilag er «overskudd» en løgn med desimaler.
-       Da sier flisa hva som mangler i stedet for å påstå noe. */
-    flis('Resultat siste 28 d', D.harUtgifter ? kr(t.resultat28) : '-',
-      D.harUtgifter ? (t.resultat28 < 0 ? 'underskudd' : 'overskudd')
-        : 'kostnadssiden er tom ennå',
-      D.harUtgifter && t.resultat28 < 0),
-    flis('Verdi per ny bruker', t.nye28 ? kr2(t.verdiPerBruker) : '-',
-      t.nye28 ? 'taket for hva en installasjon kan koste' : 'mangler brukertall'),
-    flis('Annonsekr. per ny bruker', t.nye28 && t.annonse28 ? kr2(t.kostPerBruker) : '-',
-      t.annonse28 ? (t.kostPerBruker <= t.verdiPerBruker ? 'under taket' : 'over taket')
-        : 'ingen annonsebilag ennå', t.annonse28 && t.kostPerBruker > t.verdiPerBruker),
-    flis('Investert totalt', kr(t.kostnadTotalt), 'alle registrerte utgifter'),
+    flis('Inntekt', k ? kr(k.nettoNok) : '-',
+      k ? 'netto etter mva og Apple' : 'mangler kjøpsliste'),
+    flis('Annonseforbruk', kr(a.paalopt), 'påløpt, alle kanaler'),
+    flis('Resultat', k ? kr(t.resultatPeriode) : '-',
+      k ? (t.resultatPeriode < 0 ? 'underskudd' : 'overskudd') : '',
+      k && t.resultatPeriode < 0),
+    flis('Inntekt per kjøp', k ? kr2(t.inntektPerKjop) : '-',
+      'det et kjøp er verdt'),
+    flis('Annonsekr. per kjøp', k ? kr2(t.annonsePerKjop) : '-',
+      k ? (overTaket ? 'over taket' : 'under taket') : '', k && overTaket),
+    flis('Ikke fakturert', kr(a.ikkeFakturert), 'påløpt uten bilag ennå',
+      a.ikkeFakturert > 0),
   ].join('');
-
-  /* --- inntekten --------------------------------------------------- */
-  const inn = document.getElementById('okInntekt');
-  if (!rc) {
-    inn.innerHTML = '<div class="ok-tom">RevenueCat er ikke hentet. Kjør '
-      + '<code>node okonomi/scripts/80-hent-revenuecat.js</code></div>';
-  } else {
-    inn.innerHTML =
-      rad('Kundene betalte <span class="ok-merke">RevenueCat, 28 d</span>',
-        kr(t.brutto28) + ' <span style="color:var(--muted)">('
-        + rc.revenue28.toLocaleString('nb-NO') + ' ' + rc.valuta + ')</span>', 'dempet')
-      + rad('− norsk mva 25 % <span class="ok-merke">Apple krever inn og betaler</span>',
-        '−' + kr(t.brutto28 - t.brutto28 / 1.25), 'dempet')
-      + rad('− Apples provisjon 15 % <span class="ok-merke">Small Business</span>',
-        '−' + kr(t.brutto28 / 1.25 * 0.15), 'dempet')
-      + rad('Utbetalt til foretaket', kr(t.inntekt28Netto), 'sum')
-      + '<div class="ok-note">Andelen som blir igjen er 68 % av kundeprisen: kr 149 blir '
-      + 'kr 101,32. Bruker du RevenueCat-tallet som omsetning, ser den 47 % større ut enn '
-      + 'den er.<br>'
-      + (t.inntektErAnslag
-        ? '<b>Dette er et anslag.</b> Apples finansrapport er bilaget, og den ligger 4-6 uker '
-        + 'på etterskudd. Når den kommer, erstattes anslaget av det faktiske beløpet.'
-        : 'Basert på Apples finansrapport.')
-      + '</div>';
-  }
-
-  /* --- kostnadene -------------------------------------------------- */
-  const kost = document.getElementById('okKostnad');
-  kost.innerHTML = soyler(kost, D.perLeverandor.map(l => ({
-    navn: l.navn, verdi: l.sum, tekst: kr(l.sum),
-    farge: l.reklame ? 'var(--series-1)' : 'var(--seq-250)',
-  })));
-  if (D.perLeverandor.length) {
-    kost.innerHTML += '<div class="ok-note">Mørk søyle = annonsekroner (konto 7320). '
-      + 'Lys = drift og verktøy (konto 6810).</div>';
-  }
-
-  /* --- måned for måned --------------------------------------------- */
-  const maa = document.getElementById('okMaaned');
-  const mrad = [];
-  D.perMaaned.forEach(m => {
-    mrad.push({ navn: m.maaned + ' inn', verdi: m.inntekt, tekst: kr(m.inntekt),
-      farge: 'var(--good-text)', skravert: m.inntektErAnslag });
-    mrad.push({ navn: m.maaned + ' ut', verdi: m.kostnad, tekst: kr(m.kostnad),
-      farge: 'var(--critical)' });
-  });
-  maa.innerHTML = soyler(maa, mrad);
 
   /* --- break-even -------------------------------------------------- */
   const be = document.getElementById('okBreakeven');
-  if (!t.nye28) {
-    be.innerHTML = '<div class="ok-tom">mangler brukertall fra RevenueCat</div>';
+  if (!k) {
+    be.innerHTML = '<div class="ok-tom">mangler kjøpsliste i data/kjop/</div>';
   } else {
-    const over = t.annonse28 && t.kostPerBruker > t.verdiPerBruker;
+    const forhold = t.inntektPerKjop ? t.annonsePerKjop / t.inntektPerKjop : 0;
     be.innerHTML =
       soyler(be, [
-        { navn: 'verdi per bruker', verdi: t.verdiPerBruker, tekst: kr2(t.verdiPerBruker),
+        { navn: 'inntekt per kjøp', verdi: t.inntektPerKjop, tekst: kr2(t.inntektPerKjop),
           farge: 'var(--good-text)' },
-        { navn: 'kostnad per bruker', verdi: t.kostPerBruker, tekst: t.annonse28 ? kr2(t.kostPerBruker) : 'ingen annonsebilag',
-          farge: over ? 'var(--critical)' : 'var(--series-1)' },
+        { navn: 'annonsekroner per kjøp', verdi: t.annonsePerKjop, tekst: kr2(t.annonsePerKjop),
+          farge: overTaket ? 'var(--critical)' : 'var(--series-1)' },
       ])
-      + '<div class="ok-note">Verdien er de siste 28 dagenes nettoinntekt delt på '
-      + t.nye28.toLocaleString('nb-NO') + ' nye brukere. Kostnaden er annonsebilagene i '
-      + 'samme periode delt på det samme tallet.'
-      + (t.annonse28
-        ? (over
-          ? ' <b>Over taket:</b> hver kjøpte bruker koster mer enn den gir tilbake i denne '
-          + 'perioden. Det kan likevel være riktig hvis målet er rangering og synlighet - '
-          + 'men da er det en investering, ikke en lønnsom transaksjon.'
-          : ' <b>Under taket:</b> annonsekronene tjener seg inn.')
-        : ' Legg inn annonsebilagene for å få kostnadssiden.')
-      + '<br>Merk at nye brukere her er enheter som faktisk åpnet appen. Nedlastinger som '
-      + 'aldri ble åpnet er ikke med i noen av tallene, så begge sider er målt likt.</div>';
+      + '<div class="ok-note">' + a.paalopt.toLocaleString('nb-NO', { maximumFractionDigits: 0 })
+      + ' kr i annonser fordelt på ' + k.antall + ' kjøp gir ' + kr2(t.annonsePerKjop)
+      + ' per kjøp. Et kjøp er verdt ' + kr2(t.inntektPerKjop) + ' netto.'
+      + (overTaket
+        ? ' <b>Hvert kjøp koster ' + forhold.toLocaleString('nb-NO', { maximumFractionDigits: 1 })
+        + ' ganger det det gir tilbake.</b> '
+        + 'Det kan være riktig hvis målet er rangering og synlighet, men da er det en '
+        + 'investering, ikke en lønnsom transaksjon.'
+        : ' <b>Under taket:</b> annonsekronene tjener seg inn.')
+      + '<br>Periodene er nesten, men ikke helt like: kjøp ' + dag(k.fra) + '-' + dag(k.til)
+      + ', annonseforbruk ' + dag(a.fra) + '-' + dag(a.til) + '. Kjøp som kommer av forbruket '
+      + 'de siste dagene er derfor ikke med, så tallet er et forsiktig anslag i feil retning.'
+      + '</div>';
   }
+
+  /* --- kanalene ---------------------------------------------------- */
+  const kan = document.getElementById('okKanaler');
+  kan.innerHTML = soyler(kan, a.perKanal.map(p => ({
+    navn: p.kanal, verdi: p.sum, tekst: kr(p.sum),
+    farge: p.erAnslag ? 'var(--baseline)' : 'var(--series-1)', skravert: p.erAnslag,
+  })));
+  if (a.perKanal.length) {
+    kan.innerHTML += a.perKanal.map(p => rad(esc(p.kanal)
+      + (p.erAnslag ? '<span class="ok-merke fare">anslag</span>' : ''),
+      dag(p.fra) + '-' + dag(p.til) + ' · ' + esc(p.kilde), 'dempet')).join('')
+      + rad('Påløpt i alt', kr(a.paalopt), 'sum')
+      + (a.paaloptAnslag > 0
+        ? '<div class="ok-note"><b>' + kr(a.paaloptAnslag) + ' av dette er budsjettanslag, '
+        + 'ikke målt forbruk.</b> Blek søyle. Et dagsbudsjett sier hva som var lov å bruke, '
+        + 'ikke hva som ble brukt, og ligger som regel for høyt.</div>'
+        : '');
+  }
+
+  /* --- inntekten --------------------------------------------------- */
+  const inn = document.getElementById('okInntekt');
+  if (!k) {
+    inn.innerHTML = '<div class="ok-tom">ingen kjøpsliste funnet.</div>';
+  } else {
+    inn.innerHTML =
+      rad('Kundene betalte <span class="ok-merke">' + k.antall + ' kjøp</span>',
+        kr(k.bruttoNok) + ' <span style="color:var(--muted)">(USD '
+        + k.bruttoUsd.toLocaleString('nb-NO', { maximumFractionDigits: 0 }) + ')</span>', 'dempet')
+      + rad('− norsk mva 25 % <span class="ok-merke">Apple krever inn</span>',
+        '−' + kr(k.bruttoNok - k.bruttoNok / 1.25), 'dempet')
+      + rad('− Apples provisjon 15 %', '−' + kr(k.bruttoNok / 1.25 * 0.15), 'dempet')
+      + rad('Utbetalt til foretaket', kr(k.nettoNok), 'sum')
+      + '<div class="ok-note">68 % av kundeprisen blir igjen: kr 149 blir kr 101,32. '
+      + 'Bruker du RevenueCat-tallet som omsetning, ser den 47 % større ut enn den er.<br>'
+      + '<b>Dette er et anslag.</b> Apples finansrapport er bilaget, og den ligger 4-6 uker '
+      + 'på etterskudd. Valutakursen er et grovanslag fra <code>valutakurser.json</code>.'
+      + '</div>';
+  }
+
+  /* --- paalopt mot fakturert --------------------------------------- */
+  const av = document.getElementById('okAvvik');
+  av.innerHTML =
+    rad('Påløpt forbruk <span class="ok-merke">måling</span>', kr(a.paalopt), 'dempet')
+    + rad('Fakturert, med bilag <span class="ok-merke">bokføring</span>', kr(a.bokfort), 'dempet')
+    + rad('Påløpt uten bilag', kr(a.ikkeFakturert), 'sum')
+    + '<div class="ok-note">'
+    + (Math.abs(a.ikkeFakturert) < 1
+      ? 'De to er like akkurat nå.'
+      : 'Differansen er reell og forventet. Meta belaster ved terskler, ikke etter kalender, '
+      + 'så forbruket løper foran fakturaene. Beløpet er en <b>kostnad som er påløpt</b>: '
+      + 'det kommer på en faktura senere, og hører hjemme i periodens resultat selv om det '
+      + 'ikke kan føres i Fiken før bilaget finnes.')
+    + '<br>Bruk <b>påløpt</b> når du vurderer om annonseringen lønner seg, og <b>fakturert</b> '
+    + 'når du fører. Å blande dem gir enten et for godt resultat eller et bilag som ikke finnes.'
+    + '</div>';
 
   /* --- mva --------------------------------------------------------- */
   document.getElementById('okMva').innerHTML =
     rad('Salg til Apple (Irland)', '0 % avgiftsfri utførsel', 'dempet')
-    + rad('Meta, Apple Search Ads, Anthropic, Supabase', 'snudd avregning', 'dempet')
+    + rad('Meta, Apple Search Ads, Anthropic', 'snudd avregning', 'dempet')
     + rad('Norske kjøp med norsk mva', kr(t.norskInngaaendeMva) + ' til gode', 'sum')
     + '<div class="ok-note"><b>Snudd avregning gir ikke penger tilbake.</b> På kjøp fra '
     + 'utlandet beregner du 25 % utgående og trekker fra de samme 25 % inngående - det går '
     + 'i null, men må likevel med i mva-meldingen.<br>'
     + 'Momsen du faktisk får igjen kommer fra <b>norske</b> kjøp med norsk mva på fakturaen: '
-    + 'utstyr, regnskapsprogram, telefon, det som kjøpes her hjemme. Salget til Apple er '
-    + 'avgiftsfritt, ikke unntatt - det gir fullt fradrag på kostnadssiden.<br>'
-    + 'Er noen av utenlandsfakturaene likevel fakturert med norsk mva, føres de som vanlig '
-    + 'inngående i stedet. Sjekk fakturaen før du velger kode.</div>';
+    + 'utstyr, regnskapsprogram, telefon. Salget til Apple er avgiftsfritt, ikke unntatt - '
+    + 'det gir fullt fradrag på kostnadssiden.</div>';
 
   /* --- innsamlingen ------------------------------------------------- */
   const ins = document.getElementById('okInnsamling');
-  ins.innerHTML = D.kilder.map(k =>
-    rad(esc(k.navn), k.hentetTilOgMed
-      ? '<span class="ok-merke god">' + k.hentetTilOgMed + '</span>'
-      : '<span class="ok-merke fare">ikke hentet</span>',
-      k.hentetTilOgMed ? '' : 'dempet')).join('')
+  ins.innerHTML = D.kilder.map(kd =>
+    rad(esc(kd.navn), kd.hentetTilOgMed
+      ? '<span class="ok-merke god">' + kd.hentetTilOgMed + '</span>'
+      : (kd.dataLestTilOgMed
+        ? '<span class="ok-merke">data lest ' + kd.dataLestTilOgMed + '</span>'
+        : '<span class="ok-merke fare">ikke hentet</span>'),
+      kd.hentetTilOgMed ? '' : 'dempet')).join('')
     + '<div class="ok-note">Fasiten er <code>okonomi/innsamling/tilstand.json</code>. '
     + 'Står en kilde som ikke hentet, mangler økonomifanen den kostnaden helt - og '
     + 'resultattallet er da for godt.</div>';
 }
 
-/* Kjør ved lasting, og på nytt hver gang fanen vises: søylene måler
-   beholderen sin, og den er 0 px bred så lenge fanen står på display:none. */
+/* Søylene måler beholderen sin, og clientWidth er 0 både mens fanen står på
+   display:none OG før nettleseren har gjort layout. Faneveksleren nederst på
+   sida kjører under parsingen, altså før layouten finnes - lander du rett på
+   Økonomi-fanen, får første tegning fallback-bredden 460 px uansett skjerm.
+
+   requestAnimationFrame er ikke nok: den er strupet til null i en skjult
+   fane, så en side åpnet i bakgrunnen ville stått med 460 px til noen byttet
+   fane. ResizeObserver fyrer derimot nøyaktig når elementet faktisk får en
+   bredde - ved layout, når fanen vises, og når vinduet endres. */
+let sistBredde = 0;
+function tegnHvisNyBredde(bredde) {
+  if (bredde > 0 && bredde !== sistBredde) { sistBredde = bredde; tegnOkonomi(); }
+}
+
 tegnOkonomi();
+
+/* Begge utløserne, med vilje. ResizeObserver dekker layout, fanebytte og
+   vindusendring i én; fanebytte-varselet dekker eldre nettlesere og
+   tilfellet der observatøren ikke har rukket å levere. Bredde-vakten gjør
+   den ene ufarlig når den andre alt har tegnet. */
+if (window.ResizeObserver) {
+  const maal = document.getElementById('okBreakeven');
+  if (maal) {
+    new ResizeObserver(function (poster) {
+      tegnHvisNyBredde(Math.round(poster[0].contentRect.width));
+    }).observe(maal);
+  }
+}
 window.addEventListener('fanebytte', function (e) {
-  if (!e.detail || e.detail === 'okonomi') tegnOkonomi();
+  if (!e.detail || e.detail === 'okonomi') {
+    const m = document.getElementById('okBreakeven');
+    tegnHvisNyBredde(m ? Math.round(m.getBoundingClientRect().width) : 0);
+  }
 });
 })();
 </script>
@@ -1420,7 +1534,7 @@ function tegn(){
   sprakTraktKort(data);
   veiKort(data);
   dognKort(data);
-  dagKort(data); sprakDagKort(data);
+  dagKort(data); laasKort(data); sprakDagKort(data);
   aktivKort(data);
   returKort(data);
   rekkeKort(data);
@@ -1622,7 +1736,7 @@ function dagDiagram(svg, dg, nye, kjop, krAv, skala){
   // aksenett
   [0, .5, 1].forEach(f => { const y = T + ih - f*ih; s += '<line x1="' + L + '" x2="' + (W-R) + '" y1="' + y + '" y2="' + y + '" stroke="' + css('--grid') + '"/>'
     + '<text x="' + (L-4) + '" y="' + (y+4) + '" font-size="10" text-anchor="end" fill="' + css('--muted') + '">' + Math.round(maksN*f) + '</text>'
-    + (harKr ? '<text x="' + (W-R+4) + '" y="' + (y+4) + '" font-size="10" fill="' + css('--muted') + '">' + Math.round(maksKr*f) + ' kr</text>' : ''); });
+    + (harKr ? '<text x="' + (W-R+4) + '" y="' + (y+4) + '" font-size="10" fill="' + css('--muted') + '">' + Math.round(maksKr*f) + (skala.hoyreEnhet === undefined ? ' kr' : skala.hoyreEnhet) + '</text>' : ''); });
   const hver = Math.ceil(dg.length / (W < 500 ? 5 : 10));
   dg.forEach((d, i) => {
     const x = L + i*bw, n = nye[d] || 0, k = kjop[d] || 0;
@@ -1652,6 +1766,73 @@ function dagKort(data){
   dagDiagram(document.getElementById('cDag'), dg, nye, kjop, d => { const rk = reklameKr(d); return { sum: rk.sum, tekst: krTekst(rk), anslag: rk.anslag > 0 }; });
   document.getElementById('cRegime').innerHTML = REGIMER.filter(x => x.d >= dg[0] && x.d <= dg[dg.length-1])
     .map(x => '<span><b>' + fmtDag(x.d) + '</b> ' + x.t + '</span>').join('') || '<span>ingen regimeskifter i vinduet</span>';
+}
+// LAASEN DAG FOR DAG
+//
+// NEVNEREN ER HELE POENGET MED DETTE KORTET. Laasedagene kommer i praksis fra
+// oektloggen (maaling.okt), og den kom i build-137. For 02.09 finnes den ikke
+// hos noen. Teller vi bare treff, stiger kurven fra 1 til 47 paa ei uke - men
+// nesten hele den stigningen er at flere enheter begynte aa logge, ikke at
+// flere moette laasen. Malt mot enhetene som faktisk logget, ligger andelen
+// flat rundt 39 %.
+//
+// Derfor: en enhet teller i nevneren for en dag bare naar den har MINST EN
+// oekt registrert den app-dagen. Da er «ingen laas» et ekte nei, ikke en
+// manglende maaling. Enheter uten oektlogg holdes helt utenfor - de kan ikke
+// gi et nei, bare et kanskje.
+function loggDager(r){
+  const s = new Set();
+  for (const o of (r.okt || [])) {
+    if (!o || !o.start) continue;
+    const f = Date.parse(o.start);
+    if (gyldigMs(f)) s.add(appDagAv(f));
+  }
+  return s;
+}
+// Kjoep pares med laasedagen bare naar kjoepet har EKSAKT tidspunkt
+// (maaling.kjop, build-137+) og ligger etter laasen samme app-doegn. Den
+// utledede kjoepsdagen (proUtlop minus 120 doegn) er altfor grov til aa si noe
+// om rekkefoelge innenfor et doegn, og ville laget en sammenheng som ikke er
+// maalt. Kontrollert 07.09: alle 8 parene laa med kjoepet etter laasen,
+// median 51 minutter.
+function laasKjopMs(r){
+  const k = kjopsInfo(r);
+  return (k.kilde === 'kjop' && k.eksakt && gyldigMs(k.kjopMs)) ? k.kjopMs : null;
+}
+function laasPerDag(data){
+  const logger = {}, laas = {}, kjopt = {};
+  data.forEach(r => {
+    const ld = laasDagerRaa(r), km = laasKjopMs(r), kdag = km ? appDagAv(km) : null;
+    loggDager(r).forEach(d => {
+      logger[d] = (logger[d] || 0) + 1;
+      if (!ld[d]) return;
+      laas[d] = (laas[d] || 0) + 1;
+      if (kdag === d) kjopt[d] = (kjopt[d] || 0) + 1;
+    });
+  });
+  return { logger, laas, kjopt };
+}
+function laasKort(data){
+  const maal = data.filter(maalbar);
+  const { logger, laas, kjopt } = laasPerDag(maal);
+  // Start foerst den dagen loggingen faktisk gir et grunnlag. Under ti
+  // loggende enheter er andelen stoey - 02.09 hadde elleve, og én av dem
+  // moette laasen, altsaa «9 %» med et intervall fra 2 til 38.
+  const NOK = 10;
+  const alle = sisteDager(dager).filter(d => (logger[d] || 0) >= NOK);
+  const el = document.getElementById('cLaasDag');
+  if (!alle.length) { el.innerHTML = ''; document.getElementById('cLaasHint').textContent =
+    'For få enheter med øktlogg til å vise noe ennå.'; return; }
+  const andel = d => logger[d] ? 100 * (laas[d] || 0) / logger[d] : 0;
+  dagDiagram(el, alle, laas, kjopt,
+    d => ({ sum: andel(d), anslag: false,
+            tekst: Math.round(andel(d)) + ' % av ' + logger[d] + ' loggende enheter' }),
+    { kjopTall: true, hoyreEnhet: ' %', maksKr: 100 });
+  const sum = alle.reduce((a, d) => ({ l: a.l + (logger[d]||0), t: a.t + (laas[d]||0), k: a.k + (kjopt[d]||0) }), { l:0, t:0, k:0 });
+  document.getElementById('cLaasHint').innerHTML =
+    'Vinduet: <b>' + sum.t + '</b> låsetreff målt mot <b>' + sum.l + '</b> enhetsdøgn med øktlogg = <b>'
+    + Math.round(100*sum.t/sum.l) + ' %</b>, og <b>' + sum.k + '</b> av treffene ble et kjøp samme døgn. '
+    + 'Grafen starter ' + fmtDag(alle[0]) + ' fordi øktloggen kom i build-137 - før den finnes ingen målte nei.';
 }
 // DAG FOR DAG PER SPRAAK. Faste ruter i fast rekkefoelge, saa et spraak ligger
 // paa samme plass uansett vindu. Spraak Meta har annonsert paa kommer i tillegg
