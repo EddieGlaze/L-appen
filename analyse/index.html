@@ -1361,6 +1361,21 @@ const FILTRE = {
   // Samme regnestykke som flisa «Møtt låsen»: laas_vist blant de maalbare.
   noensinne: { test: r => maalbar(r) && hend(r, 'laas_vist') > 0,
     navn: 'har møtt låsen minst én gang' },
+  // KJOEPT I DAG. Merk at dette filteret og flisa over det IKKE teller det
+  // samme, og at de ikke kan gjoere det: flisa teller RevenueCat-rader,
+  // filteret tester enhetsrader i basen. De spriker naar noen kjoeper fra en
+  // enhet som aldri har synket, naar et kjoep er refundert (proUtlop nulles,
+  // saa raden forsvinner her men blir staaende hos RevenueCat), og rundt
+  // midnatt fordi RevenueCat-lista er datert i norsk doegn mens kjopsInfo().dag
+  // er UTC som resten av stripa.
+  //
+  // Sammenlikningen under er UTC mot UTC, altsaa samme basis som dataene den
+  // tester. Spriket mot flisa skjules ikke - det staar i den gule linja naar
+  // det oppstaar. Aa la flisa telle fra basen i stedet ville gjort tallene
+  // like, men da underrapporterer «Kjoept i dag» de faktiske kjoepene, og det
+  // er tallet Edvard leser hver dag.
+  kjoptIdag: { test: r => { const i = kjopsInfo(r); return i.kilde === 'kjop' && i.dag === idagIso(); },
+    navn: 'kjøpte i dag' },
 };
 const laasKlasse = o => 'laas ' + ((o.enePott || (o.morgen && o.kveld)) ? 'laasB'
   : o.morgen ? 'laasM' : o.kveld ? 'laasK' : 'laasB laasU');
@@ -1479,6 +1494,7 @@ function tegn(){
   const kjop = rcKilde ? KJOP_RC.map(t => t.d) : data.filter(kvittert).map(r => kjopsInfo(r).dag);
   const kjopIdag = rcKilde ? osloDag(naa) : idag;
   const kjopUke = rcKilde ? osloDag(naa - 7*864e5) : uke;
+  const nKjoptIdag = kjop.filter(d => d === kjopIdag).length;
   const aktivIdag = data.filter(r => aktiveDager(r).includes(idag)).length;
   const maal = data.filter(maalbar);
   const laast = maal.filter(r => hend(r, 'laas_vist') > 0).length;
@@ -1497,7 +1513,12 @@ function tegn(){
     flis('Enheter', data.length, 'i utvalget'),
     flis('Aktive i dag', aktivIdag, data.filter(r => aktiveDager(r).some(d => d >= uke)).length + ' siste 7 dager', aktivIdag > 0),
     flis('Nye i dag', nye.filter(d => d === idag).length, nye.filter(d => d >= uke).length + ' siste 7 dager'),
-    flis('Kjøpt i dag', kjop.filter(d => d === kjopIdag).length, kjop.filter(d => d >= kjopUke).length + ' siste 7 dager · ' + kjop.length + ' i alt' + (KJOP_RC.length ? ' (RevenueCat)' : ''), kjop.length > 0),
+    flis('Kjøpt i dag', nKjoptIdag, kjop.filter(d => d >= kjopUke).length + ' siste 7 dager · ' + kjop.length + ' i alt'
+      + (KJOP_RC.length ? ' (RevenueCat)' : '') + (nKjoptIdag ? ' · <b>trykk for å se dem</b>' : ''), kjop.length > 0,
+      { klasse: (nKjoptIdag || tabellFilter ? 'trykk' : ''), id: 'flisKjopt', data: 'kjoptIdag',
+        tittel: 'Trykk for å se enhetene som kjøpte i dag. Tallet her kommer fra '
+          + 'RevenueCat; tabellen viser enhetsradene i basen. De kan sprike, og '
+          + 'differansen står i så fall over tabellen.' }),
     flis('Møtt låsen i dag', merker.length,
       (merker.length
         ? [nMorgen && nMorgen + ' morgen', nKveld && nKveld + ' kveld',
@@ -1566,8 +1587,27 @@ function tegn(){
   const tabData = valgt ? data.filter(valgt.test) : data;
   const fEl = document.getElementById('laasFilter');
   fEl.style.display = valgt ? 'block' : 'none';
-  if (valgt) fEl.innerHTML = '<span class="prikkLaas laasB"></span><b>Viser bare de '
-    + tabData.length + ' som ' + valgt.navn + '.</b> <button id="laasAv">Vis alle igjen</button>';
+  if (valgt) {
+    const kjoptFilter = tabellFilter === 'kjoptIdag';
+    // Merket skal si hva som filtreres. Laaseprikken paa et kjoepsfilter ville
+    // lest som at radene hadde moett laasen.
+    const merke = kjoptFilter ? '<span class="merke betalt">betalt</span> '
+      : '<span class="prikkLaas laasB"></span>';
+    // Spriket mellom flisa og tabellen skal FORKLARES, ikke skjules. Uten
+    // dette sier de to tallene ulike ting uten at noe sier hvorfor.
+    const sprik = (kjoptFilter && rcKilde && nKjoptIdag !== tabData.length)
+      ? ' <span style="color:var(--muted)">RevenueCat teller <b>' + nKjoptIdag + '</b>. '
+        + (nKjoptIdag > tabData.length
+            ? 'Differansen er kjøp uten enhetsrad i basen - enheten har ikke synket, eller kjøpet er refundert.'
+            : 'Tabellen har flere enn RevenueCat, som betyr at et kjøp mangler i lista.')
+        + ' Lista er datert i norsk døgn, tabellen i UTC, så rundt midnatt kan de også skille lag.</span>'
+      : '';
+    // «de 1 som» leser daarlig, og med disse tallene skjer det ofte.
+    const antall = tabData.length === 0 ? 'ingen'
+      : tabData.length === 1 ? 'den ene' : 'de ' + tabData.length;
+    fEl.innerHTML = merke + '<b>Viser bare ' + antall + ' som ' + valgt.navn + '.</b>'
+      + sprik + ' <button id="laasAv">Vis alle igjen</button>';
+  }
   tabell(tabData);
   const av = document.getElementById('laasAv');
   if (av) av.addEventListener('click', () => { tabellFilter = null; tegn(); });
