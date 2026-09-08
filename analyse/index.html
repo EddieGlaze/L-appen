@@ -1153,6 +1153,26 @@ function lengsteRekke(r){
   }
   return mest;
 }
+// LENGSTE OPPHOLD: flest doegn paa rad UTEN spor, mellom to dager MED spor.
+//
+// Merk forskjellen fra dagerSidenAktiv, som teller fra siste aktivitet og fram
+// til naa. Den sier hvor lenge en enhet har vaert borte - ikke om den noen gang
+// har kommet tilbake. Denne teller bare hull som er LUKKET, altsaa enheter som
+// faktisk vaaknet igjen. Sorterer man paa den, faar man opp de som tok lengst
+// pause og likevel kom tilbake, og det er de som sier noe om hvor lenge en
+// sovende enhet kan ligge foer den er tapt.
+//
+// Enheter med under to aktive dager gir 0: de har ikke hatt sjansen til aa ta
+// et opphold, og skal ikke blandes med dem som har null hull.
+function lengsteOpphold(r){
+  const d = aktiveDager(r);
+  let mest = 0;
+  for (let i = 1; i < d.length; i++) {
+    const hull = Math.round((Date.parse(d[i]) - Date.parse(d[i-1])) / 864e5) - 1;
+    if (hull > mest) mest = hull;
+  }
+  return mest;
+}
 function dagerSidenAktiv(r){
   const d = aktiveDager(r);
   const sist = d.length ? d[d.length-1] : (r.foerste ? r.foerste.slice(0,10) : r.oppdatert.slice(0,10));
@@ -2158,6 +2178,7 @@ const KOLONNER = [
   { k:'foerste', t:'lastet ned', tall:1 }, { k:'hatt', t:'hatt', tall:1, h:1 }, { k:'oppdatert', t:'sist aktiv', tall:1 },
   { k:'skjerm', t:'på skjerm', tall:1, h:1 }, { k:'spill', t:'i spill', tall:1, h:1 }, { k:'lesing', t:'lesing', tall:1, h:1 }, { k:'runder', t:'runder', tall:1, h:1 },
   { k:'laast', t:'låst', tall:1, h:1 }, { k:'pott', t:'pott tom', tall:1, h:1 }, { k:'kjopt', t:'kjøpt', tall:1 }, { k:'aktiv', t:'aktivitet', tall:1 },
+  { k:'opphold', t:'lengste opphold', tall:1 },
 ];
 let tabSort = { kol:'foerste', ned:true };
 function sortVerdi(r, k){
@@ -2169,6 +2190,7 @@ function sortVerdi(r, k){
   if (k === 'laast') return hend(r, 'laas_vist'); if (k === 'pott') return pottTom(r) ?? -1;
   if (k === 'kjopt') { const i = kjopsInfo(r); return i.kjopMs || (i.dag ? Date.parse(i.dag) : 0); }
   if (k === 'aktiv') return aktiveDager(r).length;
+  if (k === 'opphold') return lengsteOpphold(r);
   return 0;
 }
 function dagStripe(r){
@@ -2258,7 +2280,8 @@ function tabell(data){
       + '<td class="h">' + (kanMaales(r) ? (hend(r,'laas_vist') || '0') : '<span style="color:var(--muted)">–</span>') + '</td>'
       + '<td class="h">' + (pottTom(r) === null ? (maalerPott(r) ? '<span title="måler, potten har ikke gått tom">0</span>' : '<span style="color:var(--muted)" title="krever build-137">–</span>') : '<span title="potten gikk tom: i runde ' + (+r.laasTraff.i_runde || 0) + ' · utenfor ' + (+r.laasTraff.utenfor || 0) + '">' + pottTom(r) + '</span>') + '</td>'
       + '<td>' + (ki.kilde === 'kjop' ? (ki.klemt ? '~' : '') + fmtDag(ki.dag) + (ki.vei ? ' <span style="color:var(--muted)" title="kjøpstidspunkt og vei fra appen">via ' + veiNavn(ki.vei) + '</span>' : '') : ki.kilde === 'antatt' ? '<span style="color:var(--muted)">~' + fmtDag(ki.dag) + '</span>' : '–') + '</td>'
-      + '<td>' + dagStripe(r) + '</td></tr>';
+      + '<td>' + dagStripe(r) + '</td>'
+      + '<td>' + (aktiveDager(r).length < 2 ? '<span style="color:var(--muted)" title="bare én aktiv dag - har ikke hatt sjansen til aa ta et opphold">–</span>' : lengsteOpphold(r) === 0 ? '<span style="color:var(--muted)">0</span>' : '<b title="lengste hull mellom to aktive dager - enheten kom tilbake etterpaa">' + lengsteOpphold(r) + ' d</b>') + '</td></tr>';
     s += '<tr id="det' + i + '" style="display:none"><td></td><td colspan="' + KOLONNER.length + '" style="padding:4px 0 12px">'
       + '<div class="rute2" style="margin:0">' + '<div>' + sideDetalj(r) + '</div><div>' + dagDetalj(r) + hendelseDetalj(r) + '</div></div></td></tr>';
   });
