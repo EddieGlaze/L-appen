@@ -1377,11 +1377,26 @@ const laasIDag = r => laasDager(r)[idagIso()] || null;
 // begge pottene gikk tom og naar doegnet bare hadde én pott.
 // Flisene som kan trykkes. Testen MAA gi samme tall som flisa viser, ellers
 // er det forvirrende aa trykke paa 96 og faa 40 rader.
+// Hver oppfoering baerer sitt eget merke til den gule linja over tabellen.
+// Laaseprikken paa et kjoeps- eller aktivitetsfilter ville lest som at radene
+// hadde moett laasen, saa merket foelger filteret i stedet for aa vaere fast.
 const FILTRE = {
-  idag: { test: laasIDag, navn: 'har møtt låsen i dag' },
+  idag: { test: laasIDag, navn: 'har møtt låsen i dag',
+    merke: '<span class="prikkLaas laasB"></span>' },
   // Samme regnestykke som flisa «Møtt låsen»: laas_vist blant de maalbare.
   noensinne: { test: r => maalbar(r) && hend(r, 'laas_vist') > 0,
-    navn: 'har møtt låsen minst én gang' },
+    navn: 'har møtt låsen minst én gang',
+    merke: '<span class="prikkLaas laasB"></span>' },
+  // Begge disse er UTC mot UTC: aktiveDager og nedlastet er bygget av appens
+  // egne dagsnoekler, som er UTC, og idagIso() er det samme. Samme basis, saa
+  // tallet i flisa og antallet rader i tabellen er alltid like her - i
+  // motsetning til kjoepsfilteret under.
+  aktivIdag: { test: r => aktiveDager(r).includes(idagIso()),
+    navn: 'var innom i dag', merke: '<span class="merke">aktiv</span> ' },
+  // «Nye» er foerste OEPNING, ikke nedlasting: foerste settes ved foerste
+  // kjoering, saa den som lastet ned paa mandag og aapnet fredag teller fredag.
+  nyIdag: { test: r => nedlastet(r) === idagIso(),
+    navn: 'åpnet appen for første gang i dag', merke: '<span class="merke">ny</span> ' },
   // KJOEPT I DAG. Merk at dette filteret og flisa over det IKKE teller det
   // samme, og at de ikke kan gjoere det: flisa teller RevenueCat-rader,
   // filteret tester enhetsrader i basen. De spriker naar noen kjoeper fra en
@@ -1396,7 +1411,7 @@ const FILTRE = {
   // like, men da underrapporterer «Kjoept i dag» de faktiske kjoepene, og det
   // er tallet Edvard leser hver dag.
   kjoptIdag: { test: r => { const i = kjopsInfo(r); return i.kilde === 'kjop' && i.dag === idagIso(); },
-    navn: 'kjøpte i dag' },
+    navn: 'kjøpte i dag', merke: '<span class="merke betalt">betalt</span> ' },
 };
 const laasKlasse = o => 'laas ' + ((o.enePott || (o.morgen && o.kveld)) ? 'laasB'
   : o.morgen ? 'laasM' : o.kveld ? 'laasK' : 'laasB laasU');
@@ -1517,6 +1532,7 @@ function tegn(){
   const kjopUke = rcKilde ? osloDag(naa - 7*864e5) : uke;
   const nKjoptIdag = kjop.filter(d => d === kjopIdag).length;
   const aktivIdag = data.filter(r => aktiveDager(r).includes(idag)).length;
+  const nNyeIdag = nye.filter(d => d === idag).length;
   const maal = data.filter(maalbar);
   const laast = maal.filter(r => hend(r, 'laas_vist') > 0).length;
   const kjopMaal = maal.filter(kvittert).length;
@@ -1532,8 +1548,18 @@ function tegn(){
 
   document.getElementById('fliser').innerHTML = [
     flis('Enheter', data.length, 'i utvalget'),
-    flis('Aktive i dag', aktivIdag, data.filter(r => aktiveDager(r).some(d => d >= uke)).length + ' siste 7 dager', aktivIdag > 0),
-    flis('Nye i dag', nye.filter(d => d === idag).length, nye.filter(d => d >= uke).length + ' siste 7 dager'),
+    flis('Aktive i dag', aktivIdag,
+      data.filter(r => aktiveDager(r).some(d => d >= uke)).length + ' siste 7 dager'
+        + (aktivIdag ? ' · <b>trykk for å se dem</b>' : ''), aktivIdag > 0,
+      { klasse: (aktivIdag || tabellFilter ? 'trykk' : ''), id: 'flisAktiv', data: 'aktivIdag',
+        tittel: 'Enheter med minst ett spor i dag: tid, runde eller Dash-blitz.' }),
+    flis('Nye i dag', nNyeIdag,
+      nye.filter(d => d >= uke).length + ' siste 7 dager'
+        + (nNyeIdag ? ' · <b>trykk for å se dem</b>' : ''), false,
+      { klasse: (nNyeIdag || tabellFilter ? 'trykk' : ''), id: 'flisNye', data: 'nyIdag',
+        tittel: 'Enheter som åpnet appen for første gang i dag. Merk at dette er '
+          + 'første åpning, ikke nedlasting - den som lastet ned mandag og åpnet '
+          + 'fredag, teller fredag.' }),
     flis('Kjøpt i dag', nKjoptIdag, kjop.filter(d => d >= kjopUke).length + ' siste 7 dager · ' + kjop.length + ' i alt'
       + (KJOP_RC.length ? ' (RevenueCat)' : '') + (nKjoptIdag ? ' · <b>trykk for å se dem</b>' : ''), kjop.length > 0,
       { klasse: (nKjoptIdag || tabellFilter ? 'trykk' : ''), id: 'flisKjopt', data: 'kjoptIdag',
@@ -1610,10 +1636,7 @@ function tegn(){
   fEl.style.display = valgt ? 'block' : 'none';
   if (valgt) {
     const kjoptFilter = tabellFilter === 'kjoptIdag';
-    // Merket skal si hva som filtreres. Laaseprikken paa et kjoepsfilter ville
-    // lest som at radene hadde moett laasen.
-    const merke = kjoptFilter ? '<span class="merke betalt">betalt</span> '
-      : '<span class="prikkLaas laasB"></span>';
+    const merke = valgt.merke || '<span class="prikkLaas laasB"></span>';
     // Spriket mellom flisa og tabellen skal FORKLARES, ikke skjules. Uten
     // dette sier de to tallene ulike ting uten at noe sier hvorfor.
     const sprik = (kjoptFilter && rcKilde && nKjoptIdag !== tabData.length)
