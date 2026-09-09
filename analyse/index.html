@@ -40,7 +40,7 @@
     color-scheme: light;
     --plane:#f9f9f7; --surface-1:#fcfcfb; --text-primary:#0b0b0b; --text-secondary:#52514e;
     --muted:#898781; --grid:#e1e0d9; --baseline:#c3c2b7; --border:rgba(11,11,11,0.10);
-    --series-1:#2a78d6; --series-2:#d98a2b; --series-3:#5aa469; --seq-250:#86b6ef;
+    --series-1:#2a78d6; --series-2:#d98a2b; --series-3:#5aa469; --kohort:#9ed4a8; --seq-250:#86b6ef;
     --good-text:#006300; --critical:#d03b3b;
     --warn:#7a5600; --warn-flate:#fff5d4; --warn-kant:#e4bd57;
     --gul:#e8a800; --gul-kant:#7a5600;
@@ -50,7 +50,7 @@
       color-scheme: dark;
       --plane:#0d0d0d; --surface-1:#1a1a19; --text-primary:#fff; --text-secondary:#c3c2b7;
       --muted:#898781; --grid:#2c2c2a; --baseline:#383835; --border:rgba(255,255,255,0.10);
-      --series-1:#3987e5; --series-2:#e59a3c; --series-3:#6cb87a; --seq-250:#1c5cab;
+      --series-1:#3987e5; --series-2:#e59a3c; --series-3:#6cb87a; --kohort:#8fd49e; --seq-250:#1c5cab;
       --good-text:#0ca30c; --critical:#d03b3b;
     --warn:#e6ab34; --warn-flate:#2f2712; --warn-kant:#6b5620;
     --gul:#f0b429; --gul-kant:#5a4718;
@@ -60,7 +60,7 @@
     color-scheme: dark;
     --plane:#0d0d0d; --surface-1:#1a1a19; --text-primary:#fff; --text-secondary:#c3c2b7;
     --muted:#898781; --grid:#2c2c2a; --baseline:#383835; --border:rgba(255,255,255,0.10);
-    --series-1:#3987e5; --series-2:#e59a3c; --series-3:#6cb87a; --seq-250:#1c5cab;
+    --series-1:#3987e5; --series-2:#e59a3c; --series-3:#6cb87a; --kohort:#8fd49e; --seq-250:#1c5cab;
     --good-text:#0ca30c; --critical:#d03b3b;
     --warn:#e6ab34; --warn-flate:#2f2712; --warn-kant:#6b5620;
     --gul:#f0b429; --gul-kant:#5a4718;
@@ -366,7 +366,11 @@
     <div class="sp">Nye enheter, aktive enheter og kjøp per dag, med reklamekronene og regimeskiftene under.</div></div>
   <div class="kort" data-fane="bruk"><h3>Dag for dag</h3>
     <div class="hint">Søyler: <span style="color:var(--series-1)">■</span> nye enheter (første oppstart)
-      · <span style="color:var(--series-3)">■</span> kjøp fra RevenueCat-lista.
+      · <span style="color:var(--series-3)">■</span> kjøp fra RevenueCat-lista, ført på <b>betalingsdagen</b>
+      · <span style="color:var(--kohort)">■</span> <b>kjøp fra kohorten</b>: nedlastinger denne dagen som endte med kjøp,
+      uansett hvilken dag de betalte. Den lyse søyla <b>legger til</b> kjøp som kom inn senere like mye som den
+      trekker fra dem som betalte samme dag - det er den som sier om kronene brukt denne dagen faktisk ga kjøpere.
+      Ferskvare motsatt vei: de siste dagene vokser fortsatt.
       Linje: <span style="color:var(--series-2)">reklamekroner</span> brukt den dagen - Meta per annonsesett fra Ads Reporting,
       Apple Search Ads og Google Ads som dagsbudsjett til de er lest (hult punkt = anslag).
       Regimestripa under sier hvilke regler og kampanjer som gjaldt.</div>
@@ -1934,10 +1938,23 @@ function dagDiagram(svg, dg, nye, kjop, krAv, skala){
   const hver = Math.ceil(dg.length / (W < 500 ? 5 : 10));
   dg.forEach((d, i) => {
     const x = L + i*bw, n = nye[d] || 0, k = kjop[d] || 0;
+    // KOHORTSOEYLA er valgfri. Naar den er med, deles bredden paa tre i stedet
+    // for to: nye 50 %, kjoep 22 %, kohort 22 %. Uten den staar de gamle 55/35
+    // uroert, saa spraakrutene tegner som foer.
+    const harKo = !!skala.kohort;
+    const ko = harKo ? (skala.kohort[d] || 0) : 0;
+    const bN = harKo ? .50 : .55, bK = harKo ? .22 : .35;
     const hN = ih * n / maksN, hK = k ? Math.max(skala.kjopTall ? 3 : 1, ih * k / maksN) : 0;
-    s += '<rect x="' + (x+2) + '" y="' + (T+ih-hN) + '" width="' + Math.max(1, bw*.55-2) + '" height="' + hN + '" fill="' + css('--series-1') + '" rx="2"><title>' + fmtDag(d) + ': ' + n + ' nye</title></rect>';
-    s += '<rect x="' + (x+2+bw*.55) + '" y="' + (T+ih-hK) + '" width="' + Math.max(1, bw*.35-2) + '" height="' + hK + '" fill="' + css(skala.graaKjop ? '--baseline' : '--series-3') + '" rx="2"><title>' + fmtDag(d) + ': ' + k + ' kjøp' + (skala.graaKjop ? ' uten kjent språk' : '') + '</title></rect>';
-    if (skala.kjopTall && k) s += '<text x="' + (x+2+bw*.55+Math.max(1, bw*.35-2)/2) + '" y="' + (T+ih-hK-2) + '" font-size="9" text-anchor="middle" fill="' + css(skala.graaKjop ? '--muted' : '--series-3') + '">' + k + '</text>';
+    const hKo = ko ? Math.max(3, ih * ko / maksN) : 0;
+    const wN = Math.max(1, bw*bN-2), wK = Math.max(1, bw*bK-2);
+    s += '<rect x="' + (x+2) + '" y="' + (T+ih-hN) + '" width="' + wN + '" height="' + hN + '" fill="' + css('--series-1') + '" rx="2"><title>' + fmtDag(d) + ': ' + n + ' nye</title></rect>';
+    s += '<rect x="' + (x+2+bw*bN) + '" y="' + (T+ih-hK) + '" width="' + wK + '" height="' + hK + '" fill="' + css(skala.graaKjop ? '--baseline' : '--series-3') + '" rx="2"><title>' + fmtDag(d) + ': ' + k + ' kjøp' + (skala.graaKjop ? ' uten kjent språk' : '') + '</title></rect>';
+    if (skala.kjopTall && k) s += '<text x="' + (x+2+bw*bN+wK/2) + '" y="' + (T+ih-hK-2) + '" font-size="9" text-anchor="middle" fill="' + css(skala.graaKjop ? '--muted' : '--series-3') + '">' + k + '</text>';
+    if (harKo) {
+      const xKo = x + 2 + bw*(bN+bK);
+      s += '<rect x="' + xKo + '" y="' + (T+ih-hKo) + '" width="' + wK + '" height="' + hKo + '" fill="' + css('--kohort') + '" rx="2"><title>' + fmtDag(d) + ': ' + ko + ' av nedlastingene denne dagen endte med kjøp - uansett hvilken dag de betalte</title></rect>';
+      if (ko) s += '<text x="' + (xKo+wK/2) + '" y="' + (T+ih-hKo-2) + '" font-size="9" text-anchor="middle" fill="' + css('--kohort') + '">' + ko + '</text>';
+    }
     if (i % hver === 0) s += '<text x="' + (x+bw/2) + '" y="' + (H-8) + '" font-size="10" text-anchor="middle" fill="' + css('--muted') + '">' + fmtDag(d) + '</text>';
   });
   if (harKr) {
@@ -1955,9 +1972,13 @@ function dagDiagram(svg, dg, nye, kjop, krAv, skala){
 const krTekst = rk => (rk.anslag ? '~' : '') + Math.round(rk.sum) + ' kr (Meta ' + Math.round(rk.meta) + (rk.asa ? ' · ASA ~' + Math.round(rk.asa) : '') + (rk.google ? ' · Google ~' + Math.round(rk.google) : '') + ')';
 function dagKort(data){
   const dg = sisteDager(dager);
+  // Kjoep tilskrevet NEDLASTINGSDAGEN: hver kjoeper foeres tilbake til dagen
+  // hen foerst aapnet appen, uansett hvilken dag betalingen kom. Soeyla legger
+  // altsaa TIL senere kjoep like mye som den trekker fra tidligere.
+  const kohort = {}; data.filter(kvittert).forEach(r => { const d0 = nedlastet(r); kohort[d0] = (kohort[d0] || 0) + 1; });
   const nye = {}, kjop = KJOP_RC.length ? rcPerDag : {};
   data.forEach(r => { const d = nedlastet(r); nye[d] = (nye[d]||0)+1; if (!KJOP_RC.length && kvittert(r)) { const k = kjopsInfo(r).dag; kjop[k] = (kjop[k]||0)+1; } });
-  dagDiagram(document.getElementById('cDag'), dg, nye, kjop, d => { const rk = reklameKr(d); return { sum: rk.sum, tekst: krTekst(rk), anslag: rk.anslag > 0 }; });
+  dagDiagram(document.getElementById('cDag'), dg, nye, kjop, d => { const rk = reklameKr(d); return { sum: rk.sum, tekst: krTekst(rk), anslag: rk.anslag > 0 }; }, { kohort: kohort, kjopTall: true });
   document.getElementById('cRegime').innerHTML = REGIMER.filter(x => x.d >= dg[0] && x.d <= dg[dg.length-1])
     .map(x => '<span><b>' + fmtDag(x.d) + '</b> ' + x.t + '</span>').join('') || '<span>ingen regimeskifter i vinduet</span>';
 }
