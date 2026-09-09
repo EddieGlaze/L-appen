@@ -1976,8 +1976,30 @@ function dagKort(data){
   // hen foerst aapnet appen, uansett hvilken dag betalingen kom. Soeyla legger
   // altsaa TIL senere kjoep like mye som den trekker fra tidligere.
   const kohort = {}; data.filter(kvittert).forEach(r => { const d0 = nedlastet(r); kohort[d0] = (kohort[d0] || 0) + 1; });
-  const nye = {}, kjop = KJOP_RC.length ? rcPerDag : {};
-  data.forEach(r => { const d = nedlastet(r); nye[d] = (nye[d]||0)+1; if (!KJOP_RC.length && kvittert(r)) { const k = kjopsInfo(r).dag; kjop[k] = (kjop[k]||0)+1; } });
+  const nye = {};
+  data.forEach(r => { const d = nedlastet(r); nye[d] = (nye[d]||0)+1; });
+  // KJOEPSSOEYLA MAA VAERE FERSK.
+  //
+  // KJOP_RC er et oeyeblikksbilde bakt inn da bygg-analyse-data.js sist kjorte;
+  // basen leses paa nytt hver gang sida aapnes. Sto det bare «bruk RC naar den
+  // finnes», var dagens soeyle tom helt til noen kjorte byggeskriptet. Det
+  // skjedde 09.09: RevenueCat viste seks kjoep, grafen viste null.
+  //
+  // HVER KILDE SER NOE DEN ANDRE IKKE SER, saa vi tar den hoeyeste per dag:
+  //
+  //   RC ser kjoepere som aldri har synket til basen. Maalt 06.09: RC 3, basen 2.
+  //   Basen ser kjoep som kom etter at RC-lista ble hentet. Maalt 08.09, der
+  //   lista ble hentet 19:58: RC 3, basen 4. Og 09.09: RC 0, basen 6.
+  //
+  // Et kutt paa dato holdt ikke, for den siste dagen RC daekker er nettopp den
+  // som er halvferdig - hentingen skjer midt paa dagen. Maks av de to traff
+  // alle tre dagene mot det RevenueCat faktisk viser. De to er overlappende
+  // sett, ikke additive, saa de skal aldri legges sammen.
+  const kjop = {};
+  Object.keys(rcPerDag).forEach(d => { kjop[d] = rcPerDag[d]; });
+  const fraBasen = {};
+  data.filter(kvittert).forEach(r => { const k = kjopDagOslo(kjopsInfo(r)); fraBasen[k] = (fraBasen[k] || 0) + 1; });
+  Object.keys(fraBasen).forEach(d => { if (!(kjop[d] >= fraBasen[d])) kjop[d] = fraBasen[d]; });
   dagDiagram(document.getElementById('cDag'), dg, nye, kjop, d => { const rk = reklameKr(d); return { sum: rk.sum, tekst: krTekst(rk), anslag: rk.anslag > 0 }; }, { kohort: kohort, kjopTall: true });
   document.getElementById('cRegime').innerHTML = REGIMER.filter(x => x.d >= dg[0] && x.d <= dg[dg.length-1])
     .map(x => '<span><b>' + fmtDag(x.d) + '</b> ' + x.t + '</span>').join('') || '<span>ingen regimeskifter i vinduet</span>';
