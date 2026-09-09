@@ -102,6 +102,13 @@
   .flis.varsel .under { color:var(--warn); }
   .flis.trykk { cursor:pointer; }
   .flis.trykk:hover { border-color:var(--warn); }
+  /* Velgeren over tabellen. Flisene daekker «i dag»; denne er hele historikken. */
+  .kjopValg { display:flex; gap:6px; align-items:center; margin-bottom:10px; font-size:12px; }
+  .kjopValg .merkelapp2 { color:var(--muted); margin-right:2px; }
+  .kjopValg button { font:inherit; padding:3px 10px; border-radius:9px; cursor:pointer;
+    border:1px solid var(--border); background:var(--plane); color:inherit; }
+  .kjopValg button:hover { border-color:var(--warn); }
+  .kjopValg button.paa { border-color:var(--good-text); color:var(--good-text); font-weight:600; }
   .flis .merkelapp { display:inline-block; font-size:10px; font-weight:700; letter-spacing:.04em;
                      text-transform:uppercase; color:var(--warn); margin-left:6px; vertical-align:2px; }
   .prikkLaas { display:inline-block; width:8px; height:8px; border-radius:50%;
@@ -448,6 +455,7 @@
       <b>Låst</b> = ganger låseskjermen ble vist.
       Alt tre fra build-126 - eldre rader viser «–», ikke null.
       Tid appen har ligget åpen i bakgrunnen er <b>ikke</b> med i noen kolonne.</div>
+    <div class="kjopValg" id="kjopValg"></div>
     <div id="laasFilter" style="display:none;margin-bottom:10px"></div>
     <div style="overflow-x:auto"><table id="tabell"></table></div>
     <div class="fot" id="tabellFot"></div>
@@ -1450,6 +1458,13 @@ const FILTRE = {
   // er tallet Edvard leser hver dag.
   kjoptIdag: { test: r => { const i = kjopsInfo(r); return i.kilde === 'kjop' && kjopDagOslo(i) === osloDag(Date.now()); },
     navn: 'kjøpte i dag', merke: '<span class="merke betalt">betalt</span> ' },
+  // KJOEPT MOT IKKE KJOEPT, uten tidsavgrensning. Bruker kvittert, altsaa bare
+  // ekte kvitteringer - «antatt kjoept» (runder som aldri har vaert gratis) og
+  // kodetilgang teller som IKKE kjoept, siden ingen av dem har betalt.
+  harKjopt: { test: kvittert, navn: 'har kjøpt',
+    merke: '<span class="merke betalt">betalt</span> ' },
+  ikkeKjopt: { test: r => !kvittert(r), navn: 'ikke har kjøpt',
+    merke: '<span class="merke">gratis</span> ' },
 };
 const laasKlasse = o => 'laas ' + ((o.enePott || (o.morgen && o.kveld)) ? 'laasB'
   : o.morgen ? 'laasM' : o.kveld ? 'laasK' : 'laasB laasU');
@@ -1685,6 +1700,19 @@ function tegn(){
   // Filteret gjelder bare tabellen. Diagrammene over skal fortsatt vise alt.
   const valgt = tabellFilter ? FILTRE[tabellFilter] : null;
   const tabData = valgt ? data.filter(valgt.test) : data;
+  // VELGEREN OVER TABELLEN. Flisene svarer paa «i dag»; denne paa hele
+  // historikken. Tallene regnes av data, ikke tabData, saa de staar stille
+  // uansett hvilket filter som er paa - ellers ville «kjoept 46» blitt til
+  // «kjoept 46 av 46» i det man trykket, og sluttet aa si noe.
+  const nKjopt = data.filter(kvittert).length;
+  const vEl = document.getElementById('kjopValg');
+  vEl.innerHTML = '<span class="merkelapp2">Vis:</span>'
+    + [['', 'alle', data.length], ['harKjopt', 'kjøpt', nKjopt], ['ikkeKjopt', 'ikke kjøpt', data.length - nKjopt]]
+      .map(v => '<button data-kjop="' + v[0] + '"' + ((tabellFilter || '') === v[0] ? ' class="paa"' : '') + '>'
+        + v[1] + ' <span style="opacity:.6">' + v[2] + '</span></button>').join('');
+  vEl.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+    tabellFilter = b.dataset.kjop || null; tegn();
+  }));
   const fEl = document.getElementById('laasFilter');
   fEl.style.display = valgt ? 'block' : 'none';
   if (valgt) {
