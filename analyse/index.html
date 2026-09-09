@@ -1209,6 +1209,18 @@ function kjoptNaar(ki){
     + (ki.klemt ? ', og måtte i tillegg tvinges inn i vinduet mellom nedlasting og nå. Regn den som en pekepinn, ikke en dato' : ', og er usikker der tilgangen er forlenget')
     + '">~' + fmtDag(ki.dag) + '</span>';
 }
+// KJOEPSDAGEN SLIK ET MENNESKE LESER DEN.
+//
+// ki.dag er UTC, fordi den er en noekkel som slaas opp i aktivitetsstripa.
+// Men naar noen spoer «hvem kjoepte i dag», mener de norsk doegn. Et kjoep kl.
+// 00:59 norsk tid er 22:59 UTC dagen foer, og laa da under gaarsdagen i baade
+// flisa, filteret og kjoepskolonnen - mens merket ved siden av viste riktig
+// klokkeslett. Raden motsa altsaa seg selv.
+//
+// Funnet 09.09 paa 47b280a2, som kjoepte 00:59 om natta og forsvant fra
+// «Kjoept i dag». Bare eksakte kjoep kan konverteres: der tidspunktet er
+// utledet av proUtlop finnes ikke oeyeblikket, og da er ki.dag det beste vi har.
+const kjopDagOslo = ki => (ki.eksakt && gyldigMs(ki.kjopMs)) ? osloDag(ki.kjopMs) : ki.dag;
 function kjopsInfo(r){
   if (r.proUtlop > 0) {
     // Kjoepsposten fra appen (build-137+) gir eksakt tidspunkt og vei
@@ -1436,7 +1448,7 @@ const FILTRE = {
   // det oppstaar. Aa la flisa telle fra basen i stedet ville gjort tallene
   // like, men da underrapporterer «Kjoept i dag» de faktiske kjoepene, og det
   // er tallet Edvard leser hver dag.
-  kjoptIdag: { test: r => { const i = kjopsInfo(r); return i.kilde === 'kjop' && i.dag === idagIso(); },
+  kjoptIdag: { test: r => { const i = kjopsInfo(r); return i.kilde === 'kjop' && kjopDagOslo(i) === osloDag(Date.now()); },
     navn: 'kjøpte i dag', merke: '<span class="merke betalt">betalt</span> ' },
 };
 const laasKlasse = o => 'laas ' + ((o.enePott || (o.morgen && o.kveld)) ? 'laasB'
@@ -1552,10 +1564,25 @@ function tegn(){
   // naar Edvard sitter og ser etter det. Det ER ikke teoretisk: da ms kom inn
   // 08.09 fant vi ett kjoep kl. 00:17 norsk tid (1228..136b, 03.09). Se
   // rcDagUtc for hele historien.
+  // EN FORELDET LISTE SKAL IKKE MASKERE LEVENDE DATA. KJOP_RC er et
+  // oejeblikksbilde, bakt inn da bygg-analyse-data.js sist kjoerte. Basen
+  // leses derimot ferskt ved hver lasting. Sto det bare «bruk RC hvis den
+  // finnes», viste «Kjoept i dag» null hele natta og formiddagen etter siste
+  // henting, selv om kjoepet laa i basen. Edvard fant dette 09.09.
+  //
+  // Derfor: RC brukes til og med den dagen den faktisk daekker, og basen tar
+  // over for dagene etter. Da er historikken fortsatt RCs (den ser kjoep fra
+  // enheter som aldri synket), mens dagens tall er ferskt.
   const rcKilde = KJOP_RC.length > 0;
-  const kjop = rcKilde ? KJOP_RC.map(t => t.d) : data.filter(kvittert).map(r => kjopsInfo(r).dag);
-  const kjopIdag = rcKilde ? osloDag(naa) : idag;
-  const kjopUke = rcKilde ? osloDag(naa - 7*864e5) : uke;
+  const rcSisteDag = rcKilde ? KJOP_RC.map(t => t.d).sort().pop() : null;
+  const idagOslo = osloDag(naa);
+  const rcDekkerIdag = !!rcSisteDag && rcSisteDag >= idagOslo;
+  const kjopBase = data.filter(kvittert).map(r => kjopDagOslo(kjopsInfo(r)));
+  const kjop = KJOP_RC.length
+    ? KJOP_RC.map(t => t.d).concat(rcDekkerIdag ? [] : kjopBase.filter(d => d > rcSisteDag))
+    : kjopBase;
+  const kjopIdag = idagOslo;
+  const kjopUke = osloDag(naa - 7*864e5);
   const nKjoptIdag = kjop.filter(d => d === kjopIdag).length;
   const aktivIdag = data.filter(r => aktiveDager(r).includes(idag)).length;
   const nNyeIdag = nye.filter(d => d === idag).length;
@@ -1665,7 +1692,7 @@ function tegn(){
     const merke = valgt.merke || '<span class="prikkLaas laasB"></span>';
     // Spriket mellom flisa og tabellen skal FORKLARES, ikke skjules. Uten
     // dette sier de to tallene ulike ting uten at noe sier hvorfor.
-    const sprik = (kjoptFilter && rcKilde && nKjoptIdag !== tabData.length)
+    const sprik = (kjoptFilter && rcDekkerIdag && nKjoptIdag !== tabData.length)
       ? ' <span style="color:var(--muted)">RevenueCat teller <b>' + nKjoptIdag + '</b>. '
         + (nKjoptIdag > tabData.length
             ? 'Differansen er kjøp uten enhetsrad i basen - enheten har ikke synket, eller kjøpet er refundert.'
@@ -2285,7 +2312,7 @@ function tabell(data){
       + '<td class="h">' + (r.runder.length + (r.lampeblitz || []).length) + '</td>'
       + '<td class="h">' + (kanMaales(r) ? (hend(r,'laas_vist') || '0') : '<span style="color:var(--muted)">–</span>') + '</td>'
       + '<td class="h">' + (pottTom(r) === null ? (maalerPott(r) ? '<span title="måler, potten har ikke gått tom">0</span>' : '<span style="color:var(--muted)" title="krever build-137">–</span>') : '<span title="potten gikk tom: i runde ' + (+r.laasTraff.i_runde || 0) + ' · utenfor ' + (+r.laasTraff.utenfor || 0) + '">' + pottTom(r) + '</span>') + '</td>'
-      + '<td>' + (ki.kilde === 'kjop' ? (ki.klemt ? '~' : '') + fmtDag(ki.dag) + (ki.vei ? ' <span style="color:var(--muted)" title="kjøpstidspunkt og vei fra appen">via ' + veiNavn(ki.vei) + '</span>' : '') : ki.kilde === 'antatt' ? '<span style="color:var(--muted)">~' + fmtDag(ki.dag) + '</span>' : '–') + '</td>'
+      + '<td>' + (ki.kilde === 'kjop' ? (ki.klemt ? '~' : '') + fmtDag(kjopDagOslo(ki)) + (ki.vei ? ' <span style="color:var(--muted)" title="kjøpstidspunkt og vei fra appen">via ' + veiNavn(ki.vei) + '</span>' : '') : ki.kilde === 'antatt' ? '<span style="color:var(--muted)">~' + fmtDag(ki.dag) + '</span>' : '–') + '</td>'
       + '<td>' + dagStripe(r) + '</td>'
       + '<td>' + (aktiveDager(r).length === 0 ? '<span style="color:var(--muted)" title="ingen dager med spor - ingenting aa maale et opphold mot">–</span>' : lengsteOpphold(r) === 0 ? '<span style="color:var(--muted)">0</span>' : '<b title="lengste hull uten spor, regnet fra foerste aapning - enheten var tilbake etterpaa">' + lengsteOpphold(r) + ' d</b>') + '</td></tr>';
     s += '<tr id="det' + i + '" style="display:none"><td></td><td colspan="' + KOLONNER.length + '" style="padding:4px 0 12px">'
