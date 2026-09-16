@@ -161,6 +161,25 @@
              border:1px solid var(--border); background:var(--surface-1); color:var(--text-secondary); }
   .dagvelg button:disabled { opacity:.35; cursor:default; }
   .dagvelg .dagnote { color:var(--series-2); font-weight:700; }
+  /* Dagstegning rett over tabellen: samme valgte dag som flisene, men her er
+     det raden man ser paa, saa knappene hoerer hjemme ved tabellen ogsaa. */
+  .dagsteg { display:flex; align-items:center; gap:6px; margin:0 0 10px; font-size:12px;
+             color:var(--text-secondary); flex-wrap:wrap; }
+  .dagsteg button { font:inherit; line-height:1; padding:3px 9px; border-radius:6px; cursor:pointer;
+             border:1px solid var(--border); background:var(--surface-1); color:var(--text-secondary); }
+  .dagsteg button:disabled { opacity:.35; cursor:default; }
+  .dagsteg button.naa { font-size:11.5px; }
+  .dagsteg #dagStegTekst { font-variant-numeric:tabular-nums; min-width:76px; text-align:center; font-weight:700; }
+  .dagsteg .dagnote { color:var(--muted); font-size:11px; }
+  /* Sammenlagt kort (details). Det skal vaere lett aa slaa opp i, men det er
+     ikke det man kommer til sida for. */
+  details.kort > summary { font-size:14px; font-weight:700; cursor:pointer; list-style:none;
+             display:flex; align-items:baseline; gap:8px; }
+  details.kort > summary::-webkit-details-marker { display:none; }
+  details.kort > summary::before { content:'▸'; color:var(--muted); font-weight:400; }
+  details.kort[open] > summary::before { content:'▾'; }
+  details.kort > summary .sumnote { font-size:11.5px; font-weight:400; color:var(--muted); }
+  details.kort[open] > summary { margin-bottom:8px; }
   /* Blaing i tid. Forskyvningen er GLOBAL og treffer alle dagsdiagrammene,
      slik vindusvalget gjoer - to diagrammer som viser hver sin periode ved
      siden av hverandre er verre enn ingen blaing. */
@@ -389,12 +408,14 @@
   </div>
   <div class="fliser" id="fliser" data-fane="bruk enheter"></div>
 
-  <!-- 0. STATUS FOR TALLENE -->
-  <div class="kort" data-fane="bruk enheter"><h3>Kan jeg stole på tallene?</h3>
-    <div class="hint">Hvert kort under måler på den delen av basen som HAR feltet. Her er nevnerne, så et tall aldri leses som «alle».</div>
+  <!-- 0. STATUS FOR TALLENE. Sammenlagt: den skal vaere lett aa slaa opp i,
+       men den er ikke det man kommer til sida for. -->
+  <details class="kort smal" data-fane="bruk enheter">
+    <summary>Kan jeg stole på tallene? <span class="sumnote">nevnerne bak hvert kort</span></summary>
+    <div class="hint">Hvert kort måler på den delen av basen som HAR feltet. Her er nevnerne, så et tall aldri leses som «alle».</div>
     <div id="cDekning"></div>
     <div class="hull" id="cKilder"></div>
-  </div>
+  </details>
 
   <!-- 1. FOER KJOEP -->
   <div class="seksjon" data-fane="bruk"><h2>1 · Hva skjer før kjøp</h2>
@@ -494,15 +515,13 @@
   <div class="seksjon" data-fane="bruk"><h2>3 · Hvor tiden går</h2>
     <div class="sp">Sekunder per side, målt ved sidebytte og når appen legges bort - så sider som lukkes halvveis teller.
       Besøk over en time forkastes, men en telefon som lå i lomma under en time slipper gjennom; derfor median, ikke snitt.</div></div>
-  <div class="rute2" data-fane="bruk">
-    <div class="kort"><h3>Tid per side, gratisbrukere</h3>
-      <div class="hint">Median sekunder på siden blant enheter som har vært der. Vekten bak navnet er
-        hvor fort gratistiden går der: 1 = full fart, 0,6 lesing, 0,3 oppslag, 0 = teller ikke.</div>
-      <div id="cSiderG"></div></div>
-    <div class="kort"><h3>Tid per side, kjøpere</h3>
-      <div class="hint">Samme mål for enheter med kvittering. Sammenlign radene: der kjøperne
-        ligger langt over, var det verdt å betale for.</div>
-      <div id="cSiderK"></div></div>
+  <div class="kort" data-fane="bruk"><h3>Tid per side</h3>
+    <div class="hint">Median sekunder på siden blant <b>gratisbrukere</b> som har vært der. Vekten bak
+      navnet er hvor fort gratistiden går der: 1 = full fart, 0,6 lesing, 0,3 oppslag, 0 = teller ikke.
+      <b>Trykk på en rad</b> for fordelingen - da vises gratisbrukere og kjøpere ved siden av hverandre,
+      med bolker, median, p90 og hvor skjevt det fordeler seg.</div>
+    <div id="cSiderG"></div>
+    <div id="cSiderK" style="display:none"></div>
   </div>
   <div class="rute2" data-fane="bruk">
     <div class="kort"><h3>Hvor de avbryter</h3>
@@ -516,6 +535,10 @@
   <!-- 4. NEDLASTING - KJOEP - REKLAME -->
   <div class="seksjon" data-fane="bruk"><h2>4 · Nedlastinger, kjøp og reklamekroner</h2>
     <div class="sp">Uke for uke. Dette er tallene som skal stå side om side når sperre, pris og annonser justeres.</div></div>
+  <div class="kort" data-fane="bruk"><h3>Konvertering over tid</h3>
+    <div class="hint" id="cKonvHint"></div>
+    <svg id="cKonv" width="100%" height="170"></svg>
+  </div>
   <div class="kort" data-fane="bruk"><h3>Kohorter: hva pengene den dagen faktisk kjøpte</h3>
     <div class="hint">Her tilskrives kjøpet <b>dagen brukeren lastet ned</b>, ikke dagen hen betalte.
       Det er den eneste måten å se om kronene brukt en gitt dag ga kjøpere - «Kjøpt i dag» svarer på
@@ -551,6 +574,13 @@
       <b>Låst</b> = ganger låseskjermen ble vist.
       Alt tre fra build-126 - eldre rader viser «–», ikke null.
       Tid appen har ligget åpen i bakgrunnen er <b>ikke</b> med i noen kolonne.</div>
+    <div class="dagsteg" id="dagsteg">
+      <button id="dagFor" title="dagen før">‹</button>
+      <span id="dagStegTekst"></span>
+      <button id="dagNes" title="dagen etter">›</button>
+      <button id="dagIdag" class="naa">i dag</button>
+      <span class="dagnote" id="dagStegNote"></span>
+    </div>
     <div class="kjopValg" id="kjopValg"></div>
     <div id="laasFilter" style="display:none;margin-bottom:10px"></div>
     <div style="overflow-x:auto"><table id="tabell"></table></div>
@@ -1792,7 +1822,14 @@ function tegn(){
         tittel: 'Enheter som har fått låseskjermen minst én gang, noensinne. '
           + 'Teller laas_vist blant dem som både kan låses og måles, så nevneren '
           + 'er de målbare - ikke alle enheter.' }),
-    flis('Konvertering', pct(kjopMaal, maal.length), kjopMaal + ' kjøp av ' + maal.length + ' som kan låses og måles', kjopMaal > 0),
+    // KONVERTERING. Sto foer som kjoep blant «maalbare», altsaa enheter med
+    // build-126+. Den nevneren er overlevelsesskjev: den fjernet 55 % av
+    // enhetene og 4 % av kjoepene, og doblet tallet fra 5 til 11 %. Nevneren
+    // er naa ALLE enheter i utvalget, som er det tallet som faktisk kan
+    // sammenliknes med annonsekronene.
+    flis('Konvertering', pct(konv(data).k, data.length),
+      konv(data).k + ' kjøp av ' + data.length + ' enheter · <span title="Samme tall regnet bare på enheter med build-126 eller nyere. Den nevneren er overlevelsesskjev - se «Kan jeg stole på tallene?»">målbare: ' + pct(kjopMaal, maal.length) + '</span>',
+      konv(data).k > 0),
   ].join('');
 
   // Begge laaseflisene er knapper. Trykk paa den som alt er valgt slaar av;
@@ -1823,14 +1860,14 @@ function tegn(){
   sprakTraktKort(data);
   veiKort(data);
   dognKort(data);
-  dagVelgKort();
+  dagVelgKort(); dagStegKort();
   dagKort(data); alderKort(data); laasKort(data); sprakDagKort(data); blaKort();
   aktivKort(data);
   returKort(data);
   rekkeKort(data);
   siderKort(data);
   avbruddKort(data);
-  kohortKort(data); ukeKort(data);
+  konvKort(data); kohortKort(data); ukeKort(data);
   perioderKort(data); reklameSkjemaKort(data); kilderLinje();
   // Filteret gjelder bare tabellen. Diagrammene over skal fortsatt vise alt.
   const valgt = tabellFilter ? FILTRE[tabellFilter] : null;
@@ -2043,6 +2080,15 @@ function veiKort(data){
 // gjoer. To diagrammer som viser hver sin periode er verre enn ingen blaing.
 let dagForskyv = 0;
 function sisteDager(n){ const ut = []; for (let i = n-1; i >= 0; i--) ut.push(new Date(Date.now() - (i + dagForskyv)*864e5).toISOString().slice(0,10)); return ut; }
+function dagStegKort(){
+  const el = document.getElementById("dagStegTekst"); if (!el) return;
+  const d = dagValgt();
+  el.textContent = dagOrdStor();
+  document.getElementById("dagNes").disabled = !valgtDag;
+  document.getElementById("dagIdag").disabled = !valgtDag;
+  document.getElementById("dagStegNote").textContent = valgtDag
+    ? "flisene og filteret gjelder denne dagen" : "";
+}
 function dagVelgKort(){
   const inp = document.getElementById("flisDag"); if (!inp) return;
   inp.max = idagIso();
@@ -2470,6 +2516,44 @@ function returKort(data){
       + '<div class="hull">' + g.length + ' enheter fra etter lansering med minst 8 dagers eiertid.</div>'
     : '<span style="color:var(--muted)">for få enheter med en ukes eiertid</span>';
 }
+// ================= ÉN KONVERTERING =================================
+//
+// Konvertering ble regnet paa fire ulike maater paa denne sida, og de ga fra
+// 4,2 til 11,2 % for samme uke. Naa finnes definisjonen ett sted.
+//
+// KANONISK: kohort. Kjoepet foeres tilbake til dagen enheten FOERST aapnet
+// appen, og nevneren er ALLE enheter med den nedlastingsdagen - ikke bare de
+// «maalbare», ikke bare de som gjorde noe.
+//
+// Hvorfor ikke «maalbare»: kanMaales krever build-126+, og byggNr leser SISTE
+// sette versjon. En enhet som aapnet appen én gang i august og aldri kom
+// tilbake fikk aldri en ny OTA og faller ut av nevneren - mens kjoeperne, som
+// per definisjon er aktive, blir staaende i telleren. Maalt 17.09: filteret
+// fjernet 838 av 1528 enheter (55 %) og bare 3 av 78 kjoep. Det er
+// overlevelsesskjevhet, og den doblet tallet: 10,9 % mot 5,1 %.
+//
+// MODENHET: en kohort som er faa doegn gammel har ikke faatt kjoepene sine
+// ennaa. Skal to perioder sammenliknes, maa begge maales i det SAMME vinduet -
+// derfor konvVindu, som bare teller kjoep innen N doegn og bare tar med
+// kohorter som har hatt N hele doegn paa seg.
+const KONV_VINDU = 7;
+const konv = liste => { const n = liste.length, k = liste.filter(kvittert).length;
+  return { n, k, andel: n ? k / n : 0 }; };
+// Alder i doegn fra nedlasting til kjoep. null naar enheten ikke har kjoept.
+function kjopAlder(r){
+  if (!kvittert(r)) return null;
+  const nd = nedlastet(r), kd = kjopDagOslo(kjopsInfo(r));
+  if (!nd || !kd) return null;
+  return Math.max(0, Math.round((Date.parse(kd) - Date.parse(nd)) / 864e5));
+}
+// Konvertering maalt i et fast vindu. Kohorter som ikke har hatt vinduet paa
+// seg utelates helt - de ville trukket snittet ned uten aa vaere svakere.
+function konvVindu(liste, vindu){
+  const grense = new Date(Date.parse(idagIso()) - vindu*864e5).toISOString().slice(0,10);
+  const modne = liste.filter(r => nedlastet(r) <= grense);
+  const k = modne.filter(r => { const a = kjopAlder(r); return a !== null && a <= vindu; }).length;
+  return { n: modne.length, k, andel: modne.length ? k / modne.length : 0, grense };
+}
 function lrad(navn, v, maks, tekst, b){
   return '<div class="lrad"><span class="ln">' + navn + '</span><span class="lb"><i' + (b ? ' class="b"' : '') + ' style="width:' + (maks ? Math.round(100*v/maks) : 0) + '%"></i></span><span class="lv">' + tekst + '</span></div>';
 }
@@ -2604,6 +2688,59 @@ function ukeStart(d){ const t = new Date(Date.parse(d)); const dag = (t.getUTCDa
 // MODENHET. En kohort er ikke ferdig med en gang: 64 % kjoeper paa dag 0 og
 // rundt 90 % innen tre doegn. De siste radene undervurderer derfor seg selv,
 // og maa merkes - ellers leses et normalt ungt doegn som en daarlig dag.
+// KONVERTERING OVER TID. Én kurve, ett tall, samme definisjon som overalt
+// ellers: kohort, alle enheter i nevneren.
+//
+// Hvert punkt er et rullende sju-doegns kohortvindu: enhetene som kom de sju
+// dagene fram til og med punktet, og hvor mange av dem som kjoepte INNEN sju
+// doegn. Begge delene er kuttet likt, saa to punkter kan sammenliknes selv om
+// det ene er ferskt. Kurven stopper KONV_VINDU doegn foer i dag - de siste
+// dagene er ikke ferdig maalt, og et fallende haleslepp er den vanligste
+// maaten en slik graf lyver paa.
+function konvKort(data){
+  const svg = document.getElementById('cKonv');
+  if (!svg) return;
+  const slutt = new Date(Date.parse(idagIso()) - KONV_VINDU*864e5).toISOString().slice(0,10);
+  const start = ukeStart(LANSERT);
+  const dager2 = [];
+  for (let d = Date.parse(start); d <= Date.parse(slutt); d += 864e5) dager2.push(new Date(d).toISOString().slice(0,10));
+  const punkt = dager2.map(d => {
+    const fra = new Date(Date.parse(d) - 6*864e5).toISOString().slice(0,10);
+    const kohort = data.filter(r => { const nd = nedlastet(r); return nd >= fra && nd <= d; });
+    const k = kohort.filter(r => { const a = kjopAlder(r); return a !== null && a <= KONV_VINDU; }).length;
+    return { d, n: kohort.length, k, andel: kohort.length ? k / kohort.length : null };
+  }).filter(p => p.n >= 20);       // under 20 enheter i vinduet er ren stoey
+  const hint = document.getElementById('cKonvHint');
+  if (punkt.length < 2) { svg.innerHTML = ''; if (hint) hint.textContent = 'For få modne kohorter til å tegne en trend ennå.'; return; }
+  const W = Math.max(320, svg.getBoundingClientRect().width || 700), H = 170, L = 34, R = 12, T = 12, B = 26;
+  const iw = W - L - R, ih = H - T - B;
+  const maks = Math.max(0.08, ...punkt.map(p => p.andel)) * 1.15;
+  const x = i => L + (punkt.length === 1 ? iw/2 : iw * i / (punkt.length - 1));
+  const y = a => T + ih - ih * a / maks;
+  let s = '';
+  [0, .5, 1].forEach(f => { const yy = T + ih - f*ih;
+    s += '<line x1="' + L + '" x2="' + (W-R) + '" y1="' + yy + '" y2="' + yy + '" stroke="' + css('--grid') + '"/>'
+      + '<text x="' + (L-4) + '" y="' + (yy+4) + '" font-size="10" text-anchor="end" fill="' + css('--muted') + '">' + (100*maks*f).toFixed(1).replace('.', ',') + ' %</text>'; });
+  // Snittet over hele perioden som referanselinje - uten den er det umulig aa
+  // se om en topp er stor eller bare ser stor ut i sin egen skala.
+  const snitt = konv(data).andel;
+  if (snitt > 0 && snitt < maks) s += '<line x1="' + L + '" x2="' + (W-R) + '" y1="' + y(snitt) + '" y2="' + y(snitt)
+    + '" stroke="' + css('--muted') + '" stroke-width="1" stroke-dasharray="4,3"><title>Snitt hele perioden: '
+    + (100*snitt).toFixed(1).replace('.', ',') + ' %</title></line>';
+  s += '<polyline points="' + punkt.map((p, i) => x(i) + ',' + y(p.andel)).join(' ') + '" fill="none" stroke="'
+    + css('--series-3') + '" stroke-width="2"/>';
+  punkt.forEach((p, i) => { s += '<circle cx="' + x(i) + '" cy="' + y(p.andel) + '" r="2.5" fill="' + css('--series-3')
+    + '"><title>' + fmtDag(p.d) + ': ' + (100*p.andel).toFixed(1).replace('.', ',') + ' % - ' + p.k + ' av ' + p.n
+    + ' som kom de sju dagene fram til her, kjøpte innen ' + KONV_VINDU + ' døgn</title></circle>'; });
+  const hver = Math.ceil(punkt.length / (W < 500 ? 5 : 9));
+  punkt.forEach((p, i) => { if (i % hver === 0) s += '<text x="' + x(i) + '" y="' + (H-8) + '" font-size="10" text-anchor="middle" fill="' + css('--muted') + '">' + fmtDag(p.d) + '</text>'; });
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.innerHTML = s;
+  const sisteP = punkt[punkt.length-1], forsteP = punkt[0];
+  if (hint) hint.innerHTML = 'Rullende sju døgn. Siste punkt <b>' + fmtDag(sisteP.d) + ': ' + (100*sisteP.andel).toFixed(1).replace('.', ',')
+    + ' %</b> (' + sisteP.k + ' av ' + sisteP.n + '), første ' + fmtDag(forsteP.d) + ': ' + (100*forsteP.andel).toFixed(1).replace('.', ',')
+    + ' %. Stiplet linje er snittet for hele perioden, ' + (100*snitt).toFixed(1).replace('.', ',') + ' %. '
+    + 'Kurven stopper ' + KONV_VINDU + ' døgn før i dag: ferskere kohorter har ikke hatt tid til å kjøpe, og ville gitt et falskt fall.';
+}
 function kohortKort(data){
   const el = document.getElementById('cKohort');
   const idag = idagIso();
@@ -2647,21 +2784,28 @@ function kohortKort(data){
 }
 function ukeKort(data){
   const per = {};
-  const u = d => (per[d] = per[d] || { nye: 0, kjop: 0, kr: 0, meta: 0, asa: 0, google: 0 });
-  data.forEach(r => { u(ukeStart(nedlastet(r))).nye++; if (!KJOP_RC.length && kvittert(r)) u(ukeStart(kjopsInfo(r).dag)).kjop++; });
-  KJOP_RC.forEach(t => { u(ukeStart(rcDagOslo(t))).kjop++; });   // Oslo, samme dag som basen bruker
+  const u = d => (per[d] = per[d] || { nye: 0, kjop: 0, kohort: 0, kr: 0, meta: 0, asa: 0, google: 0 });
+  // TO KJOEPSTALL, ikke ett. «kjop» er kjoep BETALT den uka; «kohort» er
+  // kjoep fra enheter som kom den uka, uansett naar de betalte. Konverteringa
+  // regnes av kohorten - ellers deles teller og nevner paa hver sin uke, og
+  // det var nettopp det som sto her foer: telleren var betalingsuke, nevneren
+  // nedlastingsuke, og «konv.» var forholdet mellom to ulike ting.
+  data.forEach(r => { u(ukeStart(nedlastet(r))).nye++;
+    if (kvittert(r)) { u(ukeStart(nedlastet(r))).kohort++;
+      if (!KJOP_RC.length) u(ukeStart(kjopDagOslo(kjopsInfo(r)))).kjop++; } });
+  KJOP_RC.forEach(t => { u(ukeStart(rcDagOslo(t))).kjop++; });
   Object.keys(reklamePerDag).forEach(d => { const rk = reklameKr(d), w = u(ukeStart(d)); w.kr += rk.sum; w.meta += rk.meta; w.asa += rk.asa; w.google += rk.google; });
   const uker = Object.keys(per).filter(k => k >= ukeStart(LANSERT)).sort();
   const kr = n => Math.round(n).toLocaleString('nb-NO') + ' kr';
-  const tot = { nye:0, kjop:0, kr:0 };
-  let s = '<table><tr><th>uke fra</th><th class="h">nye</th><th class="h">kjøp</th><th class="h">konv.</th><th class="h">reklame</th><th class="h">kr / ny</th><th class="h">kr / kjøp</th><th class="h">netto</th><th class="h">resultat</th></tr>';
-  uker.forEach(k => { const w = per[k]; tot.nye += w.nye; tot.kjop += w.kjop; tot.kr += w.kr;
+  const tot = { nye:0, kjop:0, kohort:0, kr:0 };
+  let s = '<table><tr><th>uke fra</th><th class="h">nye</th><th class="h" title="Kjøp BETALT denne uka, uansett når enheten kom">kjøp</th><th class="h" title="Kjøp fra enheter som KOM denne uka, uansett når de betalte. Det er dette tallet konverteringa regnes av">kohort</th><th class="h" title="kohort / nye - samme definisjon som i alle andre kort på sida">konv.</th><th class="h">reklame</th><th class="h">kr / ny</th><th class="h">kr / kjøp</th><th class="h">netto</th><th class="h">resultat</th></tr>';
+  uker.forEach(k => { const w = per[k]; tot.nye += w.nye; tot.kjop += w.kjop; tot.kohort += w.kohort; tot.kr += w.kr;
     const netto = w.kjop * PRIS_KR * BUTIKK_ANDEL;
-    s += '<tr><td>' + fmtDag(k) + (k === ukeStart(idagIso()) ? ' <span style="color:var(--muted)">(pågår)</span>' : '') + '</td><td class="h">' + w.nye + '</td><td class="h">' + w.kjop + '</td><td class="h">' + pct(w.kjop, w.nye)
+    s += '<tr><td>' + fmtDag(k) + (k === ukeStart(idagIso()) ? ' <span style="color:var(--muted)">(pågår)</span>' : '') + '</td><td class="h">' + w.nye + '</td><td class="h">' + w.kjop + '</td><td class="h">' + w.kohort + '</td><td class="h">' + pct(w.kohort, w.nye)
       + '</td><td class="h" title="Meta ' + kr(w.meta) + ' · ASA ~' + kr(w.asa) + ' · Google ~' + kr(w.google) + '">' + kr(w.kr) + '</td><td class="h">' + (w.nye ? kr(w.kr / w.nye) : '–')
       + '</td><td class="h">' + (w.kjop ? kr(w.kr / w.kjop) : '–') + '</td><td class="h">' + kr(netto) + '</td><td class="h" style="color:' + (netto - w.kr >= 0 ? 'var(--good-text)' : 'var(--critical)') + '">' + kr(netto - w.kr) + '</td></tr>'; });
   const nettoT = tot.kjop * PRIS_KR * BUTIKK_ANDEL;
-  s += '<tr style="font-weight:700"><td>i alt</td><td class="h">' + tot.nye + '</td><td class="h">' + tot.kjop + '</td><td class="h">' + pct(tot.kjop, tot.nye) + '</td><td class="h">' + kr(tot.kr)
+  s += '<tr style="font-weight:700"><td>i alt</td><td class="h">' + tot.nye + '</td><td class="h">' + tot.kjop + '</td><td class="h">' + tot.kohort + '</td><td class="h">' + pct(tot.kohort, tot.nye) + '</td><td class="h">' + kr(tot.kr)
     + '</td><td class="h">' + (tot.nye ? kr(tot.kr/tot.nye) : '–') + '</td><td class="h">' + (tot.kjop ? kr(tot.kr/tot.kjop) : '–') + '</td><td class="h">' + kr(nettoT) + '</td><td class="h">' + kr(nettoT - tot.kr) + '</td></tr></table>';
   document.getElementById('cUke').innerHTML = s;
   document.getElementById('cUkeHull').textContent = 'Datahull: Meta er faktisk forbruk per dag fra Ads Reporting (lest t.o.m. ' + fmtDag(REKLAME_TIL || idagIso()) + '). Apple Search Ads og Google Ads er dagsbudsjett (anslag), ikke avlest forbruk - se Økonomi-fanen. '
@@ -2682,11 +2826,10 @@ function perioderKort(data){
     return liste.length ? '<b>' + pct(kj, liste.length) + '</b> <span style="color:var(--muted)">' + kj + '/' + liste.length + ' · ' + Math.round(100*lo) + '–' + Math.round(100*hi) + ' %</span>' : '–'; };
   const d1 = liste => { const g = liste.filter(r => Date.parse(idag) - Date.parse(nedlastet(r)) >= 2*864e5);
     const n = g.filter(r => aktiveDager(r).includes(new Date(Date.parse(nedlastet(r)) + 864e5).toISOString().slice(0,10))).length; return g.length ? pct(n, g.length) : '–'; };
-  let s = '<table><tr><th>periode</th><th>regel</th><th class="h">nye</th><th class="h" title="RevenueCat-kjøp med kjøpsdato i perioden, delt på nye i perioden. Ikke kohort - kjøpet kan komme fra en tidligere periodes nye">kjøp RC / nye</th><th class="h">kohort alle</th><th class="h">norsk</th><th class="h">arabisk</th><th class="h">andre</th><th class="h">D1</th><th class="h">møtt låsen</th></tr>';
+  let s = '<table><tr><th>periode</th><th>regel</th><th class="h">nye</th><th class="h" title="Kjøp fra enheter som KOM i perioden, uansett når de betalte, delt på alle nye i perioden. Samme definisjon som overalt ellers på sida">konvertering</th><th class="h">norsk</th><th class="h">arabisk</th><th class="h">andre</th><th class="h">D1</th><th class="h">møtt låsen</th></tr>';
   PERIODER.forEach(p => { const k = data.filter(r => { const d = nedlastet(r); return d >= p.fra && d <= p.til; });
     const m = k.filter(maalbar), laas = m.filter(r => hend(r, 'laas_vist') > 0).length;
     s += '<tr><td>' + p.navn + ' <span style="color:var(--muted)">' + fmtDag(p.fra) + (p.til < '2099' ? '–' + fmtDag(p.til) : '–') + '</span></td><td style="color:var(--muted)">' + p.regel + '</td><td class="h">' + k.length
-      + '</td><td class="h">' + (KJOP_RC.length ? '<b>' + pct(rcKjop(p.fra, p.til), k.length) + '</b> <span style="color:var(--muted)">' + rcKjop(p.fra, p.til) + '/' + k.length + '</span>' : '–')
       + '</td><td class="h">' + cell(k) + '</td><td class="h">' + cell(k.filter(r => r.sprak === 'no')) + '</td><td class="h">' + cell(k.filter(r => r.sprak === 'ar'))
       + '</td><td class="h">' + cell(k.filter(r => r.sprak && r.sprak !== 'no' && r.sprak !== 'ar')) + '</td><td class="h">' + d1(k) + '</td><td class="h" title="av ' + m.length + ' målbare">' + (m.length ? pct(laas, m.length) : '–') + '</td></tr>'; });
   document.getElementById('cPerioder').innerHTML = s + '</table>';
@@ -2824,6 +2967,17 @@ document.getElementById("flisDag").addEventListener("change", (e) => {
   tegn();
 });
 document.getElementById("flisNaa").addEventListener("click", () => { valgtDag = null; tegn(); });
+// Steg ett doegn. Lander steget paa dagens dato, settes valgtDag til null i
+// stedet for datoen - da sier flisene «i dag», som er det man forventer.
+const dagSteg = (n) => {
+  const d = new Date(Date.parse(dagValgt()) + n*864e5).toISOString().slice(0,10);
+  if (d > idagIso()) return;
+  valgtDag = (d === idagIso()) ? null : d;
+  tegn();
+};
+document.getElementById("dagFor").addEventListener("click", () => dagSteg(-1));
+document.getElementById("dagNes").addEventListener("click", () => dagSteg(1));
+document.getElementById("dagIdag").addEventListener("click", () => { valgtDag = null; tegn(); });
 const blaTil = n => { dagForskyv = Math.max(0, n); tegn(); };
 document.getElementById('blaBak').addEventListener('click', () => blaTil(dagForskyv + dager));
 document.getElementById('blaFram').addEventListener('click', () => blaTil(dagForskyv - dager));
