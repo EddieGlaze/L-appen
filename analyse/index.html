@@ -151,6 +151,29 @@
   .lrad .lv { width:96px; flex:none; text-align:right; font-variant-numeric:tabular-nums;
               color:var(--text-secondary); }
   .vekt { font-size:10px; color:var(--muted); margin-left:4px; }
+  /* Blaing i tid. Forskyvningen er GLOBAL og treffer alle dagsdiagrammene,
+     slik vindusvalget gjoer - to diagrammer som viser hver sin periode ved
+     siden av hverandre er verre enn ingen blaing. */
+  .bla { display:flex; align-items:center; gap:6px; margin:2px 0 6px; font-size:12px;
+         color:var(--text-secondary); flex-wrap:wrap; }
+  .bla button { font:inherit; line-height:1; padding:3px 9px; border-radius:6px; cursor:pointer;
+                border:1px solid var(--border); background:var(--surface-1); color:var(--text-secondary); }
+  .bla button:disabled { opacity:.35; cursor:default; }
+  .bla button.naa { font-size:11.5px; }
+  .bla #blaTekst { font-variant-numeric:tabular-nums; min-width:132px; text-align:center; }
+  .bla .blanote { color:var(--muted); font-size:11px; }
+  .bla.tilbake #blaTekst { color:var(--series-2); font-weight:700; }
+  /* Alderstabellen */
+  .alder { width:100%; border-collapse:collapse; font-size:12px; }
+  .alder th { text-align:right; font-weight:400; color:var(--muted); padding:3px 6px;
+              border-bottom:1px solid var(--grid); font-size:11px; }
+  .alder th:first-child, .alder td:first-child { text-align:left; }
+  .alder td { text-align:right; padding:3px 6px; font-variant-numeric:tabular-nums;
+              border-bottom:1px solid var(--border); }
+  .alder td.null { color:var(--muted); }
+  .alder tr.idag td { font-weight:700; }
+  .alder tr.sum td { border-top:1px solid var(--grid); border-bottom:none; color:var(--text-secondary); }
+  .alder .dagsliste { font-size:11.5px; color:var(--muted); margin-top:7px; }
   /* Underfordeling: raden i «Tid per side» aapner et fordelingsfelt. Medianen
      alene skjuler om en side har en hale - og det er halen som avgjoer om en
      gratisgrense er verdt aa stramme. */
@@ -401,8 +424,19 @@
       Linje: <span style="color:var(--series-2)">reklamekroner</span> brukt den dagen - Meta per annonsesett fra Ads Reporting,
       Apple Search Ads og Google Ads som dagsbudsjett til de er lest (hult punkt = anslag).
       Regimestripa under sier hvilke regler og kampanjer som gjaldt.</div>
+    <div class="bla"><button id="blaBak" title="ett vindu bakover">‹</button>
+      <span id="blaTekst"></span>
+      <button id="blaFram" title="ett vindu framover">›</button>
+      <button id="blaNaa" class="naa">i dag</button>
+      <span class="blanote">gjelder alle dagsdiagrammene</span></div>
     <svg id="cDag" width="100%" height="190"></svg>
     <div class="regime" id="cRegime"></div>
+  </div>
+  <div class="kort" data-fane="bruk"><h3>Kjøperne mot kalenderen</h3>
+    <div class="hint">Motsatt lesning av søylene over: her står kjøpene på <b>betalingsdagen</b>, og
+      raden viser hvor gamle kjøperne var da de betalte. «4 nye kjøpere i dag» er sjelden fire nye
+      brukere - de fleste lastet ned tidligere. Alderen er regnet fra første åpning.</div>
+    <div id="cAlder"></div>
   </div>
   <div class="kort" data-fane="bruk"><h3>Låsen dag for dag</h3>
     <div class="hint">Søyler: <span style="color:var(--series-1)">■</span> enheter som møtte låsen den dagen
@@ -1034,9 +1068,22 @@ const KAMPANJER = /*KAMPANJER*/[{"k":"meta","id":"120248533625140625","n":"Norge
 // Den raden laa altsaa én soeyle til hoegre for enhetens egen aktivitet inntil
 // dette. Halen fra august har fortsatt ingen ms, saa der kan det ligge flere
 // vi ikke kan se.
-const rcDagUtc = t => t.ms ? new Date(t.ms).toISOString().slice(0,10) : t.d;
-const rcPerDag = (() => { const p = {}; KJOP_RC.forEach(t => { const d = rcDagUtc(t); p[d] = (p[d] || 0) + 1; }); return p; })();
-const rcKjop = (fra, til) => KJOP_RC.filter(t => { const d = rcDagUtc(t); return d >= fra && d <= til; }).length;
+// KJOEPSDAGEN FOR EN REVENUECAT-RAD ER OSLO-DAGEN, IKKE UTC-DAGEN.
+//
+// Her sto `new Date(t.ms).toISOString().slice(0,10)` - altsaa UTC - og det var
+// feil paa to maater samtidig (funnet 16.09):
+//
+//   1. Lista har allerede riktig dato i `t.d`. RevenueCat viser dagen i
+//      kontoens tidssone, og for de to radene der `ms` faller mellom 22:00 og
+//      midnatt UTC, REGNET vi den korrekte datoen om til gaarsdagen. Kjoepet
+//      02.09 kl. 22:17Z er 03.09 i Oslo, og det er dagen RevenueCat viser.
+//   2. Basen teller med kjopDagOslo. Naar dagsdiagrammet tar max() av de to,
+//      maa de bruke SAMME dagsdefinisjon - ellers havner ett og samme kjoep
+//      paa to ulike dager, og max() lar begge staa. Maalt utslag: 02.09 og
+//      08.09 fikk én fantomkjoeper hver.
+//
+// Flisa oeverst brukte `t.d` direkte hele tiden, saa flisa og soeyla svarte
+// ulikt paa det samme spoersmaalet. Naa bruker begge Oslo.
 // Reklamekroner per dag fra REKLAME (forbruksdag, ikke fakturadato). Meta er
 // lest per annonsesett; ASA og Google er budsjettanslag (src 'anslag-*').
 // META_KR (fakturadatoene) brukes bare til avstemming paa Oekonomi-fanen.
@@ -1165,6 +1212,9 @@ const osloTid = ms => { if (!gyldigMs(ms)) return ''; const d = osloDeler(ms); r
 // en-CA gir formen 2026-09-08 rett ut av boksen.
 const OSLO_DAG_FMT = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Oslo', year: 'numeric', month: '2-digit', day: '2-digit' });
 const osloDag = ms => OSLO_DAG_FMT.format(new Date(ms));
+const rcDagOslo = t => (t.ms && gyldigMs(t.ms)) ? osloDag(t.ms) : t.d;
+const rcPerDag = (() => { const p = {}; KJOP_RC.forEach(t => { const d = rcDagOslo(t); p[d] = (p[d] || 0) + 1; }); return p; })();
+const rcKjop = (fra, til) => KJOP_RC.filter(t => { const d = rcDagOslo(t); return d >= fra && d <= til; }).length;
 function nedlastKilde(r){
   let dato = null, kilde = null, mettet = false, sort = null;
   const bud = (d, k, mett, full) => {
@@ -1622,7 +1672,7 @@ function tegn(){
   // opp under «i dag» foer UTC rullet over to timer senere - altsaa nettopp
   // naar Edvard sitter og ser etter det. Det ER ikke teoretisk: da ms kom inn
   // 08.09 fant vi ett kjoep kl. 00:17 norsk tid (1228..136b, 03.09). Se
-  // rcDagUtc for hele historien.
+  // rcDagOslo for hele historien.
   // EN FORELDET LISTE SKAL IKKE MASKERE LEVENDE DATA. KJOP_RC er et
   // oejeblikksbilde, bakt inn da bygg-analyse-data.js sist kjoerte. Basen
   // leses derimot ferskt ved hver lasting. Sto det bare «bruk RC hvis den
@@ -1733,7 +1783,7 @@ function tegn(){
   sprakTraktKort(data);
   veiKort(data);
   dognKort(data);
-  dagKort(data); laasKort(data); sprakDagKort(data);
+  dagKort(data); alderKort(data); laasKort(data); sprakDagKort(data); blaKort();
   aktivKort(data);
   returKort(data);
   rekkeKort(data);
@@ -1947,7 +1997,20 @@ function veiKort(data){
 }
 
 // 2. HVER DAG
-function sisteDager(n){ const ut = []; for (let i = n-1; i >= 0; i--) ut.push(new Date(Date.now() - i*864e5).toISOString().slice(0,10)); return ut; }
+// dagForskyv: hvor mange doegn bakover vinduet er skjoevet. 0 = til og med i
+// dag. Global med vilje - den treffer alle dagsdiagrammene, slik vindusvalget
+// gjoer. To diagrammer som viser hver sin periode er verre enn ingen blaing.
+let dagForskyv = 0;
+function sisteDager(n){ const ut = []; for (let i = n-1; i >= 0; i--) ut.push(new Date(Date.now() - (i + dagForskyv)*864e5).toISOString().slice(0,10)); return ut; }
+function blaKort(){
+  const dg = sisteDager(dager), rad = document.getElementById('blaBak');
+  if (!rad) return;
+  document.getElementById('blaTekst').textContent = fmtDag(dg[0]) + ' - ' + (dagForskyv === 0 ? 'i dag' : fmtDag(dg[dg.length-1]));
+  document.getElementById('blaFram').disabled = dagForskyv === 0;
+  document.getElementById('blaNaa').disabled = dagForskyv === 0;
+  const boks = document.querySelector && document.querySelector('.bla');
+  if (boks) boks.classList.toggle('tilbake', dagForskyv > 0);
+}
 // Tegner nye (stolper), kjoep (smale stolper) og reklamekroner (linje) for
 // dagene i dg. krAv(d) -> { sum, tekst } gir kronene og teksten i tipset.
 // maksN/maksKr kan gis utenfra saa flere diagrammer deler skala.
@@ -2000,6 +2063,57 @@ function dagDiagram(svg, dg, nye, kjop, krAv, skala){
   return { maksN, maksKr };
 }
 const krTekst = rk => (rk.anslag ? '~' : '') + Math.round(rk.sum) + ' kr (Meta ' + Math.round(rk.meta) + (rk.asa ? ' · ASA ~' + Math.round(rk.asa) : '') + (rk.google ? ' · Google ~' + Math.round(rk.google) : '') + ')';
+// KJOEPERNE MOT KALENDEREN. Motsatt lesning av soeylene: her staar kjoepet paa
+// BETALINGSDAGEN, og raden sier hvor gamle kjoeperne var da de betalte.
+// «4 nye kjoepere i dag» er sjelden fire nye brukere.
+//
+// Kilden er BASEN alene, ikke RevenueCat: RC-lista har betalingsdato, men
+// ingen nedlastingsdato, saa alderen kan bare regnes for kjoep som finnes som
+// enhetsrad. Differansen staar under tabellen, saa tallene aldri leses som
+// hele sannheten.
+const ALDER_BOLK = [[0, 0, 'samme dag'], [1, 1, '1 dag'], [2, 3, '2-3 dager'],
+                    [4, 7, '4-7 dager'], [8, Infinity, 'over en uke']];
+function alderKort(data){
+  const dg = sisteDager(dager), fra = dg[0], til = dg[dg.length - 1];
+  const kjopere = data.filter(kvittert).map(r => {
+    const ki = kjopsInfo(r);
+    const betalt = kjopDagOslo(ki), lastet = nedlastet(r);
+    return { betalt, lastet, alder: Math.max(0, Math.round((Date.parse(betalt) - Date.parse(lastet)) / 864e5)) };
+  }).filter(x => x.betalt >= fra && x.betalt <= til);
+  const idag = osloDag(Date.now());
+  const perDag = {};
+  kjopere.forEach(x => { (perDag[x.betalt] = perDag[x.betalt] || []).push(x); });
+  const dager2 = Object.keys(perDag).sort().reverse();
+  const celle = (liste, lo, hi) => {
+    const n = liste.filter(x => x.alder >= lo && x.alder <= hi).length;
+    return '<td' + (n ? '' : ' class="null"') + '>' + (n || '·') + '</td>';
+  };
+  const rad = (navn, liste, klasse) => '<tr' + (klasse ? ' class="' + klasse + '"' : '') + '><td>' + navn + '</td>'
+    + '<td><b>' + liste.length + '</b></td>' + ALDER_BOLK.map(([lo, hi]) => celle(liste, lo, hi)).join('') + '</tr>';
+  if (!kjopere.length) {
+    document.getElementById('cAlder').innerHTML = '<span style="color:var(--muted)">ingen kjøp i vinduet</span>';
+    return;
+  }
+  let h = '<table class="alder"><tr><th>Betalt</th><th>Kjøp</th>'
+    + ALDER_BOLK.map(([, , nv]) => '<th>' + nv + '</th>').join('') + '</tr>'
+    + dager2.map(d => rad(d === idag ? '<b>i dag</b>' : fmtDag(d), perDag[d], d === idag ? 'idag' : ''))
+        .join('')
+    + rad('<b>hele vinduet</b>', kjopere, 'sum') + '</table>';
+  // Dagen oeverst skrives ut i klartekst - det var nettopp det spoersmaalet
+  // kortet ble laget for: «kun 1 av de 4 er fra i dag, naar er de andre fra?»
+  const siste = dager2[0];
+  if (siste) {
+    const liste = [...perDag[siste]].sort((a, b) => a.alder - b.alder);
+    h += '<div class="dagsliste"><b>' + (siste === idag ? 'I dag' : fmtDag(siste)) + '</b>: '
+      + liste.map(x => fmtDag(x.lastet) + ' <span style="color:var(--text-secondary)">('
+          + (x.alder === 0 ? 'samme dag' : x.alder + ' d') + ')</span>').join(' · ') + '</div>';
+  }
+  const iAlt = data.filter(kvittert).length;
+  h += '<div class="hull">Alderen krever både betalingsdag og nedlastingsdag, så bare kjøp som finnes '
+    + 'som enhetsrad er med: ' + kjopere.length + ' i vinduet, ' + iAlt + ' i basen i alt mot '
+    + KJOP_RC.length + ' i RevenueCat-lista. Nedlastingsdagen er første ÅPNING, ikke butikkens nedlasting.</div>';
+  document.getElementById('cAlder').innerHTML = h;
+}
 function dagKort(data){
   const dg = sisteDager(dager);
   // Kjoep tilskrevet NEDLASTINGSDAGEN: hver kjoeper foeres tilbake til dagen
@@ -2409,7 +2523,7 @@ function ukeKort(data){
   const per = {};
   const u = d => (per[d] = per[d] || { nye: 0, kjop: 0, kr: 0, meta: 0, asa: 0, google: 0 });
   data.forEach(r => { u(ukeStart(nedlastet(r))).nye++; if (!KJOP_RC.length && kvittert(r)) u(ukeStart(kjopsInfo(r).dag)).kjop++; });
-  KJOP_RC.forEach(t => { u(ukeStart(rcDagUtc(t))).kjop++; });   // UTC, som nye-tallet ved siden av
+  KJOP_RC.forEach(t => { u(ukeStart(rcDagOslo(t))).kjop++; });   // Oslo, samme dag som basen bruker
   Object.keys(reklamePerDag).forEach(d => { const rk = reklameKr(d), w = u(ukeStart(d)); w.kr += rk.sum; w.meta += rk.meta; w.asa += rk.asa; w.google += rk.google; });
   const uker = Object.keys(per).filter(k => k >= ukeStart(LANSERT)).sort();
   const kr = n => Math.round(n).toLocaleString('nb-NO') + ' kr';
@@ -2572,6 +2686,12 @@ function tabell(data){
     const apen = d.style.display !== 'none'; d.style.display = apen ? 'none' : 'table-row'; document.getElementById('pil' + i).textContent = apen ? '›' : '⌄'; }));
 }
 
+// Blaing i tid. Ett trykk flytter vinduet én hel vindulengde, saa periodene
+// ligger kant i kant i stedet for aa gli over hverandre.
+const blaTil = n => { dagForskyv = Math.max(0, n); tegn(); };
+document.getElementById('blaBak').addEventListener('click', () => blaTil(dagForskyv + dager));
+document.getElementById('blaFram').addEventListener('click', () => blaTil(dagForskyv - dager));
+document.getElementById('blaNaa').addEventListener('click', () => blaTil(0));
 document.querySelectorAll('[data-dager]').forEach(b => b.addEventListener('click', () => {
   document.querySelectorAll('[data-dager]').forEach(x => x.classList.toggle('valgt', x === b)); dager = +b.dataset.dager; tegn(); }));
 ['visTest','kunGP','kunAS'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('change', tegn); });
