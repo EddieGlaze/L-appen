@@ -151,6 +151,16 @@
   .lrad .lv { width:96px; flex:none; text-align:right; font-variant-numeric:tabular-nums;
               color:var(--text-secondary); }
   .vekt { font-size:10px; color:var(--muted); margin-left:4px; }
+  /* Datovelger for flisene. «I dag» er standard; velges en dato, leser alle
+     fire flisene og filtrene bak dem den dagen i stedet. */
+  .dagvelg { display:flex; align-items:center; gap:8px; margin:0 0 8px; font-size:12px;
+             color:var(--text-secondary); flex-wrap:wrap; }
+  .dagvelg input[type=date] { font:inherit; padding:3px 7px; border-radius:6px;
+             border:1px solid var(--border); background:var(--surface-1); color:var(--text-primary); }
+  .dagvelg button { font:inherit; line-height:1; padding:4px 10px; border-radius:6px; cursor:pointer;
+             border:1px solid var(--border); background:var(--surface-1); color:var(--text-secondary); }
+  .dagvelg button:disabled { opacity:.35; cursor:default; }
+  .dagvelg .dagnote { color:var(--series-2); font-weight:700; }
   /* Blaing i tid. Forskyvningen er GLOBAL og treffer alle dagsdiagrammene,
      slik vindusvalget gjoer - to diagrammer som viser hver sin periode ved
      siden av hverandre er verre enn ingen blaing. */
@@ -370,6 +380,12 @@
       <input type="checkbox" id="visTest"> vis testperioden (før 14.08)</label>
     <label class="bryter"><input type="checkbox" id="kunGP"> kun Android</label>
     <label class="bryter"><input type="checkbox" id="kunAS"> kun Apple</label>
+  </div>
+  <div class="dagvelg" data-fane="bruk enheter">
+    <label for="flisDag">Flisene under gjelder</label>
+    <button id="flisNaa" class="naa">i dag</button>
+    <input type="date" id="flisDag">
+    <span class="dagnote" id="flisDagNote"></span>
   </div>
   <div class="fliser" id="fliser" data-fane="bruk enheter"></div>
 
@@ -1133,6 +1149,23 @@ REGIMER.sort((a, b) => a.d < b.d ? -1 : a.d > b.d ? 1 : 0);
 function css(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
 const fmtDag = iso => iso.slice(8,10) + '.' + iso.slice(5,7);
 const idagIso = () => new Date().toISOString().slice(0,10);
+// VALGT DAG for de fire «i dag»-flisene og filtrene bak dem. null = i dag.
+//
+// Flisene svarte bare paa «hvem kjoepte, moette laasen, var aktive og var nye
+// I DAG». Spoersmaalet man faktisk sitter med er ofte «hvem var det den
+// dagen», og da maatte man gjette ut fra soeylene. Med en dato valgt leser alle
+// fire flisene - og tabellfiltrene deres - den dagen i stedet.
+//
+// Merk at UTC- og Oslo-skillet kollapser naar en dato er VALGT: aktive og nye
+// telles paa appens egne dagsnoekler (UTC), kjoep i norsk doegn. For «i dag»
+// holdes de fra hverandre, fordi det er da forskjellen merkes rundt midnatt.
+// For en valgt dato brukes datoen slik den staar, og avviket er hoeyst ett
+// kjoep paa en dag i grenselandet mellom midnatt og kl. 02.
+let valgtDag = null;
+const dagValgt = () => valgtDag || idagIso();
+const dagValgtOslo = () => valgtDag || osloDag(Date.now());
+const dagOrd = () => valgtDag ? fmtDag(valgtDag) : 'i dag';
+const dagOrdStor = () => valgtDag ? fmtDag(valgtDag) : 'I dag';
 const SPRAK_NAVN = { no:'Norsk', en:'Engelsk', ar:'Arabisk', ckb:'Sorani', tr:'Tyrkisk', so:'Somali', ru:'Russisk', fa:'Persisk',
   ur:'Urdu', uk:'Ukrainsk', ti:'Tigrinja', es:'Spansk' };
 const sprakNavn = k => SPRAK_NAVN[k] || k || '–';
@@ -1517,7 +1550,7 @@ function laasDager(r){
 }
 // Naboflisene («Aktive i dag», «Nye i dag», «Kjopt i dag») bruker alle
 // idagIso(). Skal tallene staa side om side, maa de mene det samme med «i dag».
-const laasIDag = r => laasDager(r)[idagIso()] || null;
+const laasIDag = r => laasDager(r)[dagValgt()] || null;
 // Hel ring = all gratistid for doegnet brukt opp. Det er sant baade naar
 // begge pottene gikk tom og naar doegnet bare hadde én pott.
 // Flisene som kan trykkes. Testen MAA gi samme tall som flisa viser, ellers
@@ -1526,7 +1559,7 @@ const laasIDag = r => laasDager(r)[idagIso()] || null;
 // Laaseprikken paa et kjoeps- eller aktivitetsfilter ville lest som at radene
 // hadde moett laasen, saa merket foelger filteret i stedet for aa vaere fast.
 const FILTRE = {
-  idag: { test: laasIDag, navn: 'har møtt låsen i dag',
+  idag: { test: laasIDag, navn: () => 'har møtt låsen ' + dagOrd(),
     merke: '<span class="prikkLaas laasB"></span>' },
   // Samme regnestykke som flisa «Møtt låsen»: laas_vist blant de maalbare.
   noensinne: { test: r => maalbar(r) && hend(r, 'laas_vist') > 0,
@@ -1536,12 +1569,12 @@ const FILTRE = {
   // egne dagsnoekler, som er UTC, og idagIso() er det samme. Samme basis, saa
   // tallet i flisa og antallet rader i tabellen er alltid like her - i
   // motsetning til kjoepsfilteret under.
-  aktivIdag: { test: r => aktiveDager(r).includes(idagIso()),
-    navn: 'var innom i dag', merke: '<span class="merke">aktiv</span> ' },
+  aktivIdag: { test: r => aktiveDager(r).includes(dagValgt()),
+    navn: () => 'var innom ' + dagOrd(), merke: '<span class="merke">aktiv</span> ' },
   // «Nye» er foerste OEPNING, ikke nedlasting: foerste settes ved foerste
   // kjoering, saa den som lastet ned paa mandag og aapnet fredag teller fredag.
-  nyIdag: { test: r => nedlastet(r) === idagIso(),
-    navn: 'åpnet appen for første gang i dag', merke: '<span class="merke">ny</span> ' },
+  nyIdag: { test: r => nedlastet(r) === dagValgt(),
+    navn: () => 'åpnet appen for første gang ' + dagOrd(), merke: '<span class="merke">ny</span> ' },
   // KJOEPT I DAG. Merk at dette filteret og flisa over det IKKE teller det
   // samme, og at de ikke kan gjoere det: flisa teller RevenueCat-rader,
   // filteret tester enhetsrader i basen. De spriker naar noen kjoeper fra en
@@ -1555,8 +1588,8 @@ const FILTRE = {
   // det oppstaar. Aa la flisa telle fra basen i stedet ville gjort tallene
   // like, men da underrapporterer «Kjoept i dag» de faktiske kjoepene, og det
   // er tallet Edvard leser hver dag.
-  kjoptIdag: { test: r => { const i = kjopsInfo(r); return i.kilde === 'kjop' && kjopDagOslo(i) === osloDag(Date.now()); },
-    navn: 'kjøpte i dag', merke: '<span class="merke betalt">betalt</span> ' },
+  kjoptIdag: { test: r => { const i = kjopsInfo(r); return i.kilde === 'kjop' && kjopDagOslo(i) === dagValgtOslo(); },
+    navn: () => 'kjøpte ' + dagOrd(), merke: '<span class="merke betalt">betalt</span> ' },
   // KJOEPT MOT IKKE KJOEPT, uten tidsavgrensning. Bruker kvittert, altsaa bare
   // ekte kvitteringer - «antatt kjoept» (runder som aldri har vaert gratis) og
   // kodetilgang teller som IKKE kjoept, siden ingen av dem har betalt.
@@ -1664,8 +1697,10 @@ function utvalg(){
 }
 
 function tegn(){
-  const data = utvalg(), naa = Date.now(), idag = idagIso();
-  const uke = new Date(naa - 7*864e5).toISOString().slice(0,10);
+  const data = utvalg(), naa = Date.now(), idag = dagValgt();
+  // Sju doegn som ENDER paa den valgte dagen - ikke alltid de siste sju fra
+  // i dag. Ellers sier flisa «09.09» over et tall som gjelder denne uka.
+  const uke = new Date(Date.parse(idag) - 6*864e5).toISOString().slice(0,10);
   const nye = data.map(r => nedlastet(r));
   // Kjoep per dato fra RevenueCat naar lista finnes; ellers fra backupen.
   //
@@ -1689,14 +1724,14 @@ function tegn(){
   // enheter som aldri synket), mens dagens tall er ferskt.
   const rcKilde = KJOP_RC.length > 0;
   const rcSisteDag = rcKilde ? KJOP_RC.map(t => t.d).sort().pop() : null;
-  const idagOslo = osloDag(naa);
-  const rcDekkerIdag = !!rcSisteDag && rcSisteDag >= idagOslo;
+  const idagOslo = dagValgtOslo();
+  const rcDekkerIdag = !!rcSisteDag && rcSisteDag >= osloDag(naa);
   const kjopBase = data.filter(kvittert).map(r => kjopDagOslo(kjopsInfo(r)));
   const kjop = KJOP_RC.length
     ? KJOP_RC.map(t => t.d).concat(rcDekkerIdag ? [] : kjopBase.filter(d => d > rcSisteDag))
     : kjopBase;
   const kjopIdag = idagOslo;
-  const kjopUke = osloDag(naa - 7*864e5);
+  const kjopUke = new Date(Date.parse(idagOslo) - 6*864e5).toISOString().slice(0,10);
   const nKjoptIdag = kjop.filter(d => d === kjopIdag).length;
   const aktivIdag = data.filter(r => aktiveDager(r).includes(idag)).length;
   const nNyeIdag = nye.filter(d => d === idag).length;
@@ -1715,25 +1750,25 @@ function tegn(){
 
   document.getElementById('fliser').innerHTML = [
     flis('Enheter', data.length, 'i utvalget'),
-    flis('Aktive i dag', aktivIdag,
-      data.filter(r => aktiveDager(r).some(d => d >= uke)).length + ' siste 7 dager'
+    flis('Aktive ' + dagOrd(), aktivIdag,
+      data.filter(r => aktiveDager(r).some(d => d >= uke && d <= idag)).length + ' siste 7 dager'
         + (aktivIdag ? ' · <b>trykk for å se dem</b>' : ''), aktivIdag > 0,
       { klasse: (aktivIdag || tabellFilter ? 'trykk' : ''), id: 'flisAktiv', data: 'aktivIdag',
         tittel: 'Enheter med minst ett spor i dag: tid, runde eller Dash-blitz.' }),
-    flis('Nye i dag', nNyeIdag,
-      nye.filter(d => d >= uke).length + ' siste 7 dager'
+    flis('Nye ' + dagOrd(), nNyeIdag,
+      nye.filter(d => d >= uke && d <= idag).length + ' siste 7 dager'
         + (nNyeIdag ? ' · <b>trykk for å se dem</b>' : ''), false,
       { klasse: (nNyeIdag || tabellFilter ? 'trykk' : ''), id: 'flisNye', data: 'nyIdag',
         tittel: 'Enheter som åpnet appen for første gang i dag. Merk at dette er '
           + 'første åpning, ikke nedlasting - den som lastet ned mandag og åpnet '
           + 'fredag, teller fredag.' }),
-    flis('Kjøpt i dag', nKjoptIdag, kjop.filter(d => d >= kjopUke).length + ' siste 7 dager · ' + kjop.length + ' i alt'
+    flis('Kjøpt ' + dagOrd(), nKjoptIdag, kjop.filter(d => d >= kjopUke && d <= idagOslo).length + ' siste 7 dager · ' + kjop.length + ' i alt'
       + (KJOP_RC.length ? ' (RevenueCat)' : '') + (nKjoptIdag ? ' · <b>trykk for å se dem</b>' : ''), kjop.length > 0,
       { klasse: (nKjoptIdag || tabellFilter ? 'trykk' : ''), id: 'flisKjopt', data: 'kjoptIdag',
         tittel: 'Trykk for å se enhetene som kjøpte i dag. Tallet her kommer fra '
           + 'RevenueCat; tabellen viser enhetsradene i basen. De kan sprike, og '
           + 'differansen står i så fall over tabellen.' }),
-    flis('Møtt låsen i dag', merker.length,
+    flis('Møtt låsen ' + dagOrd(), merker.length,
       (merker.length
         ? [nMorgen && nMorgen + ' morgen', nKveld && nKveld + ' kveld',
            nBegge && nBegge + ' all tid brukt opp'].filter(Boolean).join(' · ')
@@ -1788,6 +1823,7 @@ function tegn(){
   sprakTraktKort(data);
   veiKort(data);
   dognKort(data);
+  dagVelgKort();
   dagKort(data); alderKort(data); laasKort(data); sprakDagKort(data); blaKort();
   aktivKort(data);
   returKort(data);
@@ -1829,7 +1865,7 @@ function tegn(){
     // «de 1 som» leser daarlig, og med disse tallene skjer det ofte.
     const antall = tabData.length === 0 ? 'ingen'
       : tabData.length === 1 ? 'den ene' : 'de ' + tabData.length;
-    fEl.innerHTML = merke + '<b>Viser bare ' + antall + ' som ' + valgt.navn + '.</b>'
+    fEl.innerHTML = merke + '<b>Viser bare ' + antall + ' som ' + (typeof valgt.navn === 'function' ? valgt.navn() : valgt.navn) + '.</b>'
       + sprik + ' <button id="laasAv">Vis alle igjen</button>';
   }
   tabell(tabData);
@@ -2007,6 +2043,14 @@ function veiKort(data){
 // gjoer. To diagrammer som viser hver sin periode er verre enn ingen blaing.
 let dagForskyv = 0;
 function sisteDager(n){ const ut = []; for (let i = n-1; i >= 0; i--) ut.push(new Date(Date.now() - (i + dagForskyv)*864e5).toISOString().slice(0,10)); return ut; }
+function dagVelgKort(){
+  const inp = document.getElementById("flisDag"); if (!inp) return;
+  inp.max = idagIso();
+  if (inp.value !== (valgtDag || idagIso())) inp.value = valgtDag || idagIso();
+  document.getElementById("flisNaa").disabled = !valgtDag;
+  document.getElementById("flisDagNote").textContent = valgtDag
+    ? "viser " + fmtDag(valgtDag) + ", ikke i dag" : "";
+}
 function blaKort(){
   const dg = sisteDager(dager), rad = document.getElementById('blaBak');
   if (!rad) return;
@@ -2770,6 +2814,16 @@ function tabell(data){
 
 // Blaing i tid. Ett trykk flytter vinduet én hel vindulengde, saa periodene
 // ligger kant i kant i stedet for aa gli over hverandre.
+// Datovelgeren for flisene. Tom verdi eller dagens dato betyr «i dag»,
+// saa valgtDag holdes null i begge tilfeller - ellers ville flisene sagt
+// «16.09» i stedet for «i dag» paa dagens dato, og det er en forskjell
+// brukeren ikke har bedt om.
+document.getElementById("flisDag").addEventListener("change", (e) => {
+  const v = e.target.value;
+  valgtDag = (!v || v === idagIso()) ? null : v;
+  tegn();
+});
+document.getElementById("flisNaa").addEventListener("click", () => { valgtDag = null; tegn(); });
 const blaTil = n => { dagForskyv = Math.max(0, n); tegn(); };
 document.getElementById('blaBak').addEventListener('click', () => blaTil(dagForskyv + dager));
 document.getElementById('blaFram').addEventListener('click', () => blaTil(dagForskyv - dager));
