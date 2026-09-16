@@ -163,8 +163,12 @@
   .bla #blaTekst { font-variant-numeric:tabular-nums; min-width:132px; text-align:center; }
   .bla .blanote { color:var(--muted); font-size:11px; }
   .bla.tilbake #blaTekst { color:var(--series-2); font-weight:700; }
-  /* Alderstabellen */
-  .alder { width:100%; border-collapse:collapse; font-size:12px; }
+  /* Kjoeperne mot kalenderen: strekene oeverst, tabellen under. Diagrammet er
+     bildet, tabellen er fasiten - begge trengs. */
+  .alderfot { display:flex; gap:14px; flex-wrap:wrap; font-size:11.5px; color:var(--text-secondary); margin-top:2px; }
+  .alderfot i { width:8px; height:8px; border-radius:2px; display:inline-block; margin-right:4px; }
+  .dagsliste { font-size:11.5px; color:var(--muted); margin-top:7px; }
+  .alder { width:100%; border-collapse:collapse; font-size:12px; margin-top:10px; }
   .alder th { text-align:right; font-weight:400; color:var(--muted); padding:3px 6px;
               border-bottom:1px solid var(--grid); font-size:11px; }
   .alder th:first-child, .alder td:first-child { text-align:left; }
@@ -173,7 +177,6 @@
   .alder td.null { color:var(--muted); }
   .alder tr.idag td { font-weight:700; }
   .alder tr.sum td { border-top:1px solid var(--grid); border-bottom:none; color:var(--text-secondary); }
-  .alder .dagsliste { font-size:11.5px; color:var(--muted); margin-top:7px; }
   /* Underfordeling: raden i «Tid per side» aapner et fordelingsfelt. Medianen
      alene skjuler om en side har en hale - og det er halen som avgjoer om en
      gratisgrense er verdt aa stramme. */
@@ -417,6 +420,7 @@
   <div class="kort" data-fane="bruk"><h3>Dag for dag</h3>
     <div class="hint">Søyler: <span style="color:var(--series-1)">■</span> nye enheter (første oppstart)
       · <span style="color:var(--series-3)">■</span> kjøp fra RevenueCat-lista, ført på <b>betalingsdagen</b>
+      (hul topp = <b>utledet dato</b>: kjøpsposten mangler, dagen er regnet av utløpet og kan bomme med et døgn)
       · <span style="color:var(--kohort)">■</span> <b>kjøp fra kohorten</b>: nedlastinger denne dagen som endte med kjøp,
       uansett hvilken dag de betalte. Den lyse søyla <b>legger til</b> kjøp som kom inn senere like mye som den
       trekker fra dem som betalte samme dag - det er den som sier om kronene brukt denne dagen faktisk ga kjøpere.
@@ -436,7 +440,8 @@
     <div class="hint">Motsatt lesning av søylene over: her står kjøpene på <b>betalingsdagen</b>, og
       raden viser hvor gamle kjøperne var da de betalte. «4 nye kjøpere i dag» er sjelden fire nye
       brukere - de fleste lastet ned tidligere. Alderen er regnet fra første åpning.</div>
-    <div id="cAlder"></div>
+    <div id="cAlder"><svg id="cAlderSvg" width="100%" height="150"></svg></div>
+    <div id="cAlderFot"></div>
   </div>
   <div class="kort" data-fane="bruk"><h3>Låsen dag for dag</h3>
     <div class="hint">Søyler: <span style="color:var(--series-1)">■</span> enheter som møtte låsen den dagen
@@ -2041,7 +2046,17 @@ function dagDiagram(svg, dg, nye, kjop, krAv, skala){
     const hKo = ko ? Math.max(3, ih * ko / maksN) : 0;
     const wN = Math.max(1, bw*bN-2), wK = Math.max(1, bw*bK-2);
     s += '<rect x="' + (x+2) + '" y="' + (T+ih-hN) + '" width="' + wN + '" height="' + hN + '" fill="' + css('--series-1') + '" rx="2"><title>' + fmtDag(d) + ': ' + n + ' nye</title></rect>';
-    s += '<rect x="' + (x+2+bw*bN) + '" y="' + (T+ih-hK) + '" width="' + wK + '" height="' + hK + '" fill="' + css(skala.graaKjop ? '--baseline' : '--series-3') + '" rx="2"><title>' + fmtDag(d) + ': ' + k + ' kjøp' + (skala.graaKjop ? ' uten kjent språk' : '') + '</title></rect>';
+    // USIKKER DEL AV KJOEPSSOEYLA. Mangler kjoepsposten, utledes datoen av
+    // proUtlop minus produktets varighet - og den bommer med en dag eller to.
+    // Maalt 16.09: 12.09 viste 3 mot RevenueCats 2, og 10.09 viste 3 mot 4.
+    // Begge dagene hadde utledede datoer, og ingen andre dager spriket. Den
+    // delen tegnes derfor hul, saa en vaklende dag SER vaklende ut i stedet
+    // for aa lyve med samme tyngde som en maalt.
+    const us = Math.min(k, (skala.kjopUsikker && skala.kjopUsikker[d]) || 0);
+    const hUs = us ? hK * us / k : 0;
+    s += '<rect x="' + (x+2+bw*bN) + '" y="' + (T+ih-hK) + '" width="' + wK + '" height="' + hK + '" fill="' + css(skala.graaKjop ? '--baseline' : '--series-3') + '" rx="2"><title>' + fmtDag(d) + ': ' + k + ' kjøp'
+      + (skala.graaKjop ? ' uten kjent språk' : '') + (us ? ' - men ' + us + ' av dem har UTLEDET dato (kjøpsposten mangler, datoen er regnet av utløpet) og kan høre til nabodagen' : '') + '</title></rect>';
+    if (us) s += '<rect x="' + (x+2+bw*bN) + '" y="' + (T+ih-hK) + '" width="' + wK + '" height="' + hUs + '" fill="' + css('--plane') + '" stroke="' + css('--series-3') + '" stroke-width="1" rx="2" pointer-events="none"/>';
     if (skala.kjopTall && k) s += '<text x="' + (x+2+bw*bN+wK/2) + '" y="' + (T+ih-hK-2) + '" font-size="9" text-anchor="middle" fill="' + css(skala.graaKjop ? '--muted' : '--series-3') + '">' + k + '</text>';
     if (harKo) {
       const xKo = x + 2 + bw*(bN+bK);
@@ -2084,35 +2099,87 @@ function alderKort(data){
   const perDag = {};
   kjopere.forEach(x => { (perDag[x.betalt] = perDag[x.betalt] || []).push(x); });
   const dager2 = Object.keys(perDag).sort().reverse();
+  if (!kjopere.length) {
+    document.getElementById('cAlder').innerHTML = '<span style="color:var(--muted)">ingen kjøp i vinduet</span>';
+    return;
+  }
+  // STREKENE. Hver strek gaar fra dagen enheten ble lastet ned til dagen den
+  // betalte. Aksen er NOEYAKTIG den samme som i «Dag for dag» over (samme L,
+  // R og bredde per dag), saa de to kan leses sammen - en strek som lander paa
+  // en soeyle er et av kjoepene i den soeyla.
+  const svg = document.getElementById('cAlderSvg');
+  const W = Math.max(320, svg.getBoundingClientRect().width || 700), L = 34, R = 44;
+  const H = 150, T = 10, B = 26, ih = H - T - B;
+  const bw = (W - L - R) / dg.length;
+  const x = d => { const i = dg.indexOf(d); return i < 0 ? null : L + i*bw + bw/2; };
+  const yBunn = T + ih;
+  let s = '';
+  s += '<line x1="' + L + '" x2="' + (W-R) + '" y1="' + yBunn + '" y2="' + yBunn + '" stroke="' + css('--grid') + '"/>';
+  const hver = Math.ceil(dg.length / (W < 500 ? 5 : 10));
+  dg.forEach((d, i) => { if (i % hver === 0) s += '<text x="' + (L + i*bw + bw/2) + '" y="' + (H-8)
+    + '" font-size="10" text-anchor="middle" fill="' + css('--muted') + '">' + fmtDag(d) + '</text>'; });
+  const maksAlder = Math.max(1, ...kjopere.map(k => k.alder));
+  // Sorter saa de lengste strekene tegnes foerst og de korte havner oeverst.
+  [...kjopere].sort((a, b) => b.alder - a.alder).forEach(k => {
+    const x2 = x(k.betalt); if (x2 === null) return;
+    const x1 = x(k.lastet);
+    const farge = k.alder === 0 ? css('--series-3') : k.alder <= 3 ? css('--series-1') : css('--series-2');
+    const tit = '<title>Betalt ' + fmtDag(k.betalt) + ' · lastet ned ' + fmtDag(k.lastet)
+      + ' · ' + (k.alder === 0 ? 'samme dag' : k.alder + ' døgn') + '</title>';
+    if (k.alder === 0) {                      // samme dag: ingen strek aa tegne
+      s += '<circle cx="' + x2 + '" cy="' + (yBunn - 4) + '" r="3.5" fill="' + farge + '">' + tit + '</circle>';
+      return;
+    }
+    const h = 12 + (ih - 22) * Math.min(1, k.alder / maksAlder);
+    if (x1 === null) {
+      // Nedlastingen ligger FOER vinduet. En strek ut av bildet ville lovet en
+      // dato som ikke finnes her; i stedet en stump mot venstre kant med
+      // datoen i tittelen, saa den fortsatt kan leses.
+      s += '<path d="M' + L + ' ' + (yBunn - h) + ' L' + (L + 10) + ' ' + (yBunn - h) + ' Q' + x2 + ' ' + (yBunn - h) + ' ' + x2 + ' ' + yBunn
+        + '" fill="none" stroke="' + farge + '" stroke-width="1.3" stroke-dasharray="3,2" opacity=".85">' + tit + '</path>';
+    } else {
+      s += '<path d="M' + x1 + ' ' + yBunn + ' Q' + ((x1+x2)/2) + ' ' + (yBunn - h*2) + ' ' + x2 + ' ' + yBunn
+        + '" fill="none" stroke="' + farge + '" stroke-width="1.3" opacity=".8">' + tit + '</path>';
+    }
+    s += '<circle cx="' + x2 + '" cy="' + yBunn + '" r="2.4" fill="' + farge + '">' + tit + '</circle>';
+    if (x1 !== null) s += '<circle cx="' + x1 + '" cy="' + yBunn + '" r="1.8" fill="none" stroke="' + farge + '" stroke-width="1"/>';
+  });
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.innerHTML = s;
+  // Kort oppsummering under, og siste dag i klartekst - det var spoersmaalet
+  // kortet ble laget for: «kun 1 av de 4 er fra i dag, naar er de andre fra?»
+  const sammeDag = kjopere.filter(k => k.alder === 0).length;
+  const aldre = kjopere.map(k => k.alder).sort((a, b) => a - b);
+  let h2 = '<div class="alderfot"><span><i style="background:' + css('--series-3') + '"></i>samme dag ' + sammeDag + '</span>'
+    + '<span><i style="background:' + css('--series-1') + '"></i>1-3 døgn ' + kjopere.filter(k => k.alder >= 1 && k.alder <= 3).length + '</span>'
+    + '<span><i style="background:' + css('--series-2') + '"></i>4 døgn eller mer ' + kjopere.filter(k => k.alder >= 4).length + '</span>'
+    + '<span>median <b>' + aldre[Math.floor(aldre.length/2)] + ' døgn</b></span></div>';
+  const siste = dager2[0];
+  if (siste) {
+    const liste = [...perDag[siste]].sort((a, b) => a.alder - b.alder);
+    h2 += '<div class="dagsliste"><b>' + (siste === idag ? 'I dag' : fmtDag(siste)) + '</b>, '
+      + liste.length + (liste.length === 1 ? ' kjøp' : ' kjøp') + ' - lastet ned: '
+      + liste.map(x => fmtDag(x.lastet) + ' <span style="color:var(--text-secondary)">('
+          + (x.alder === 0 ? 'samme dag' : x.alder + ' d') + ')</span>').join(' · ') + '</div>';
+  }
+  // TABELLEN STAAR VED SIDEN AV STREKENE, ikke i stedet for dem. Strekene
+  // viser formen - hvor lange spranga er og naar de kom - men de kan ikke
+  // leses av som tall. Tabellen er fasiten per dag; diagrammet er bildet.
   const celle = (liste, lo, hi) => {
     const n = liste.filter(x => x.alder >= lo && x.alder <= hi).length;
     return '<td' + (n ? '' : ' class="null"') + '>' + (n || '·') + '</td>';
   };
   const rad = (navn, liste, klasse) => '<tr' + (klasse ? ' class="' + klasse + '"' : '') + '><td>' + navn + '</td>'
     + '<td><b>' + liste.length + '</b></td>' + ALDER_BOLK.map(([lo, hi]) => celle(liste, lo, hi)).join('') + '</tr>';
-  if (!kjopere.length) {
-    document.getElementById('cAlder').innerHTML = '<span style="color:var(--muted)">ingen kjøp i vinduet</span>';
-    return;
-  }
-  let h = '<table class="alder"><tr><th>Betalt</th><th>Kjøp</th>'
+  h2 += '<table class="alder"><tr><th>Betalt</th><th>Kjøp</th>'
     + ALDER_BOLK.map(([, , nv]) => '<th>' + nv + '</th>').join('') + '</tr>'
-    + dager2.map(d => rad(d === idag ? '<b>i dag</b>' : fmtDag(d), perDag[d], d === idag ? 'idag' : ''))
-        .join('')
+    + dager2.map(d => rad(d === idag ? '<b>i dag</b>' : fmtDag(d), perDag[d], d === idag ? 'idag' : '')).join('')
     + rad('<b>hele vinduet</b>', kjopere, 'sum') + '</table>';
-  // Dagen oeverst skrives ut i klartekst - det var nettopp det spoersmaalet
-  // kortet ble laget for: «kun 1 av de 4 er fra i dag, naar er de andre fra?»
-  const siste = dager2[0];
-  if (siste) {
-    const liste = [...perDag[siste]].sort((a, b) => a.alder - b.alder);
-    h += '<div class="dagsliste"><b>' + (siste === idag ? 'I dag' : fmtDag(siste)) + '</b>: '
-      + liste.map(x => fmtDag(x.lastet) + ' <span style="color:var(--text-secondary)">('
-          + (x.alder === 0 ? 'samme dag' : x.alder + ' d') + ')</span>').join(' · ') + '</div>';
-  }
   const iAlt = data.filter(kvittert).length;
-  h += '<div class="hull">Alderen krever både betalingsdag og nedlastingsdag, så bare kjøp som finnes '
+  h2 += '<div class="hull">Streken krever både betalingsdag og nedlastingsdag, så bare kjøp som finnes '
     + 'som enhetsrad er med: ' + kjopere.length + ' i vinduet, ' + iAlt + ' i basen i alt mot '
-    + KJOP_RC.length + ' i RevenueCat-lista. Nedlastingsdagen er første ÅPNING, ikke butikkens nedlasting.</div>';
-  document.getElementById('cAlder').innerHTML = h;
+    + KJOP_RC.length + ' i RevenueCat-lista. Stiplet strek = nedlastingen skjedde før vinduet. '
+    + 'Nedlastingsdagen er første ÅPNING, ikke butikkens nedlasting.</div>';
+  document.getElementById('cAlderFot').innerHTML = h2;
 }
 function dagKort(data){
   const dg = sisteDager(dager);
@@ -2141,10 +2208,25 @@ function dagKort(data){
   // sett, ikke additive, saa de skal aldri legges sammen.
   const kjop = {};
   Object.keys(rcPerDag).forEach(d => { kjop[d] = rcPerDag[d]; });
-  const fraBasen = {};
-  data.filter(kvittert).forEach(r => { const k = kjopDagOslo(kjopsInfo(r)); fraBasen[k] = (fraBasen[k] || 0) + 1; });
+  const fraBasen = {}, utledet = {};
+  data.filter(kvittert).forEach(r => {
+    const ki = kjopsInfo(r), k = kjopDagOslo(ki);
+    fraBasen[k] = (fraBasen[k] || 0) + 1;
+    // eksakt = kjoepsposten fra build-137+ med ekte tidsstempel. Uten den er
+    // dagen regnet av utloepet og kan bomme; den telles som usikker.
+    if (!ki.eksakt) utledet[k] = (utledet[k] || 0) + 1;
+  });
   Object.keys(fraBasen).forEach(d => { if (!(kjop[d] >= fraBasen[d])) kjop[d] = fraBasen[d]; });
-  dagDiagram(document.getElementById('cDag'), dg, nye, kjop, d => { const rk = reklameKr(d); return { sum: rk.sum, tekst: krTekst(rk), anslag: rk.anslag > 0 }; }, { kohort: kohort, kjopTall: true });
+  // Usikker del per dag: bare der RevenueCat ikke alt har bekreftet hele dagen.
+  // Dekker RC dagen og teller like mange eller flere enn basen, er soeyla RCs
+  // tall - og da er det ingenting utledet i den.
+  const rcSiste = KJOP_RC.length ? KJOP_RC.map(t => rcDagOslo(t)).sort().pop() : null;
+  const kjopUsikker = {};
+  Object.keys(utledet).forEach(d => {
+    const rcDekker = rcSiste && d <= rcSiste && (rcPerDag[d] || 0) >= (fraBasen[d] || 0);
+    if (!rcDekker) kjopUsikker[d] = Math.min(utledet[d], kjop[d] || 0);
+  });
+  dagDiagram(document.getElementById('cDag'), dg, nye, kjop, d => { const rk = reklameKr(d); return { sum: rk.sum, tekst: krTekst(rk), anslag: rk.anslag > 0 }; }, { kohort: kohort, kjopTall: true, kjopUsikker: kjopUsikker });
   document.getElementById('cRegime').innerHTML = REGIMER.filter(x => x.d >= dg[0] && x.d <= dg[dg.length-1])
     .map(x => '<span><b>' + fmtDag(x.d) + '</b> ' + x.t + '</span>').join('') || '<span>ingen regimeskifter i vinduet</span>';
 }
