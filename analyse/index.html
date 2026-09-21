@@ -264,6 +264,11 @@
   .bygg { font-size:10.5px; font-weight:700; padding:1px 6px; border-radius:9px;
           border:1px solid var(--border); color:var(--muted); white-space:nowrap; }
   .bygg.n3 { color:var(--good-text); border-color:var(--good-text); }
+  /* Skillelinja mellom dem som ikke har kjoept og dem som har. Den staar
+     der bare naar begge gruppene finnes - ellers er den stoey. */
+  tr.skille td { border-top:2px solid var(--good-text); color:var(--good-text);
+                 font-size:11.5px; font-weight:700; letter-spacing:.03em;
+                 padding-top:9px; padding-bottom:3px; }
   tr.sovende td { color:var(--text-secondary); }
   tr.sovende td:nth-child(2) { text-decoration:line-through; text-decoration-thickness:1.5px;
                                text-decoration-color:var(--baseline); }
@@ -582,6 +587,8 @@
       <span class="dagnote" id="dagStegNote"></span>
     </div>
     <div class="kjopValg" id="kjopValg"></div>
+    <label class="bryter" style="margin-bottom:10px">
+      <input type="checkbox" id="samleKjop" checked> samle kjøperne nederst</label>
     <div id="laasFilter" style="display:none;margin-bottom:10px"></div>
     <div style="overflow-x:auto"><table id="tabell"></table></div>
     <div class="fot" id="tabellFot"></div>
@@ -1764,6 +1771,10 @@ function tegn(){
   const kjopUke = new Date(Date.parse(idagOslo) - 6*864e5).toISOString().slice(0,10);
   const nKjoptIdag = kjop.filter(d => d === kjopIdag).length;
   const aktivIdag = data.filter(r => aktiveDager(r).includes(idag)).length;
+  // Hvor mange av dagens aktive som allerede har betalt. Uten det tallet
+  // leses flisa som «saa mange kan kjoepe i dag», og den er for hoey: den
+  // som har kjoept er fortsatt aktiv, men kan ikke kjoepe om igjen.
+  const aktivKjopt = data.filter(r => aktiveDager(r).includes(idag) && kvittert(r)).length;
   const nNyeIdag = nye.filter(d => d === idag).length;
   const maal = data.filter(maalbar);
   const laast = maal.filter(r => hend(r, 'laas_vist') > 0).length;
@@ -1781,10 +1792,12 @@ function tegn(){
   document.getElementById('fliser').innerHTML = [
     flis('Enheter', data.length, 'i utvalget'),
     flis('Aktive ' + dagOrd(), aktivIdag,
-      data.filter(r => aktiveDager(r).some(d => d >= uke && d <= idag)).length + ' siste 7 dager'
+      (aktivIdag ? aktivKjopt + ' av dem har kjøpt · ' : '')
+        + data.filter(r => aktiveDager(r).some(d => d >= uke && d <= idag)).length + ' siste 7 dager'
         + (aktivIdag ? ' · <b>trykk for å se dem</b>' : ''), aktivIdag > 0,
       { klasse: (aktivIdag || tabellFilter ? 'trykk' : ''), id: 'flisAktiv', data: 'aktivIdag',
-        tittel: 'Enheter med minst ett spor i dag: tid, runde eller Dash-blitz.' }),
+        tittel: 'Enheter med minst ett spor i dag: tid, runde eller Dash-blitz. '
+          + 'Kjøpt-tallet er kvitterte kjøp blant dem, uansett når de betalte.' }),
     flis('Nye ' + dagOrd(), nNyeIdag,
       nye.filter(d => d >= uke && d <= idag).length + ' siste 7 dager'
         + (nNyeIdag ? ' · <b>trykk for å se dem</b>' : ''), false,
@@ -2843,6 +2856,12 @@ const KOLONNER = [
   { k:'laast', t:'låst', tall:1, h:1 }, { k:'pott', t:'pott tom', tall:1, h:1 }, { k:'kjopt', t:'kjøpt', tall:1 }, { k:'aktiv', t:'aktivitet', tall:1 },
   { k:'opphold', t:'lengste opphold', tall:1 },
 ];
+// Kjoeperne samles nederst, uansett hvilken kolonne som sorterer. Ellers
+// ligger de faa betalende spredt mellom gratisradene, og eneste maaten aa
+// se dem paa er aa filtrere resten vekk - da mister man sammenlikningen.
+// Tilstanden ligger her og ikke i DOMen: toerrkjoeringen kaller ogsaa
+// tegn(), og der finnes ikke avkryssingsboksen.
+let samleKjopere = true;
 let tabSort = { kol:'foerste', ned:true };
 function sortVerdi(r, k){
   if (k === 'id') return r.id; if (k === 'sprak') return sprakNavn(r.sprak || '');
@@ -2919,13 +2938,23 @@ function dagDetalj(r){
 }
 function tabell(data){
   const t = document.getElementById('tabell');
-  const sortert = [...data].sort((a,b) => { const x = sortVerdi(a, tabSort.kol), y = sortVerdi(b, tabSort.kol);
+  const sortert = [...data].sort((a,b) => {
+    // Kjoept/ikke kjoept er hovednoekkelen; kolonnesorteringen gjelder
+    // innenfor hver av de to gruppene.
+    if (samleKjopere) { const ka = kvittert(a) ? 1 : 0, kb = kvittert(b) ? 1 : 0; if (ka !== kb) return ka - kb; }
+    const x = sortVerdi(a, tabSort.kol), y = sortVerdi(b, tabSort.kol);
     const c = (typeof x === 'number' && typeof y === 'number') ? x - y : String(x).localeCompare(String(y), 'nb'); return tabSort.ned ? -c : c; });
+  const nKjopere = sortert.filter(kvittert).length;
   let s = '<tr><th></th>' + KOLONNER.map(k => '<th class="sorter' + (tabSort.kol === k.k ? ' aktiv' : '') + (k.h ? ' h' : '') + '" data-kol="' + k.k + '">' + k.t + '<span class="pil">' + (tabSort.ned ? '▼' : '▲') + '</span></th>').join('') + '</tr>';
   const strek = v => v === null ? '<span style="color:var(--muted)" title="krever build-126">–</span>' : minutter(v);
   sortert.forEach((r, i) => {
     const ki = kjopsInfo(r), n = nedlastKilde(r), sov = dagerSidenAktiv(r) > 5;
     const vl = laasIDag(r);
+    // Skilleraden settes inn i overgangen. Finnes bare én av gruppene, blir
+    // det aldri noen overgang, og linja uteblir av seg selv.
+    if (samleKjopere && i > 0 && kvittert(r) && !kvittert(sortert[i-1]))
+      s += '<tr class="skille"><td></td><td colspan="' + KOLONNER.length + '">'
+        + nKjopere + ' av ' + sortert.length + ' har kjøpt - de ligger nedenfor</td></tr>';
     s += '<tr class="' + (sov ? 'sovende' : '') + '" style="cursor:pointer" data-rad="' + i + '">'
       + '<td style="width:14px;color:var(--muted)"><span id="pil' + i + '">›</span></td>'
       + '<td>' + (vl ? '<span class="prikkLaas ' + laasKlasse(vl) + '" title="i dag: ' + laasTekst(vl) + '"></span>' : '')
@@ -2985,6 +3014,8 @@ document.getElementById('blaNaa').addEventListener('click', () => blaTil(0));
 document.querySelectorAll('[data-dager]').forEach(b => b.addEventListener('click', () => {
   document.querySelectorAll('[data-dager]').forEach(x => x.classList.toggle('valgt', x === b)); dager = +b.dataset.dager; tegn(); }));
 ['visTest','kunGP','kunAS'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('change', tegn); });
+{ const el = document.getElementById('samleKjop');
+  if (el) { el.checked = samleKjopere; el.addEventListener('change', () => { samleKjopere = el.checked; tegn(); }); } }
 
 // Krypterte data. Uten riktig bruker+passord kan ikke Supabase-noekkelen
 // utledes, og siden har ingenting aa hente med.
