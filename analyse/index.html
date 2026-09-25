@@ -266,6 +266,18 @@
   .bygg.n3 { color:var(--good-text); border-color:var(--good-text); }
   /* Skillelinja mellom dem som ikke har kjoept og dem som har. Den staar
      der bare naar begge gruppene finnes - ellers er den stoey. */
+  /* Filterkurvene. Tretti doegn blir trangt paa mobil, saa svg-en faar en
+     minstebredde og ruta ruller sidelengs i stedet for aa klemme dagene
+     sammen til noe uleselig. */
+  .kurverad { margin-bottom:16px; }
+  .kurverad:last-child { margin-bottom:0; }
+  .kurvetittel { font-size:12.5px; font-weight:700; margin-bottom:2px; }
+  .kurvetittel .tall { color:var(--muted); font-weight:400; margin-left:6px; }
+  .kurverull { overflow-x:auto; }
+  /* .kort svg har max-width:100 %, og den klemmer 30 doegn ned i
+     skjermbredden i stedet for aa la ruta rulle. Her skal svg-en beholde
+     sin egen bredde - det er nettopp den som gir rullingen. */
+  .kurverull svg { max-width:none; display:block; }
   tr.skille td { border-top:2px solid var(--good-text); color:var(--good-text);
                  font-size:11.5px; font-weight:700; letter-spacing:.03em;
                  padding-top:9px; padding-bottom:3px; }
@@ -573,6 +585,23 @@
   <!-- 5. ENHETENE -->
   <div class="seksjon" data-fane="enheter"><h2>Enhetene</h2>
     <div class="sp">Én rad per enhet. Klikk en rad for dager, sider og hendelser.</div></div>
+
+  <!-- 5a. FILTRENE DAG FOR DAG. Samme fire maal som flisene og tabellfiltrene,
+       men utover i tid i stedet for bare den valgte dagen. Sammenlagt som
+       «Kan jeg stole paa tallene?»: den er til oppslag naar man lurer paa om
+       dagens tall er normalt, ikke til gjennomlesing. -->
+  <details class="kort smal" data-fane="enheter">
+    <summary>Filtrene dag for dag <span class="sumnote">de fire målene fra flisene, 30 døgn</span></summary>
+    <div class="hint">Samme fire mål som flisene over tabellen, tegnet dag for dag.
+      <span style="color:var(--series-1)">■</span> hele søyla er alle som traff målet den dagen ·
+      <span style="color:var(--critical)">■</span> den røde toppen er <b>de av dem som har kjøpt</b>,
+      uansett når de betalte. «Kjøpt» er derfor helrød.
+      Tallene er de samme som flisene viser når du velger den dagen.
+      <b>Merk døgnbasisen:</b> aktive, nye og lås er UTC-døgn som resten av appens dagsnøkler,
+      mens kjøp er <b>norske</b> døgn, fordi det er slik RevenueCat daterer. Rundt midnatt kan
+      derfor et kjøp stå på nabodagen av den aktive dagen det hører til.</div>
+    <div id="cFilterKurver"></div>
+  </details>
   <div class="kort" data-fane="enheter">
     <div class="hint"><b>På skjerm</b> = sekunder på innholdssider, uvektet.
       <b>I spill</b> = den delen som var quiz, fasit og blitz.
@@ -1919,6 +1948,7 @@ function tegn(){
       + sprik + ' <button id="laasAv">Vis alle igjen</button>';
   }
   tabell(tabData);
+  filterKurver(data);
   const av = document.getElementById('laasAv');
   if (av) av.addEventListener('click', () => { tabellFilter = null; tegn(); });
   const utv = rader.filter(r => r.erUtvikler).length, tst = rader.filter(r => r.erTest).length, forL = rader.filter(r => r.forLansering && !r.erUtvikler && !r.erTest).length;
@@ -2935,6 +2965,78 @@ function dagDetalj(r){
     : '<span class="merke"' + (x.prove ? ' style="color:var(--series-1);border-color:var(--series-1)"' : erBlitz(x) ? ' style="color:var(--muted)"' : '') + '>'
       + (x.prove ? 'Prøve' : erBlitz(x) ? 'Blitz' : 'Øving') + ' ' + (x.poeng ?? x.r ?? '?') + '/' + x.av + '</span>';
   return '<div class="detblokk"><div class="tit">dager</div>' + d.map(dag => '<div style="margin:2px 0"><span style="display:inline-block;width:44px;color:var(--muted)">' + fmtDag(dag) + '</span>' + (perDag[dag] || []).map(merke).join(' ') + '</div>').join('') + '</div>';
+}
+// FILTRENE DAG FOR DAG. Én staaende soeyle per dag: hele soeyla er alle som
+// traff maalet, og den roede toppen er de av dem som har kjoept. Egen tegner
+// og ikke dagDiagram(), fordi den setter soeylene ved siden av hverandre -
+// her er poenget nettopp at kjoeperne er en DEL av de andre.
+//
+// Bredden: 30 doegn paa en mobilskjerm gir under ti piksler per dag. I stedet
+// for aa klemme dem sammen faar svg-en en minstebredde per dag, og ruta rundt
+// ruller sidelengs.
+const KURVE_MIN_DAG = 22;
+function stabelDiagram(svg, dg, tot, kjopt, navn){
+  const H = 132, L = 30, R = 8, T = 14, B = 24;
+  const bred = svg.parentNode ? (svg.parentNode.getBoundingClientRect().width || 700) : 700;
+  const W = Math.max(320, bred, dg.length * KURVE_MIN_DAG + L + R);
+  const iw = W - L - R, ih = H - T - B, bw = iw / dg.length;
+  const maks = Math.max(1, ...dg.map(d => tot[d] || 0));
+  let s = '';
+  [0, .5, 1].forEach(f => { const y = T + ih - f*ih;
+    s += '<line x1="' + L + '" x2="' + (W-R) + '" y1="' + y + '" y2="' + y + '" stroke="' + css('--grid') + '"/>'
+      + '<text x="' + (L-4) + '" y="' + (y+4) + '" font-size="10" text-anchor="end" fill="' + css('--muted') + '">' + Math.round(maks*f) + '</text>'; });
+  const hver = Math.ceil(dg.length / (W < 500 ? 5 : 10));
+  dg.forEach((d, i) => {
+    const x = L + i*bw, n = tot[d] || 0, k = Math.min(n, kjopt[d] || 0);
+    const wS = Math.max(1, bw*0.72 - 2), xS = x + (bw - wS)/2;
+    // Null skal se ut som null, saa en tom dag faar ingen soeyle i det hele
+    // tatt - ikke en strek som kan forveksles med én enhet.
+    if (n > 0) {
+      const hN = Math.max(1, ih * n / maks), hK = k ? Math.max(1, ih * k / maks) : 0;
+      s += '<rect x="' + xS + '" y="' + (T+ih-hN) + '" width="' + wS + '" height="' + hN + '" fill="' + css('--series-1') + '" rx="2">'
+        + '<title>' + fmtDag(d) + ': ' + n + ' ' + navn + (k ? ' - ' + k + ' av dem har kjøpt' : '') + '</title></rect>';
+      if (k) s += '<rect x="' + xS + '" y="' + (T+ih-hN) + '" width="' + wS + '" height="' + hK + '" fill="' + css('--critical') + '" rx="2" pointer-events="none"/>';
+      s += '<text x="' + (xS+wS/2) + '" y="' + (T+ih-hN-3) + '" font-size="9" text-anchor="middle" fill="' + css('--muted') + '">' + n + '</text>';
+    }
+    if (i % hver === 0) s += '<text x="' + (x+bw/2) + '" y="' + (H-8) + '" font-size="10" text-anchor="middle" fill="' + css('--muted') + '">' + fmtDag(d) + '</text>';
+  });
+  svg.setAttribute('width', W); svg.setAttribute('height', H);
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.innerHTML = s;
+}
+// Maalene er DE SAMME som FILTRE bruker, bare med dagen som parameter i stedet
+// for dagValgt(). Gaar de fra hverandre, viser flisa ett tall og kurven et
+// annet for samme dag, og da er begge verdiloese.
+const KURVER = [
+  { id: 'aktiv', navn: 'Aktive', ord: 'aktive',
+    hint: 'minst ett spor den dagen: tid, runde eller Dash-blitz',
+    dager: r => aktiveDager(r) },
+  { id: 'nye', navn: 'Nye', ord: 'nye',
+    hint: 'første åpning, ikke nedlasting',
+    dager: r => { const d = nedlastet(r); return d ? [d] : []; } },
+  { id: 'laas', navn: 'Møtt låsen', ord: 'som møtte låsen',
+    hint: 'brukte opp gratistiden i app-døgnet',
+    dager: r => Object.keys(laasDager(r)) },
+  { id: 'kjopt', navn: 'Kjøpt', ord: 'kjøp',
+    hint: 'kvittert kjøp, datert i norsk døgn som RevenueCat',
+    dager: r => { const i = kjopsInfo(r); return i.kilde === 'kjop' ? [kjopDagOslo(i)] : []; } },
+];
+function filterKurver(data){
+  const el = document.getElementById('cFilterKurver');
+  if (!el) return;
+  const dg = sisteDager(30);
+  el.innerHTML = KURVER.map(k => '<div class="kurverad"><div class="kurvetittel">' + k.navn
+    + ' <span class="tall" id="kurvesum-' + k.id + '"></span></div>'
+    + '<div class="hint" style="margin-bottom:4px">' + k.hint + '</div>'
+    + '<div class="kurverull"><svg id="kurve-' + k.id + '"></svg></div></div>').join('');
+  KURVER.forEach(k => {
+    const tot = {}, kjopt = {};
+    data.forEach(r => { const kj = kvittert(r);
+      k.dager(r).forEach(d => { if (!d) return; tot[d] = (tot[d] || 0) + 1; if (kj) kjopt[d] = (kjopt[d] || 0) + 1; }); });
+    stabelDiagram(document.getElementById('kurve-' + k.id), dg, tot, kjopt, k.ord);
+    const sT = dg.reduce((a, d) => a + (tot[d] || 0), 0), sK = dg.reduce((a, d) => a + (kjopt[d] || 0), 0);
+    const sum = document.getElementById('kurvesum-' + k.id);
+    if (sum) sum.textContent = sT + ' i vinduet' + (k.id === 'kjopt' ? '' : ' · ' + sK + ' av dem har kjøpt');
+  });
 }
 function tabell(data){
   const t = document.getElementById('tabell');
