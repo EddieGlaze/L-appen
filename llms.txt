@@ -1,0 +1,24 @@
+# L-appen: Ta lappen
+
+> Norsk app for å øve til teoriprøven for førerkort klasse B (personbil). Rundt 640 spørsmål skrevet for klasse B, alle med forklaring og henvisning til regelverket, på tolv språk. Gratis bruk hver dag med tidsbegrensning, full tilgang som engangskjøp uten abonnement. Laget av Studio Glazebrook i Norge. Appen er privat og ikke tilknyttet Statens vegvesen.
+
+## Fakta
+
+- Plattformer: iPhone (App Store) og Android (Google Play)
+- Språk: norsk, engelsk, arabisk, spansk, persisk, russisk, somali, tigrinja, tyrkisk, ukrainsk, urdu og kurdisk (sorani)
+- Innhold: rundt 640 spørsmål for klasse B, alle med forklaring; skiltprøve (Skiltblitz), varsellamper, prøvesimulering med samme tidsramme som den ekte prøven, repetisjon av egne feil
+- Pris: gratis hver dag med en tidspott; full tilgang kjøpes for en fast periode (fra 149 kr), fornyes aldri automatisk
+- Kilder: vegtrafikkloven, trafikkreglene, skiltforskriften, førerkortforskriften og Statens vegvesens læreplan, med paragraf under hvert spørsmål
+
+## Sider
+
+- [Last ned](https://l-appen.app/): lenker til App Store og Google Play
+- [Beste app for teoriprøven? Slik sammenlikner du](https://l-appen.app/beste-app-teoriproven/): hva som skiller appene, med en ærlig sammenlikning
+- [Kilder og uavhengighet](https://l-appen.app/kilder/): hvor innholdet kommer fra, og hvem som har tatt fotografiene
+- [Kontakt](https://l-appen.app/kontakt/)
+- [Personvern](https://l-appen.app/personvern/)
+
+## Butikkene
+
+- App Store: https://apps.apple.com/no/app/l-appen/id6795498125
+- Google Play: https://play.google.com/store/apps/details?id=com.edword92.lappen
