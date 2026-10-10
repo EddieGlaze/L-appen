@@ -3146,7 +3146,9 @@ function tabell(data){
       + '<td>' + dagStripe(r) + '</td>'
       + '<td>' + (aktiveDager(r).length === 0 ? '<span style="color:var(--muted)" title="ingen dager med spor - ingenting aa maale et opphold mot">–</span>' : lengsteOpphold(r) === 0 ? '<span style="color:var(--muted)">0</span>' : '<b title="lengste hull uten spor, regnet fra foerste aapning - enheten var tilbake etterpaa">' + lengsteOpphold(r) + ' d</b>') + '</td></tr>';
     s += '<tr id="det' + i + '" style="display:none"><td></td><td colspan="' + KOLONNER.length + '" style="padding:4px 0 12px">'
-      + '<div class="rute2" style="margin:0">' + '<div>' + sideDetalj(r) + '</div><div>' + dagDetalj(r) + hendelseDetalj(r) + '</div></div></td></tr>';
+      + '<div class="rute2" style="margin:0">' + '<div>' + sideDetalj(r) + '</div><div>' + dagDetalj(r) + '</div></div>'
+      // Hendelsene paa egen linje i full bredde under begge kolonnene (Edvard 10.10).
+      + hendelseDetalj(r) + '</td></tr>';
   });
   t.innerHTML = s;
   t.querySelectorAll('th[data-kol]').forEach(th => th.addEventListener('click', () => { const k = th.dataset.kol; const def = KOLONNER.find(x => x.k === k);
