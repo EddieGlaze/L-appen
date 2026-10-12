@@ -606,6 +606,14 @@
       derfor et kjøp stå på nabodagen av den aktive dagen det hører til.</div>
     <div id="cFilterKurver"></div>
   </details>
+  <details class="kort smal" data-fane="enheter" open>
+    <summary>Reklamekortet etter runder <span class="sumnote">visninger og sekunder per dag, 30 døgn</span></summary>
+    <div class="hint">Kortet med kjøpsknappen som kommer etter en runde (quiz, blitz) og etter Dash-blitz,
+      med en ventetid som øker for hver runde uten kjøp. Vises bare til dem som ikke har betalt.
+      Kilden er <code>maaling.flate_vist</code> (fra 1.4.1): én post per gang kortet åpnes, med sekundene det sto.
+      Norske døgn. Appen holder de 40 siste postene per enhet, så en svært aktiv enhet kan mangle de eldste dagene.</div>
+    <div id="cProKort"></div>
+  </details>
   <div class="kort" data-fane="enheter">
     <div class="hint"><b>På skjerm</b> = sekunder på innholdssider, uvektet.
       <b>I spill</b> = den delen som var quiz, fasit og blitz.
@@ -1707,6 +1715,9 @@ async function hent(){
       // kjop_forsok: ett forsoek per trykk paa kjoepeknappen, med dato og utfall
       // (1.3.0 og 1.4.1 skriver det samme). Brukes av kurven «Trykket kjøp uten å kjøpe».
       + 'kjopForsok:maaling->kjop_forsok,'
+      // flate_vist: én post per aapning av en kjoepsflate (1.4.1, build-257+),
+      // med flate, tidspunkt og sekunder. Brukes av «Reklamekortet etter runder».
+      + 'flateVist:maaling->flate_vist,'
       // bolkDager: hvilke app-doegn kveldspotten faktisk ble delt ut.
       // laasDag: per-doegn-tellingen A9 ber om. Finnes ikke i dagens binaer -
       // naar den kommer, tenner den hele prikken av seg selv.
@@ -1770,6 +1781,7 @@ async function hent(){
         konfig: (r.konfig && typeof r.konfig === 'object') ? r.konfig : null,
         kjopPost: Array.isArray(r.kjopPost) ? r.kjopPost : null,
         kjopForsok: Array.isArray(r.kjopForsok) ? r.kjopForsok : [],
+        flateVist: Array.isArray(r.flateVist) ? r.flateVist : [],
         proUtlop: parseInt(r.proUtlop || '0', 10) || 0, kodeUtlop: parseInt(r.kodeUtlop || '0', 10) || 0,
         runder, forLansering: spor.some(d => d < LANSERT) };
     });
@@ -1982,6 +1994,7 @@ function tegn(){
   }
   tabell(tabData);
   filterKurver(data);
+  proKortKurver(data);
   const av = document.getElementById('laasAv');
   if (av) av.addEventListener('click', () => { tabellFilter = null; tegn(); });
   const utv = rader.filter(r => r.erUtvikler).length, tst = rader.filter(r => r.erTest).length, forL = rader.filter(r => r.forLansering && !r.erUtvikler && !r.erTest).length;
@@ -3092,6 +3105,41 @@ function filterKurver(data){
     const sum = document.getElementById('kurvesum-' + k.id);
     if (sum) sum.textContent = sT + ' i vinduet' + (k.id === 'kjopt' ? '' : ' · ' + sK + ' av dem har kjøpt');
   });
+}
+// REKLAMEKORTET ETTER RUNDER (Edvard 12.10: «hvor mange ganger reklamekortet
+// blir vist ... dag for dag ... en stolpe med antall og en med antall sekunder
+// den er åpen totalt»). Ventetiden oeker for hver runde uten kjoep
+// (proSkjermStartSek + proSkjermOekSek per runde, tak proSkjermMaksSek), saa
+// snittet per visning er med i summen. Flatene heter pro_etter og pro_dash; n
+// er antall aapninger appen har slaatt sammen i én post.
+function proKortDager(data){
+  const ant = {}, sek = {}, perFlate = {};
+  data.forEach(r => (r.flateVist || []).forEach(p => {
+    if (!p || !/^pro_/.test(p.flate || '')) return;
+    const ms = Date.parse(p.t); if (!gyldigMs(ms)) return;
+    const d = osloDag(ms), n = +p.n || 1;
+    ant[d] = (ant[d] || 0) + n; sek[d] = (sek[d] || 0) + Math.round(+p.sek || 0);
+    perFlate[p.flate] = (perFlate[p.flate] || 0) + n;
+  }));
+  return { ant, sek, perFlate };
+}
+function proKortKurver(data){
+  const el = document.getElementById('cProKort');
+  if (!el) return;
+  const dg = sisteDager(30), { ant, sek, perFlate } = proKortDager(data);
+  el.innerHTML = '<div class="kurverad"><div class="kurvetittel">Visninger <span class="tall" id="proSumAnt"></span></div>'
+    + '<div class="kurverull"><svg id="proKurveAnt"></svg></div></div>'
+    + '<div class="kurverad"><div class="kurvetittel">Sekunder åpent, totalt <span class="tall" id="proSumSek"></span></div>'
+    + '<div class="kurverull"><svg id="proKurveSek"></svg></div></div>';
+  stabelDiagram(document.getElementById('proKurveAnt'), dg, ant, {}, 'visninger');
+  stabelDiagram(document.getElementById('proKurveSek'), dg, sek, {}, 'sekunder');
+  // Dataene starter med 1.4.1 (09.10), saa ruta aapner rullet helt til hoeyre.
+  el.querySelectorAll('.kurverull').forEach(x => { x.scrollLeft = x.scrollWidth; });
+  const sA = dg.reduce((a, d) => a + (ant[d] || 0), 0), sS = dg.reduce((a, d) => a + (sek[d] || 0), 0);
+  const navn = { pro_etter: 'etter runde', pro_dash: 'etter Dash' };
+  document.getElementById('proSumAnt').textContent = sA + ' i vinduet' + (sA ? ' · '
+    + Object.keys(perFlate).map(f => (navn[f] || f) + ' ' + perFlate[f]).join(' · ') : '');
+  document.getElementById('proSumSek').textContent = sS + ' s i vinduet' + (sA ? ' · snitt ' + (sS / sA).toFixed(1) + ' s per visning' : '');
 }
 function tabell(data){
   const t = document.getElementById('tabell');
