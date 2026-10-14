@@ -295,6 +295,11 @@
      skjermbredden i stedet for aa la ruta rulle. Her skal svg-en beholde
      sin egen bredde - det er nettopp den som gir rullingen. */
   .kurverull svg { max-width:none; display:block; }
+  /* Ruta aapner rullet helt til hoeyre, paa de nyeste dagene: med
+     direction:rtl starter rullingen i hoeyre ende, og svg-en tegnes som vanlig.
+     (scrollLeft fra koden virker ikke naar fanen er skjult mens den tegnes.) */
+  .kurverull { direction:rtl; }
+  .kurverull svg { direction:ltr; }
   tr.skille td { border-top:2px solid var(--good-text); color:var(--good-text);
                  font-size:11.5px; font-weight:700; letter-spacing:.03em;
                  padding-top:9px; padding-bottom:3px; }
@@ -610,7 +615,7 @@
        «Kan jeg stole paa tallene?»: den er til oppslag naar man lurer paa om
        dagens tall er normalt, ikke til gjennomlesing. -->
   <details class="kort smal" data-fane="enheter">
-    <summary>Filtrene dag for dag <span class="sumnote">de fire målene fra flisene, 30 døgn</span></summary>
+    <summary>Filtrene dag for dag <span class="sumnote">de fire målene fra flisene, alle dager siden lanseringen</span></summary>
     <div class="hint">Samme fire mål som flisene over tabellen, tegnet dag for dag.
       <span style="color:var(--series-1)">■</span> hele søyla er alle som traff målet den dagen ·
       <span style="color:var(--critical)">■</span> den røde toppen er <b>de av dem som har kjøpt</b>,
@@ -2245,6 +2250,8 @@ function veiKort(data){
 // dag. Global med vilje - den treffer alle dagsdiagrammene, slik vindusvalget
 // gjoer. To diagrammer som viser hver sin periode er verre enn ingen blaing.
 let dagForskyv = 0;
+// Alle dager fra lanseringen til valgt dag (Edvard 14.10: «vis alle dagene»).
+const alleDagerSidenLansert = () => sisteDager(Math.max(1, Math.round((Date.now() - dagForskyv * 864e5 - Date.parse(LANSERT)) / 864e5) + 1));
 function sisteDager(n){ const ut = []; for (let i = n-1; i >= 0; i--) ut.push(new Date(Date.now() - (i + dagForskyv)*864e5).toISOString().slice(0,10)); return ut; }
 function dagStegKort(){
   const el = document.getElementById("dagStegTekst"); if (!el) return;
@@ -3219,7 +3226,7 @@ const KURVER = [
 function filterKurver(data){
   const el = document.getElementById('cFilterKurver');
   if (!el) return;
-  const dg = sisteDager(30);
+  const dg = alleDagerSidenLansert();
   el.innerHTML = KURVER.map(k => '<div class="kurverad"><div class="kurvetittel">' + k.navn
     + ' <span class="tall" id="kurvesum-' + k.id + '"></span></div>'
     + '<div class="hint" style="margin-bottom:4px">' + k.hint + '</div>'
@@ -3261,8 +3268,6 @@ function proKortKurver(data){
     + '<div class="kurverull"><svg id="proKurveSek"></svg></div></div>';
   stabelDiagram(document.getElementById('proKurveAnt'), dg, ant, {}, 'visninger');
   stabelDiagram(document.getElementById('proKurveSek'), dg, sek, {}, 'sekunder');
-  // Dataene starter med 1.4.1 (09.10), saa ruta aapner rullet helt til hoeyre.
-  el.querySelectorAll('.kurverull').forEach(x => { x.scrollLeft = x.scrollWidth; });
   const sA = dg.reduce((a, d) => a + (ant[d] || 0), 0), sS = dg.reduce((a, d) => a + (sek[d] || 0), 0);
   const navn = { pro_etter: 'etter runde', pro_dash: 'etter Dash' };
   document.getElementById('proSumAnt').textContent = sA + ' i vinduet' + (sA ? ' · '
