@@ -572,9 +572,9 @@
   </div>
   <div class="kort" data-fane="bruk"><h3>Uke for uke</h3>
     <div class="hint"><b>Nye</b> = enheter med første oppstart i uka (ikke butikkens nedlastingstall - det
-      finnes ikke i basen). <b>Kjøp</b> = RevenueCat-lista. <b>Konv.</b> = kjøp / nye samme uke - et grovt mål,
+      finnes ikke i basen). <b>Kjøp</b> = RevenueCat-lista til dagen den dekker, deretter kjøpene i basen (alle produkter, gjenkjøp med). <b>Konv.</b> = kjøp / nye samme uke - et grovt mål,
       siden kjøpet ofte kommer en senere uke. <b>Reklame</b> = forbruk per dag: Meta lest per annonsesett, Apple Search Ads og Google Ads som dagsbudsjett (anslag).
-      <b>Netto</b> = kjøp × 149 kr × 0,85 (etter butikkens andel, før mva).</div>
+      <b>Netto</b> = prisen på hvert kjøp × 0,85 (etter butikkens andel, før mva): 1 dag 59, 3 uker 149, 3 mnd 299, 4 mnd 149 kr.</div>
     <div id="cUke" style="overflow-x:auto"></div>
     <div class="hull" id="cUkeHull"></div>
   </div>
@@ -1459,7 +1459,51 @@ function kjoptNaar(ki){
 // «Kjoept i dag». Bare eksakte kjoep kan konverteres: der tidspunktet er
 // utledet av proUtlop finnes ikke oeyeblikket, og da er ki.dag det beste vi har.
 const kjopDagOslo = ki => (ki.eksakt && gyldigMs(ki.kjopMs)) ? osloDag(ki.kjopMs) : ki.dag;
+// ALLE KJOEP PER ENHET (14.10, Edvard: «kjøp som ikke koster 149 dukker ikke
+// opp»). 1.4.1 selger 1 dag, 3 uker, 3 maaneder og 4 maaneder. Siden regnet
+// kjoepsdagen bakover fra proUtlop minus 120/240 doegn - riktig bare for 4
+// maaneder - og talte ett kjoep per enhet. Et «1 dag»- eller «3 maaneder»-kjoep
+// uten kjoepspost fikk derfor en oppdiktet dato, og et gjenkjoep forsvant.
+// stats.kjopSett (1.4.1) har hvert kjoep med butikkens tidspunkt og produkt;
+// maaling.kjop (build-137+) har vei og, fra build-257, pris. De slaas sammen
+// her (samme kjoep = samme produkt innen 15 min). Prisen er NOK med mva fra
+// kjoepsposten, ellers lista under (lest av kjoepsforsoekene i basen 14.10).
+const PRISER = { 'no.lappen.pro1dag': 59, 'no.lappen.pro1uke': 79, 'no.lappen.pro3uker': 149, 'no.lappen.pro3mnd': 299, 'no.lappen.pro4mnd': 149 };
+const PRODUKT_NAVN = { 'no.lappen.pro1dag': '1 dag', 'no.lappen.pro1uke': '1 uke', 'no.lappen.pro3uker': '3 uker', 'no.lappen.pro3mnd': '3 mnd', 'no.lappen.pro4mnd': '4 mnd' };
+function kjopListe(r){
+  const ut = [];
+  (r.kjopSett || []).forEach(k => { const ms = +(k && k.kjoptMs); if (gyldigMs(ms)) ut.push({ ms, produkt: k.produktId || null, id: k.id || null, vei: null, pris: null }); });
+  (r.kjopPost || []).forEach(p => {
+    if (!p || !p.dato) return;
+    const ms = gyldigMs(+p.kjoptMs) ? +p.kjoptMs : Date.parse(p.dato); if (!gyldigMs(ms)) return;
+    const pris = p.valuta === 'NOK' && +p.pris > 0 ? +p.pris : null;
+    const lik = ut.find(x => Math.abs(x.ms - ms) < 15 * 60e3 && (!x.produkt || !p.produkt || x.produkt === p.produkt));
+    if (lik) { lik.vei = p.vei || lik.vei; if (pris) lik.pris = pris; if (!lik.produkt) lik.produkt = p.produkt || null; }
+    else ut.push({ ms, produkt: p.produkt || null, id: p.tx || null, vei: p.vei || null, pris });
+  });
+  ut.forEach(x => { if (!x.pris) x.pris = PRISER[x.produkt] || PRIS_KR; });
+  return ut.sort((a, b) => a.ms - b.ms);
+}
+// Kjoepene som teller per norsk doegn, til flisa, kurven og ukestabellen. Et
+// kjoep som er gjenopprettet paa en ny enhet staar i kjopSett paa begge, med
+// samme id - det telles én gang. Uten liste: den gamle utledningen.
+function kjopDager(r){
+  const l = kjopListe(r);
+  if (l.length) return l.map(x => ({ d: osloDag(x.ms), id: x.id, pris: x.pris, produkt: x.produkt }));
+  const i = kjopsInfo(r);
+  return i.kilde === 'kjop' ? [{ d: kjopDagOslo(i), id: null, pris: PRIS_KR, produkt: null }] : [];
+}
+function alleKjop(data){
+  const sett = new Set(), ut = [];
+  data.forEach(r => kjopDager(r).forEach(k => { if (k.id) { if (sett.has(k.id)) return; sett.add(k.id); } ut.push(k); }));
+  return ut;
+}
 function kjopsInfo(r){
+  const liste = kjopListe(r);
+  if (liste.length) {
+    const f = liste[0];
+    return { betalt: true, kilde: 'kjop', kjopMs: f.ms, dag: new Date(f.ms).toISOString().slice(0,10), klemt: false, vei: f.vei, eksakt: true, produkt: f.produkt, antall: liste.length };
+  }
   if (r.proUtlop > 0) {
     // Kjoepsposten fra appen (build-137+) gir eksakt tidspunkt og vei
     const post = (r.kjopPost || []).filter(p => p && p.dato).sort((a, b) => a.dato < b.dato ? -1 : a.dato > b.dato ? 1 : 0)[0];
@@ -1694,7 +1738,7 @@ const FILTRE = {
   // det oppstaar. Aa la flisa telle fra basen i stedet ville gjort tallene
   // like, men da underrapporterer «Kjoept i dag» de faktiske kjoepene, og det
   // er tallet Edvard leser hver dag.
-  kjoptIdag: { test: r => { const i = kjopsInfo(r); return i.kilde === 'kjop' && kjopDagOslo(i) === dagValgtOslo(); },
+  kjoptIdag: { test: r => kjopDager(r).some(k => k.d === dagValgtOslo()),
     navn: () => 'kjøpte ' + dagOrd(), merke: '<span class="merke betalt">betalt</span> ' },
   // KJOEPT MOT IKKE KJOEPT, uten tidsavgrensning. Bruker kvittert, altsaa bare
   // ekte kvitteringer - «antatt kjoept» (runder som aldri har vaert gratis) og
@@ -1727,6 +1771,8 @@ async function hent(){
       + 'lampeblitz:stats->lampeblitz,bruk:stats->bruk,versjon:stats->>versjon,skjermSek:stats->skjermSek,'
       + 'oevetimer:stats->oevetimer,tempoSek:stats->>tempoSek,versjonlogg:stats->versjonlogg,'
       + 'plattform:stats->>plattform,avbrutte:stats->avbrutte,laasTraff:maaling->laas_traff,kjopPost:maaling->kjop,'
+      // kjopSett: ALLE kjoep enheten kjenner (1.4.1), med butikkens tidspunkt og produkt.
+      + 'kjopSett:stats->kjopSett,'
       // kjop_forsok: ett forsoek per trykk paa kjoepeknappen, med dato og utfall
       // (1.3.0 og 1.4.1 skriver det samme). Brukes av kurven «Trykket kjøp uten å kjøpe».
       + 'kjopForsok:maaling->kjop_forsok,'
@@ -1795,6 +1841,7 @@ async function hent(){
         okt: Array.isArray(r.okt) ? r.okt : [],
         konfig: (r.konfig && typeof r.konfig === 'object') ? r.konfig : null,
         kjopPost: Array.isArray(r.kjopPost) ? r.kjopPost : null,
+        kjopSett: Array.isArray(r.kjopSett) ? r.kjopSett : [],
         kjopForsok: Array.isArray(r.kjopForsok) ? r.kjopForsok : [],
         flateVist: Array.isArray(r.flateVist) ? r.flateVist : [],
         proUtlop: parseInt(r.proUtlop || '0', 10) || 0, kodeUtlop: parseInt(r.kodeUtlop || '0', 10) || 0,
@@ -1852,7 +1899,7 @@ function tegn(){
   const rcSisteDag = rcKilde ? KJOP_RC.map(t => t.d).sort().pop() : null;
   const idagOslo = dagValgtOslo();
   const rcDekkerIdag = !!rcSisteDag && rcSisteDag >= osloDag(naa);
-  const kjopBase = data.filter(kvittert).map(r => kjopDagOslo(kjopsInfo(r)));
+  const kjopBase = alleKjop(data).map(k => k.d);
   const kjop = KJOP_RC.length
     ? KJOP_RC.map(t => t.d).concat(rcDekkerIdag ? [] : kjopBase.filter(d => d > rcSisteDag))
     : kjopBase;
@@ -2936,27 +2983,30 @@ function kohortKort(data){
 }
 function ukeKort(data){
   const per = {};
-  const u = d => (per[d] = per[d] || { nye: 0, kjop: 0, kohort: 0, kr: 0, meta: 0, asa: 0, google: 0 });
+  const u = d => (per[d] = per[d] || { nye: 0, kjop: 0, kohort: 0, kr: 0, meta: 0, asa: 0, google: 0, brutto: 0 });
   // TO KJOEPSTALL, ikke ett. «kjop» er kjoep BETALT den uka; «kohort» er
   // kjoep fra enheter som kom den uka, uansett naar de betalte. Konverteringa
   // regnes av kohorten - ellers deles teller og nevner paa hver sin uke, og
   // det var nettopp det som sto her foer: telleren var betalingsuke, nevneren
   // nedlastingsuke, og «konv.» var forholdet mellom to ulike ting.
   data.forEach(r => { u(ukeStart(nedlastet(r))).nye++;
-    if (kvittert(r)) { u(ukeStart(nedlastet(r))).kohort++;
-      if (!KJOP_RC.length) u(ukeStart(kjopDagOslo(kjopsInfo(r)))).kjop++; } });
-  KJOP_RC.forEach(t => { u(ukeStart(rcDagOslo(t))).kjop++; });
+    if (kvittert(r)) u(ukeStart(nedlastet(r))).kohort++; });
+  // Betalte kjoep: RevenueCat-lista til og med dagen den dekker, basen etter
+  // det (lista oppdateres ikke daglig - den sto paa 09.09 da dette ble rettet).
+  const rcSiste = KJOP_RC.length ? KJOP_RC.map(t => rcDagOslo(t)).sort().pop() : '';
+  KJOP_RC.forEach(t => { const w = u(ukeStart(rcDagOslo(t))); w.kjop++; w.brutto += PRIS_KR; });
+  alleKjop(data).forEach(k => { if (k.d <= rcSiste) return; const w = u(ukeStart(k.d)); w.kjop++; w.brutto += k.pris; });
   Object.keys(reklamePerDag).forEach(d => { const rk = reklameKr(d), w = u(ukeStart(d)); w.kr += rk.sum; w.meta += rk.meta; w.asa += rk.asa; w.google += rk.google; });
   const uker = Object.keys(per).filter(k => k >= ukeStart(LANSERT)).sort();
   const kr = n => Math.round(n).toLocaleString('nb-NO') + ' kr';
   const tot = { nye:0, kjop:0, kohort:0, kr:0 };
   let s = '<table><tr><th>uke fra</th><th class="h">nye</th><th class="h" title="Kjøp BETALT denne uka, uansett når enheten kom">kjøp</th><th class="h" title="Kjøp fra enheter som KOM denne uka, uansett når de betalte. Det er dette tallet konverteringa regnes av">kohort</th><th class="h" title="kohort / nye - samme definisjon som i alle andre kort på sida">konv.</th><th class="h">reklame</th><th class="h">kr / ny</th><th class="h">kr / kjøp</th><th class="h">netto</th><th class="h">resultat</th></tr>';
   uker.forEach(k => { const w = per[k]; tot.nye += w.nye; tot.kjop += w.kjop; tot.kohort += w.kohort; tot.kr += w.kr;
-    const netto = w.kjop * PRIS_KR * BUTIKK_ANDEL;
+    const netto = w.brutto * BUTIKK_ANDEL; tot.brutto = (tot.brutto || 0) + w.brutto;
     s += '<tr><td>' + fmtDag(k) + (k === ukeStart(idagIso()) ? ' <span style="color:var(--muted)">(pågår)</span>' : '') + '</td><td class="h">' + w.nye + '</td><td class="h">' + w.kjop + '</td><td class="h">' + w.kohort + '</td><td class="h">' + pct(w.kohort, w.nye)
       + '</td><td class="h" title="Meta ' + kr(w.meta) + ' · ASA ~' + kr(w.asa) + ' · Google ~' + kr(w.google) + '">' + kr(w.kr) + '</td><td class="h">' + (w.nye ? kr(w.kr / w.nye) : '–')
       + '</td><td class="h">' + (w.kjop ? kr(w.kr / w.kjop) : '–') + '</td><td class="h">' + kr(netto) + '</td><td class="h" style="color:' + (netto - w.kr >= 0 ? 'var(--good-text)' : 'var(--critical)') + '">' + kr(netto - w.kr) + '</td></tr>'; });
-  const nettoT = tot.kjop * PRIS_KR * BUTIKK_ANDEL;
+  const nettoT = (tot.brutto || 0) * BUTIKK_ANDEL;
   s += '<tr style="font-weight:700"><td>i alt</td><td class="h">' + tot.nye + '</td><td class="h">' + tot.kjop + '</td><td class="h">' + tot.kohort + '</td><td class="h">' + pct(tot.kohort, tot.nye) + '</td><td class="h">' + kr(tot.kr)
     + '</td><td class="h">' + (tot.nye ? kr(tot.kr/tot.nye) : '–') + '</td><td class="h">' + (tot.kjop ? kr(tot.kr/tot.kjop) : '–') + '</td><td class="h">' + kr(nettoT) + '</td><td class="h">' + kr(nettoT - tot.kr) + '</td></tr></table>';
   document.getElementById('cUke').innerHTML = s;
@@ -3146,7 +3196,7 @@ const KURVER = [
     dager: r => Object.keys(laasDager(r)) },
   { id: 'kjopt', navn: 'Kjøpt', ord: 'kjøp',
     hint: 'kvittert kjøp, datert i norsk døgn som RevenueCat',
-    dager: r => { const i = kjopsInfo(r); return i.kilde === 'kjop' ? [kjopDagOslo(i)] : []; } },
+    dager: r => kjopDager(r).map(k => k.d) },
   { id: 'trykkUtenKjop', navn: 'Trykket kjøp uten å kjøpe', ord: 'som trykket kjøp uten å kjøpe',
     hint: 'trykket kjøpeknappen minst én gang, uten fullført kjøp samme døgn (norsk tid)',
     dager: r => trykkUtenKjopDager(r) },
@@ -3253,7 +3303,9 @@ function tabell(data){
       + '<td class="h">' + (r.runder.length + (r.lampeblitz || []).length) + '</td>'
       + '<td class="h">' + (kanMaales(r) ? (hend(r,'laas_vist') || '0') : '<span style="color:var(--muted)">–</span>') + '</td>'
       + '<td class="h">' + (pottTom(r) === null ? (maalerPott(r) ? '<span title="måler, potten har ikke gått tom">0</span>' : '<span style="color:var(--muted)" title="krever build-137">–</span>') : '<span title="potten gikk tom: i runde ' + (+r.laasTraff.i_runde || 0) + ' · utenfor ' + (+r.laasTraff.utenfor || 0) + '">' + pottTom(r) + '</span>') + '</td>'
-      + '<td>' + (ki.kilde === 'kjop' ? (ki.klemt ? '~' : '') + fmtDag(kjopDagOslo(ki)) + (ki.vei ? ' <span style="color:var(--muted)" title="kjøpstidspunkt og vei fra appen">via ' + veiNavn(ki.vei) + '</span>' : '') : ki.kilde === 'antatt' ? '<span style="color:var(--muted)">~' + fmtDag(ki.dag) + '</span>' : '–') + '</td>'
+      + '<td>' + (ki.kilde === 'kjop' ? (ki.klemt ? '~' : '') + fmtDag(kjopDagOslo(ki)) + (ki.vei ? ' <span style="color:var(--muted)" title="kjøpstidspunkt og vei fra appen">via ' + veiNavn(ki.vei) + '</span>' : '')
+        + (ki.produkt ? ' <span style="color:var(--muted)">· ' + (PRODUKT_NAVN[ki.produkt] || ki.produkt) + '</span>' : '')
+        + (ki.antall > 1 ? ' <span class="merke" title="' + kjopListe(r).map(x => fmtDag(osloDag(x.ms)) + ' ' + (PRODUKT_NAVN[x.produkt] || x.produkt || '?')).join(', ') + '">' + ki.antall + ' kjøp</span>' : '') : ki.kilde === 'antatt' ? '<span style="color:var(--muted)">~' + fmtDag(ki.dag) + '</span>' : '–') + '</td>'
       + '<td>' + dagStripe(r) + '</td>'
       + '<td>' + (aktiveDager(r).length === 0 ? '<span style="color:var(--muted)" title="ingen dager med spor - ingenting aa maale et opphold mot">–</span>' : lengsteOpphold(r) === 0 ? '<span style="color:var(--muted)">0</span>' : '<b title="lengste hull uten spor, regnet fra foerste aapning - enheten var tilbake etterpaa">' + lengsteOpphold(r) + ' d</b>') + '</td></tr>';
     s += '<tr id="det' + i + '" style="display:none"><td></td><td colspan="' + KOLONNER.length + '" style="padding:4px 0 12px">'
