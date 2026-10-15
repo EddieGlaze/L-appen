@@ -761,7 +761,7 @@
 'use strict';
 
 const OKONOMI_DATA = /*DATA*/{
-  "bygget": "2026-09-08",
+  "bygget": "2026-10-15",
   "vindu": 28,
   "revenuecat": {
     "dato": "2026-09-01",
@@ -771,14 +771,19 @@ const OKONOMI_DATA = /*DATA*/{
     "nye28": 715,
     "aktive28": 726
   },
-  "antallBilag": 5,
+  "antallBilag": 17,
   "harUtgifter": true,
   "fortTilOgMed": null,
   "perLeverandor": [
     {
       "navn": "meta",
-      "sum": 8426.4,
+      "sum": 16893.92,
       "reklame": true
+    },
+    {
+      "navn": "anthropic",
+      "sum": 6689.62,
+      "reklame": false
     },
     {
       "navn": "apple-search-ads",
@@ -788,14 +793,50 @@ const OKONOMI_DATA = /*DATA*/{
   ],
   "perMaaned": [
     {
+      "maaned": "2026-03",
+      "kostnad": 187.4,
+      "inntekt": 0,
+      "inntektErAnslag": false
+    },
+    {
+      "maaned": "2026-04",
+      "kostnad": 234.25,
+      "inntekt": 0,
+      "inntektErAnslag": false
+    },
+    {
+      "maaned": "2026-05",
+      "kostnad": 187.4,
+      "inntekt": 0,
+      "inntektErAnslag": false
+    },
+    {
+      "maaned": "2026-06",
+      "kostnad": 187.4,
+      "inntekt": 0,
+      "inntektErAnslag": false
+    },
+    {
+      "maaned": "2026-07",
+      "kostnad": 1957.77,
+      "inntekt": 0,
+      "inntektErAnslag": false
+    },
+    {
       "maaned": "2026-08",
-      "kostnad": 8867.91,
+      "kostnad": 10929.31,
       "inntekt": 0,
       "inntektErAnslag": false
     },
     {
       "maaned": "2026-09",
-      "kostnad": 4064.05,
+      "kostnad": 11905.57,
+      "inntekt": 0,
+      "inntektErAnslag": false
+    },
+    {
+      "maaned": "2026-10",
+      "kostnad": 2500,
       "inntekt": 3045.6248,
       "inntektErAnslag": true
     }
@@ -818,8 +859,8 @@ const OKONOMI_DATA = /*DATA*/{
     },
     {
       "navn": "Anthropic - Claude Code",
-      "hentetTilOgMed": null,
-      "dataLestTilOgMed": null
+      "hentetTilOgMed": "2026-08-28",
+      "dataLestTilOgMed": "2026-08-28"
     },
     {
       "navn": "Apple Developer Program",
@@ -844,7 +885,7 @@ const OKONOMI_DATA = /*DATA*/{
     {
       "navn": "Domenet l-appen.app",
       "hentetTilOgMed": null,
-      "dataLestTilOgMed": null
+      "dataLestTilOgMed": "2026-08-19"
     },
     {
       "navn": "Kontoutdrag fra banken",
@@ -855,33 +896,41 @@ const OKONOMI_DATA = /*DATA*/{
       "navn": "Annonseforbruk per dag (reklametraadens maaling)",
       "hentetTilOgMed": null,
       "dataLestTilOgMed": "2026-09-06"
+    },
+    {
+      "navn": "OpenAI / ChatGPT",
+      "hentetTilOgMed": "2026-09-26",
+      "dataLestTilOgMed": "2026-09-26"
     }
   ],
   "kjop": {
-    "fil": "revenuecat-2026-09-05.json",
-    "antall": 49,
-    "bruttoUsd": 768.4900000000001,
-    "bruttoNok": 7200.751300000001,
-    "nettoNok": 4896.510884000001,
+    "fil": "apple-salg/2026-10-13.json",
+    "kilde": "App Store Connect + Android-anslag",
+    "antall": 135,
+    "antallIos": 123,
+    "antallAndroid": 12,
+    "bruttoUsd": 1960,
+    "bruttoNok": 20129.905882352938,
+    "nettoNok": 13662.099999999999,
     "fra": "2026-08-14",
-    "til": "2026-09-05"
+    "til": "2026-10-13"
   },
   "annonse": {
     "perKanal": [
       {
         "kanal": "Meta",
-        "sum": 10668.010000000002,
+        "sum": 17781.229999999992,
         "fra": "2026-08-16",
-        "til": "2026-09-03",
-        "kilde": "meta-ads-reporting",
+        "til": "2026-10-14",
+        "kilde": "meta-ads-reporting, meta-dagstotal",
         "erAnslag": false
       },
       {
         "kanal": "Apple Search Ads",
-        "sum": 4505.480000000001,
+        "sum": 6664.24,
         "fra": "2026-08-17",
-        "til": "2026-09-06",
-        "kilde": "apple-faktura",
+        "til": "2026-09-12",
+        "kilde": "apple-faktura, apple-avlest",
         "erAnslag": false
       },
       {
@@ -893,28 +942,28 @@ const OKONOMI_DATA = /*DATA*/{
         "erAnslag": true
       }
     ],
-    "paalopt": 15523.490000000003,
+    "paalopt": 24795.469999999994,
     "paaloptAnslag": 350,
-    "bokfort": 12931.96,
-    "ikkeFakturert": 2591.5300000000043,
+    "bokfort": 21399.48,
+    "ikkeFakturert": 3395.9899999999943,
     "fra": "2026-08-16",
-    "til": "2026-09-06"
+    "til": "2026-10-14"
   },
   "tall": {
     "brutto28": 4478.86,
     "inntekt28Netto": 3045.6248,
     "inntektErAnslag": true,
-    "kostnad28": 12931.96,
-    "annonse28": 12931.96,
-    "kostnadTotalt": 12931.96,
-    "resultat28": -9886.3352,
+    "kostnad28": 11235.52,
+    "annonse28": 9361.52,
+    "kostnadTotalt": 28089.1,
+    "resultat28": -8189.895200000001,
     "nye28": 715,
     "verdiPerBruker": 4.259615104895105,
-    "kostPerBruker": 18.086657342657343,
+    "kostPerBruker": 13.093034965034965,
     "norskInngaaendeMva": 0,
-    "annonsePerKjop": 316.80591836734703,
-    "inntektPerKjop": 99.92879355102043,
-    "resultatPeriode": -10626.979116000002
+    "annonsePerKjop": 183.67014814814812,
+    "inntektPerKjop": 101.20074074074073,
+    "resultatPeriode": -11133.369999999995
   }
 }/*DATA*/;
 if (!OKONOMI_DATA) return;
@@ -965,7 +1014,7 @@ function tegnOkonomi() {
   /* --- stempel ----------------------------------------------------- */
   document.getElementById('okStempel').innerHTML =
     'tallene er bygget ' + D.bygget
-    + (k ? ' · ' + k.antall + ' kjøp ' + dag(k.fra) + '-' + dag(k.til) : ' · ingen kjøpsliste')
+    + (k ? ' · ' + k.antall + ' kjøp' + (k.antallAndroid ? ' (' + k.antallIos + ' iOS fra Apple, ' + k.antallAndroid + ' Android anslått)' : '') + ' ' + dag(k.fra) + '-' + dag(k.til) : ' · ingen kjøpsliste')
     + (a.fra ? ' · annonseforbruk ' + dag(a.fra) + '-' + dag(a.til) : '')
     + ' · ' + D.antallBilag + ' bilagslinjer'
     + (D.fortTilOgMed ? ' · ført i Fiken t.o.m. ' + D.fortTilOgMed : ' · ingenting ført i Fiken ennå');
@@ -1057,7 +1106,7 @@ function tegnOkonomi() {
   const av = document.getElementById('okAvvik');
   av.innerHTML =
     rad('Påløpt forbruk <span class="ok-merke">måling</span>', kr(a.paalopt), 'dempet')
-    + rad('Fakturert, med bilag <span class="ok-merke">bokføring</span>', kr(a.bokfort), 'dempet')
+    + rad('Fakturert <span class="ok-merke">bokføring</span>', kr(a.bokfort), 'dempet')
     + rad('Påløpt uten bilag', kr(a.ikkeFakturert), 'sum')
     + '<div class="ok-note">'
     + (Math.abs(a.ikkeFakturert) < 1
