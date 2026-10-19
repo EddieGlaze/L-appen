@@ -1590,23 +1590,12 @@ function kjopsInfo(r){
     return { betalt: true, kilde: 'kjop', kjopMs, dag: new Date(kjopMs).toISOString().slice(0,10), klemt: utenfor };
   }
   if (r.kodeUtlop > 0) return { betalt: false, kilde: 'kode' };
-  // ANTATT KJOEP: bare runder som ALDRI har vaert gratis.
-  //
-  // Quiz med 20 eller 45 spoersmaal, og Skiltblitz med 20 skilt (gratis har
-  // alltid vaert to brett, altsaa 10). Quiz paa 10 teller IKKE: gratisgrensen
-  // per runde var 10 spoersmaal fra lanseringen til build-105 den 30.08 kl.
-  // 12:49, da den ble senket til 5. En 10-runde spilt foer det er helt vanlig
-  // gratisbruk. Og av de 35 enhetene med en 10-runde paa eller etter dagen de
-  // fikk build-105+, har ingen en slik runde dagen ETTER - versjonstempelet
-  // settes ved oppstart og OTA-en aktiveres foerst ved omstart, saa runden kan
-  // like gjerne vaere spilt paa den gamle bunten samme dag. Med 10 inne var
-  // 286 av 942 enheter uten kvittering «antatt»; naa er de 23.
-  // Dash-blitz holdes utenfor: den er gratis uten tak, og fra build-141 skrives
-  // den til samme liste som de andre. Uten dette filteret ville en lang
-  // Dash-runde blitt lest som et kjoep.
-  const erDash = (x) => Array.isArray(x.temaer) && x.temaer.some(t => String(t).indexOf('Dash') === 0);
-  const store = (r.runder || []).filter(x => x && !x.prove && x.dato && !erDash(x) && (x.av || 0) >= 20).map(x => x.dato).sort();
-  if (store.length) return { betalt: true, kilde: 'antatt', dag: store[0] };
+  // «ANTATT KJOEP» ER FJERNET (Edvard 19.10: «alle kjoep naa skal registreres
+  // med kode, saa det er ikke lenger behov for denne»). Den gjettet kjoep ut fra
+  // runder som aldri hadde vaert gratis (quiz paa 20/45, blitz paa 20). I 1.4.1
+  // stemmer ikke det lenger, og 55 enheter - flere av dem paa 1.4.1 - ble merket
+  // uten aa ha betalt. Ingen av dem hadde loest inn kode. Et kjoep er naa bare
+  // det appen har registrert (kjopSett, maaling.kjop) eller proUtlop.
   return { betalt: false };
 }
 const kvittert = r => kjopsInfo(r).kilde === 'kjop';
@@ -1810,8 +1799,8 @@ const FILTRE = {
   kjoptIdag: { test: r => kjopDager(r).some(k => k.d === dagValgtOslo()),
     navn: () => 'kjøpte ' + dagOrd(), merke: '<span class="merke betalt">betalt</span> ' },
   // KJOEPT MOT IKKE KJOEPT, uten tidsavgrensning. Bruker kvittert, altsaa bare
-  // ekte kvitteringer - «antatt kjoept» (runder som aldri har vaert gratis) og
-  // kodetilgang teller som IKKE kjoept, siden ingen av dem har betalt.
+  // ekte kvitteringer - kodetilgang teller som IKKE kjoept, siden den ikke er
+  // betalt.
   harKjopt: { test: kvittert, navn: 'har kjøpt',
     merke: '<span class="merke betalt">betalt</span> ' },
   ikkeKjopt: { test: r => !kvittert(r), navn: 'ikke har kjøpt',
@@ -2047,6 +2036,14 @@ function tegn(){
     flis('Konvertering', pct(konv(data).k, data.length),
       konv(data).k + ' kjøp av ' + data.length + ' enheter · <span title="Brukere som lastet ned for 2-6 uker siden: nye nok til å vise hvordan appen konverterer nå, gamle nok til at de fleste kjøpene er kommet (75 % kjøper innen 14 døgn). Erstatter «målbare», som tok ut dem som sluttet tidlig og ga et for høyt tall.">siste ferdige uker: ' + pct(konvNylig(data).k, konvNylig(data).n) + '</span>',
       konv(data).k > 0),
+    // KONVERTERING PER VERSJON (Edvard 19.10). Samme vindu for begge: kjoept
+    // innen 7 doegn, og bare brukere som har hatt 7 doegn paa seg - ellers ser
+    // den nyeste versjonen svakere ut bare fordi brukerne er yngre.
+    (() => { const v = konvPerVersjon(data), p = x => x.n ? pct(x.k, x.n) : '–';
+      return flis('Konvertering per versjon', '1.4.1: ' + p(v.ny),
+        '1.3.0: ' + p(v.gml) + ' · kjøpt innen 7 døgn · ' + v.ny.k + ' av ' + v.ny.n + ' mot ' + v.gml.k + ' av ' + v.gml.n,
+        v.ny.n > 0 && v.gml.n > 0 && v.ny.k / v.ny.n >= v.gml.k / v.gml.n,
+        { tittel: 'Gruppert etter nedlastingsdato: 1.3.0 = lastet ned 13.09-08.10, 1.4.1 = lastet ned fra 10.10 (9.10, utgivelsesdagen, er utelatt). Bare brukere som lastet ned for minst 7 døgn siden er med, og bare kjøp innen 7 døgn telles, så begge får samme tid på seg.' }); })(),
   ].join('');
 
   // Begge laaseflisene er knapper. Trykk paa den som alt er valgt slaar av;
@@ -2831,6 +2828,15 @@ function konvNylig(liste){
   const x = liste.filter(r => { const d = nedlastet(r); return d >= fra && d <= til; });
   return { n: x.length, k: x.filter(kvittert).length, fra, til };
 }
+// Kjoept innen 7 doegn, per appversjon brukeren lastet ned paa. Versjonen
+// leses av nedlastingsdatoen, ikke av stats.versjon: den er den brukeren
+// har NAA, og en 1.3.0-kjoeper som har oppdatert staar der som 1.4.1.
+function konvPerVersjon(liste){
+  const grense = new Date(Date.parse(idagIso()) - 7*864e5).toISOString().slice(0,10);
+  const tell = (fra, til) => { const x = liste.filter(r => { const d = nedlastet(r); return d >= fra && d <= til && d <= grense; });
+    return { n: x.length, k: x.filter(r => { const a = kjopAlder(r); return a !== null && a <= 7; }).length }; };
+  return { gml: tell('2026-09-13', '2026-10-08'), ny: tell('2026-10-10', '2099-12-31') };
+}
 function konvVindu(liste, vindu){
   const grense = new Date(Date.parse(idagIso()) - vindu*864e5).toISOString().slice(0,10);
   const modne = liste.filter(r => nedlastet(r) <= grense);
@@ -3373,7 +3379,7 @@ function tabell(data){
       + '<td style="width:14px;color:var(--muted)"><span id="pil' + i + '">›</span></td>'
       + '<td>' + (vl ? '<span class="prikkLaas ' + laasKlasse(vl) + '" title="i dag: ' + laasTekst(vl) + '"></span>' : '')
       + pfMerke(r) + r.id.slice(0,8) + (reinstallert(r) ? '<span class="merke" title="runder i skyen, men tellerne er tomme: trolig slettet og lastet ned på nytt">⟲</span>' : '')
-      + (ki.kilde === 'kjop' ? '<span class="merke betalt">betalt</span>' + kjoptNaar(ki) : '') + (ki.kilde === 'antatt' ? '<span class="merke" title="quiz med 20 eller 45 spørsmål, eller blitz med 20 skilt, uten kvittering. Slike runder har aldri vært gratis. Quiz på 10 teller ikke: det var gratisgrensen fram til 30.08">antatt</span>' : '') + (r.kodeUtlop > 0 ? '<span class="merke">kode</span>' : '') + '</td>'
+      + (ki.kilde === 'kjop' ? '<span class="merke betalt">betalt</span>' + kjoptNaar(ki) : '') + (r.kodeUtlop > 0 ? '<span class="merke">kode</span>' : '') + '</td>'
       + '<td title="' + sprakNavn(r.sprak || '') + (region(r) ? ' · ' + region(r) : '') + '">' + (r.sprak || '–') + '</td>'
       + '<td><span class="bygg' + (/^v1\.4/.test(r.versjon || '') ? ' v14' : '') + '" title="' + (r.versjon || 'ingen versjon meldt (eldre bygg)') + ' · gratismodell: ' + nivaa(r).navn + '">' + byggTekst(r) + '</span></td>'
       + '<td>' + (n.anslag ? '<span class="anslag" title="utledet av eldste spor">~' + fmtDag(n.dato) + (n.mettet ? '+' : '') + '</span>' : fmtDag(n.dato)) + '</td>'
@@ -3389,7 +3395,7 @@ function tabell(data){
         // Klokkeslettet (norsk tid) bare der tidspunktet er maalt, ikke regnet ut
         + (ki.eksakt && gyldigMs(ki.kjopMs) ? ' <span title="kjøpstidspunkt, norsk tid">kl. ' + osloKl(ki.kjopMs) + '</span>' : '') + (ki.vei ? ' <span style="color:var(--muted)" title="kjøpstidspunkt og vei fra appen">via ' + veiNavn(ki.vei) + '</span>' : '')
         + (ki.produkt ? ' <span style="color:var(--muted)">· ' + (PRODUKT_NAVN[ki.produkt] || ki.produkt) + '</span>' : '')
-        + (ki.antall > 1 ? ' <span class="merke" title="' + kjopListe(r).map(x => fmtDag(osloDag(x.ms)) + ' kl. ' + osloKl(x.ms) + ' ' + (PRODUKT_NAVN[x.produkt] || x.produkt || '?')).join(', ') + '">' + ki.antall + ' kjøp</span>' : '') : ki.kilde === 'antatt' ? '<span style="color:var(--muted)">~' + fmtDag(ki.dag) + '</span>' : '–') + '</td>'
+        + (ki.antall > 1 ? ' <span class="merke" title="' + kjopListe(r).map(x => fmtDag(osloDag(x.ms)) + ' kl. ' + osloKl(x.ms) + ' ' + (PRODUKT_NAVN[x.produkt] || x.produkt || '?')).join(', ') + '">' + ki.antall + ' kjøp</span>' : '') : '–') + '</td>'
       + '<td>' + dagStripe(r) + '</td>'
       + '<td>' + (aktiveDager(r).length === 0 ? '<span style="color:var(--muted)" title="ingen dager med spor - ingenting aa maale et opphold mot">–</span>' : lengsteOpphold(r) === 0 ? '<span style="color:var(--muted)">0</span>' : '<b title="lengste hull uten spor, regnet fra foerste aapning - enheten var tilbake etterpaa">' + lengsteOpphold(r) + ' d</b>') + '</td></tr>';
     s += '<tr id="det' + i + '" style="display:none"><td></td><td colspan="' + KOLONNER.length + '" style="padding:4px 0 12px">'
