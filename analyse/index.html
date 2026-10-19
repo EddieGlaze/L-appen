@@ -1983,7 +1983,6 @@ function tegn(){
   const nNyeIdag = nye.filter(d => d === idag).length;
   const maal = data.filter(maalbar);
   const laast = maal.filter(r => hend(r, 'laas_vist') > 0).length;
-  const kjopMaal = maal.filter(kvittert).length;
   // Potten gikk tom: bare enheter paa build-137+ maaler det
   const pottEnh = maal.filter(maalerPott), pottTraff = pottEnh.filter(r => pottTom(r) > 0).length, pottSum = pottEnh.reduce((a, r) => a + (pottTom(r) || 0), 0);
   // Ved sperren naa: gult naar noen staar der. Vinduet er 20 min; timetallet
@@ -2046,7 +2045,7 @@ function tegn(){
     // er naa ALLE enheter i utvalget, som er det tallet som faktisk kan
     // sammenliknes med annonsekronene.
     flis('Konvertering', pct(konv(data).k, data.length),
-      konv(data).k + ' kjøp av ' + data.length + ' enheter · <span title="Samme tall regnet bare på enheter med build-126 eller nyere. Den nevneren er overlevelsesskjev - se «Kan jeg stole på tallene?»">målbare: ' + pct(kjopMaal, maal.length) + '</span>',
+      konv(data).k + ' kjøp av ' + data.length + ' enheter · <span title="Brukere som lastet ned for 2-6 uker siden: nye nok til å vise hvordan appen konverterer nå, gamle nok til at de fleste kjøpene er kommet (75 % kjøper innen 14 døgn). Erstatter «målbare», som tok ut dem som sluttet tidlig og ga et for høyt tall.">siste ferdige uker: ' + pct(konvNylig(data).k, konvNylig(data).n) + '</span>',
       konv(data).k > 0),
   ].join('');
 
@@ -2820,6 +2819,18 @@ function kjopAlder(r){
 }
 // Konvertering maalt i et fast vindu. Kohorter som ikke har hatt vinduet paa
 // seg utelates helt - de ville trukket snittet ned uten aa vaere svakere.
+// KJOEPSANDEL FOR DE SISTE FERDIGE UKENE (Edvard 19.10: «er konverteringen
+// paa nyeste build rundt 10 %?»). Flisa viste «maalbare: 9 %», men maalbare er
+// enheter som sist meldte build-126+ - de som sluttet i august og aldri
+// oppdaterte, er tatt ut av nevneren, mens kjoeperne (som bruker appen videre)
+// er med. Her er nevneren alle som lastet ned for 2-6 uker siden: ferske nok
+// til aa vise dagens app, gamle nok til at de fleste kjoepene har kommet.
+function konvNylig(liste){
+  const fra = new Date(Date.parse(idagIso()) - 42*864e5).toISOString().slice(0,10);
+  const til = new Date(Date.parse(idagIso()) - 14*864e5).toISOString().slice(0,10);
+  const x = liste.filter(r => { const d = nedlastet(r); return d >= fra && d <= til; });
+  return { n: x.length, k: x.filter(kvittert).length, fra, til };
+}
 function konvVindu(liste, vindu){
   const grense = new Date(Date.parse(idagIso()) - vindu*864e5).toISOString().slice(0,10);
   const modne = liste.filter(r => nedlastet(r) <= grense);
