@@ -2056,6 +2056,21 @@ function tegn(){
         + (egen ? ', egen melding ' + egen + ', ja ' + n('anmeldelse_egen_ja') + ', nei ' + n('anmeldelse_egen_nei') : ''),
         besto > 0,
         { tittel: 'Enheter som har fått spørsmålet på prøvedagen (bare 1.4.1), og hva de svarte. «Anmeldelse» er systemforespørselen etter bestått: Apple og Google sier aldri om vinduet kom, så «ikke vist» er appens egen måling. Fra build-284 viser appen en egen melding med knapp til butikken når systemvinduet ikke kom.' }); })(),
+    // HJELP OSS AA NAA FLERE (Edvard 20.10, build-285). To grupper: 'sprak'
+    // (appspraak ikke norsk, fra 2 aktive dager) og 'fast' (kjoept og brukt 3
+    // dager paa rad etter kjoepet). Foerst stjernene, en senere dag
+    // delemeldingen. Paa iPhone erstatter delemeldingen den egne
+    // anmeldelsesmeldingen (Apple 5.6.1). «delt» er del_fullfort, og den er
+    // bare paalitelig paa iPhone - paa Android betyr den at menyen ble aapnet.
+    (() => { const n = k => data.filter(r => hend(r, k) > 0).length;
+      const st = n('hjelp_stjerner_sprak') + n('hjelp_stjerner_fast'), dl = n('hjelp_del_sprak') + n('hjelp_del_fast');
+      const vist = n('del_egen_vist'), ja = n('del_egen_ja'), delt = n('del_fullfort');
+      return flis('Hjelp oss å nå flere', st + dl ? delt + ' delt' : '–',
+        'stjerner spurt ' + st + ' (språk ' + n('hjelp_stjerner_sprak') + ', faste ' + n('hjelp_stjerner_fast') + ')'
+        + ' · delemelding vist ' + vist + ', ja ' + ja + ', nei ' + n('del_egen_nei')
+        + ' · egen anmeldelsesmelding ja ' + n('anmeldelse_egen_ja'),
+        delt > 0,
+        { tittel: 'Fra build-285. Språk = appen på annet språk enn norsk, fra 2 aktive dager. Faste = har kjøpt og brukt appen 3 dager på rad etter kjøpet. Først stjernene (systemvinduet, på Android appens egen melding hvis vinduet ikke kom), en senere dag delemeldingen. Delemeldingen vises også på iPhone etter bestått prøve, i stedet for egen anmeldelsesmelding. «Delt» er bare pålitelig på iPhone; på Android betyr det at delemenyen ble åpnet. Antall enheter, ikke hendelser.' }); })(),
   ].join('');
 
   // Begge laaseflisene er knapper. Trykk paa den som alt er valgt slaar av;
@@ -3211,7 +3226,8 @@ function hendelseDetalj(r){
   const rekkef = ['runde_start','runde_fullfort','prove_start','prove_fullfort','prove_avbrutt','blitz_start','laas_vist',
     'betaldialog_info','betaldialog_prove','betaldialog_antall','betaldialog_laas','kjop_start','kjop_fullfort','kode_innlost','blitzgave_blitz','blitzgave_lampeblitz','anmeld_trykk',
     'provedag_tok_ja','provedag_tok_nei','provedag_bestod_ja','provedag_bestod_nei','vurdering_bedt','vurdering_ikke_vist',
-    'anmeldelse_egen_vist','anmeldelse_egen_ja','anmeldelse_egen_nei'];
+    'anmeldelse_egen_vist','anmeldelse_egen_ja','anmeldelse_egen_nei',
+    'hjelp_stjerner_sprak','hjelp_stjerner_fast','hjelp_del_sprak','hjelp_del_fast','del_egen_vist','del_egen_ja','del_egen_nei','del_fullfort'];
   const deler = rekkef.filter(k => hend(r, k)).map(k => k.replace(/_/g, ' ') + ' <b>' + hend(r, k) + '</b>');
   if (r.laasTraff) deler.push('pott tom <b>' + pottTom(r) + '</b> <span style="color:var(--muted)">(i runde ' + (+r.laasTraff.i_runde || 0) + ' · utenfor ' + (+r.laasTraff.utenfor || 0) + ')</span>');
   (r.kjopPost || []).forEach(p => { if (p && p.dato) deler.push('kjøpt via <b>' + veiNavn(p.vei) + '</b> <span style="color:var(--muted)" title="norsk tid">' + (osloTid(Date.parse(p.dato)) || fmtDag(p.dato)) + (p.sekSidenStart != null ? ' · ' + p.sekSidenStart + ' s etter oppstart' : '') + (p.innebygd ? ' · innebygd bunt' : '') + '</span>'); });
