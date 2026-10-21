@@ -1394,6 +1394,10 @@ const med = a => { const s = a.slice().sort((x,y) => x-y); return s.length ? s[M
 const kvart = a => { const s = a.slice().sort((x,y) => x-y); const q = p => s.length ? s[Math.floor(s.length*p)] : 0;
   return { n: s.length, q1: q(.25), m: q(.5), q3: q(.75) }; };
 const pct = (a, b) => b ? Math.round(100 * a / b) + ' %' : '–';
+// Én desimal for konverteringen (Edvard 21.10: «tallene ser ikke ut til aa
+// oppdatere seg»). Med 2 500 enheter flytter ett kjoep tallet 0,04 prosent-
+// poeng, saa hele prosent sto stille selv etter en dag med åtte kjoep.
+const pct1 = (a, b) => b ? (Math.round(1000 * a / b) / 10).toFixed(1).replace('.', ',') + ' %' : '–';
 // Vekten slik den skal leses: 1, 0,6, 0,3 eller 0 - ikke «00,6».
 const vektTekst = k => { const v = SKJERM_VEKT[k]; return v === undefined ? '0' : v === 1 ? '1' : ('0,' + String(v).slice(2)); };
 
@@ -2045,15 +2049,16 @@ function tegn(){
     // enhetene og 4 % av kjoepene, og doblet tallet fra 5 til 11 %. Nevneren
     // er naa ALLE enheter i utvalget, som er det tallet som faktisk kan
     // sammenliknes med annonsekronene.
-    flis('Konvertering', pct(konv(data).k, data.length),
-      konv(data).k + ' kjøp av ' + data.length + ' enheter · <span title="Brukere som lastet ned for 2-6 uker siden: nye nok til å vise hvordan appen konverterer nå, gamle nok til at de fleste kjøpene er kommet (75 % kjøper innen 14 døgn). Erstatter «målbare», som tok ut dem som sluttet tidlig og ga et for høyt tall.">siste ferdige uker: ' + pct(konvNylig(data).k, konvNylig(data).n) + '</span>',
+    flis('Konvertering', pct1(konv(data).k, data.length),
+      konv(data).k + ' kjøp av ' + data.length + ' enheter · <span title="Brukere som lastet ned for 2-6 uker siden: nye nok til å vise hvordan appen konverterer nå, gamle nok til at de fleste kjøpene er kommet (75 % kjøper innen 14 døgn). Erstatter «målbare», som tok ut dem som sluttet tidlig og ga et for høyt tall.">siste ferdige uker: ' + pct1(konvNylig(data).k, konvNylig(data).n) + '</span>',
       konv(data).k > 0),
     // KONVERTERING PER VERSJON (Edvard 19.10). Samme vindu for begge: kjoept
     // innen 7 doegn, og bare brukere som har hatt 7 doegn paa seg - ellers ser
     // den nyeste versjonen svakere ut bare fordi brukerne er yngre.
-    (() => { const v = konvPerVersjon(data), p = x => x.n ? pct(x.k, x.n) : '–';
+    (() => { const v = konvPerVersjon(data), p = x => x.n ? pct1(x.k, x.n) : '–';
       return flis('Konvertering per versjon', '1.4.1: ' + p(v.ny),
-        '1.3.0: ' + p(v.gml) + ' · kjøpt innen 7 døgn · ' + v.ny.k + ' av ' + v.ny.n + ' mot ' + v.gml.k + ' av ' + v.gml.n,
+        '1.3.0: ' + p(v.gml) + ' · kjøpt innen 7 døgn · ' + v.ny.k + ' av ' + v.ny.n + ' mot ' + v.gml.k + ' av ' + v.gml.n
+          + ' · <span title="Alle som har lastet ned 1.4.1, også de siste 7 døgnene, og alle kjøpene deres så langt. Oppdateres med hvert kjøp, men er ikke sammenliknbart med tallene foran: de nyeste har ikke hatt en uke på seg.">alle 1.4.1 hittil: ' + v.hittil.k + ' av ' + v.hittil.n + ' (' + p(v.hittil) + ')</span>',
         v.ny.n > 0 && v.gml.n > 0 && v.ny.k / v.ny.n >= v.gml.k / v.gml.n,
         { tittel: 'Gruppert etter nedlastingsdato: 1.3.0 = lastet ned 13.09-08.10, 1.4.1 = lastet ned fra 10.10 (9.10, utgivelsesdagen, er utelatt). Bare brukere som lastet ned for minst 7 døgn siden er med, og bare kjøp innen 7 døgn telles, så begge får samme tid på seg.' }); })(),
     // PROEVEDAGEN (Edvard 19.10): hvor mange som har meldt at de tok og
@@ -2875,7 +2880,11 @@ function konvPerVersjon(liste){
   const grense = new Date(Date.parse(idagIso()) - 7*864e5).toISOString().slice(0,10);
   const tell = (fra, til) => { const x = liste.filter(r => { const d = nedlastet(r); return d >= fra && d <= til && d <= grense; });
     return { n: x.length, k: x.filter(r => { const a = kjopAlder(r); return a !== null && a <= 7; }).length }; };
-  return { gml: tell('2026-09-13', '2026-10-08'), ny: tell('2026-10-10', '2099-12-31') };
+  // hittil: alle 1.4.1-nedlastinger og alle kjoepene deres naa, uten vindu.
+  // Tallet som flytter seg med hvert kjoep; de to over staar stille i en uke.
+  const alle141 = liste.filter(r => nedlastet(r) >= '2026-10-10');
+  return { gml: tell('2026-09-13', '2026-10-08'), ny: tell('2026-10-10', '2099-12-31'),
+    hittil: { n: alle141.length, k: alle141.filter(kvittert).length } };
 }
 function konvVindu(liste, vindu){
   const grense = new Date(Date.parse(idagIso()) - vindu*864e5).toISOString().slice(0,10);
