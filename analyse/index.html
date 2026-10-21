@@ -40,7 +40,7 @@
     color-scheme: light;
     --plane:#f9f9f7; --surface-1:#fcfcfb; --text-primary:#0b0b0b; --text-secondary:#52514e;
     --muted:#898781; --grid:#e1e0d9; --baseline:#c3c2b7; --border:rgba(11,11,11,0.10);
-    --series-1:#2a78d6; --series-2:#d98a2b; --series-3:#5aa469; --kohort:#9ed4a8; --seq-250:#86b6ef;
+    --series-1:#2a78d6; --series-2:#d98a2b; --series-3:#5aa469; --kohort:#9ed4a8; --seq-250:#86b6ef; --timesoyle:#174a8c; --timesoyle-rod:#8c1d1d;
     --good-text:#006300; --critical:#d03b3b;
     --warn:#7a5600; --warn-flate:#fff5d4; --warn-kant:#e4bd57;
     --gul:#e8a800; --gul-kant:#7a5600;
@@ -50,7 +50,7 @@
       color-scheme: dark;
       --plane:#0d0d0d; --surface-1:#1a1a19; --text-primary:#fff; --text-secondary:#c3c2b7;
       --muted:#898781; --grid:#2c2c2a; --baseline:#383835; --border:rgba(255,255,255,0.10);
-      --series-1:#3987e5; --series-2:#e59a3c; --series-3:#6cb87a; --kohort:#8fd49e; --seq-250:#1c5cab;
+      --series-1:#3987e5; --series-2:#e59a3c; --series-3:#6cb87a; --kohort:#8fd49e; --seq-250:#1c5cab; --timesoyle:#1b4f96; --timesoyle-rod:#8f2222;
       --good-text:#0ca30c; --critical:#d03b3b;
     --warn:#e6ab34; --warn-flate:#2f2712; --warn-kant:#6b5620;
     --gul:#f0b429; --gul-kant:#5a4718;
@@ -60,7 +60,7 @@
     color-scheme: dark;
     --plane:#0d0d0d; --surface-1:#1a1a19; --text-primary:#fff; --text-secondary:#c3c2b7;
     --muted:#898781; --grid:#2c2c2a; --baseline:#383835; --border:rgba(255,255,255,0.10);
-    --series-1:#3987e5; --series-2:#e59a3c; --series-3:#6cb87a; --kohort:#8fd49e; --seq-250:#1c5cab;
+    --series-1:#3987e5; --series-2:#e59a3c; --series-3:#6cb87a; --kohort:#8fd49e; --seq-250:#1c5cab; --timesoyle:#1b4f96; --timesoyle-rod:#8f2222;
     --good-text:#0ca30c; --critical:#d03b3b;
     --warn:#e6ab34; --warn-flate:#2f2712; --warn-kant:#6b5620;
     --gul:#f0b429; --gul-kant:#5a4718;
@@ -627,6 +627,8 @@
       <span style="color:var(--series-1)">■</span> hele søyla er alle som traff målet den dagen ·
       <span style="color:var(--critical)">■</span> den røde toppen er <b>de av dem som har kjøpt</b>,
       uansett når de betalte. «Kjøpt» er derfor helrød.
+      <span style="color:var(--timesoyle)">■</span> den mørke delen nederst er <b>hvor langt dagen var kommet ved forrige hele time</b>
+      (samme klokkeslett hver dag, så dagens søyle kan sammenliknes med de andre underveis; mørkerød i «Kjøpt»).
       Tallene er de samme som flisene viser når du velger den dagen.
       <b>Merk døgnbasisen:</b> aktive, nye og lås er UTC-døgn som resten av appens dagsnøkler,
       mens kjøp er <b>norske</b> døgn, fordi det er slik RevenueCat daterer. Rundt midnatt kan
@@ -3332,21 +3334,21 @@ function stabelDiagram(svg, dg, tot, kjopt, navn, ref){
       const hN = Math.max(1, ih * n / maks), hK = k ? Math.max(1, ih * k / maks) : 0;
       s += '<rect x="' + xS + '" y="' + (T+ih-hN) + '" width="' + wS + '" height="' + hN + '" fill="' + css('--series-1') + '">'
         + '<title>' + fmtDag(d) + ': ' + n + ' ' + navn + (k ? ' - ' + k + ' av dem har kjøpt' : '') + '</title></rect>';
+      // TIMESSOEYLA (Edvard 21.10: «gjøre streken om til søyle ... som legger
+      // seg foran den blå ... mørkeblå»): hvor langt dagen var kommet ved
+      // forrige hele time, tegnet fra bunnen med soeylens x og bredde.
+      // Er hele soeyla roed (grafen «Kjøpt»), legges timessoeyla OVER den roede
+      // i moerkeroedt; ellers under den roede toppen i moerkeblaatt.
+      const v = ref && ref.perDag ? ref.perDag[d] : null, helRod = k >= n;
+      const timeS = () => { if (!v || v.n <= 0) return ''; const hV = Math.max(1, ih * Math.min(v.n, n) / maks);
+        return '<rect class="timesoyle" x="' + xS + '" y="' + (T+ih-hV) + '" width="' + wS + '" height="' + hV + '" fill="' + css(helRod ? '--timesoyle-rod' : '--timesoyle') + '">'
+          + '<title>' + fmtDag(d) + ' kl. ' + ref.kl + ': ' + v.n + (v.minst ? ' (minst)' : '') + ' av ' + n + '</title></rect>'; };
+      if (!helRod) s += timeS();
       if (k) s += '<rect x="' + xS + '" y="' + (T+ih-hN) + '" width="' + wS + '" height="' + hK + '" fill="' + css('--critical') + '" pointer-events="none"/>';
+      if (helRod) s += timeS();
       s += '<text x="' + (xS+wS/2) + '" y="' + (T+ih-hN-3) + '" font-size="9" text-anchor="middle" fill="' + css('--muted') + '">' + n + '</text>';
     }
     if (i % hver === 0) s += '<text x="' + (x+bw/2) + '" y="' + (H-8) + '" font-size="10" text-anchor="middle" fill="' + css('--muted') + '">' + fmtDag(d) + '</text>';
-  });
-  // SAMME KLOKKESLETT (Edvard 21.10): en kort strek paa hver dags soeyle der
-  // dagen sto ved forrige hele time, ogsaa paa dagens soeyle. Hold musa over
-  // streken for tallet.
-  if (ref && ref.perDag) dg.forEach((d, i) => {
-    const v = ref.perDag[d]; if (!v) return;
-    const wS = Math.max(1, bw*0.72 - 2), xS = L + i*bw + (bw - wS)/2, y = T + ih - ih * v.n / maks;
-    // Et rektangel med SAMME x og bredde som soeylen, ikke en linje: da
-    // kantutjevnes de to likt, og streken kan ikke stikke utenfor.
-    s += '<rect class="timesstrek" x="' + xS + '" y="' + (y - 0.5) + '" width="' + wS + '" height="1" fill="' + css('--text-primary') + '">'
-      + '<title>' + fmtDag(d) + ' kl. ' + ref.kl + ': ' + v.n + (v.minst ? ' (minst)' : '') + '</title></rect>';
   });
   svg.setAttribute('width', W); svg.setAttribute('height', H);
   svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.innerHTML = s;
