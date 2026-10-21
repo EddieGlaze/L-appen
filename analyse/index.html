@@ -3343,7 +3343,7 @@ function stabelDiagram(svg, dg, tot, kjopt, navn, ref){
   if (ref && ref.perDag) dg.forEach((d, i) => {
     const v = ref.perDag[d]; if (!v) return;
     const wS = Math.max(1, bw*0.72 - 2), xS = L + i*bw + (bw - wS)/2, y = T + ih - ih * v.n / maks;
-    s += '<line x1="' + (xS - 2) + '" x2="' + (xS + wS + 2) + '" y1="' + y + '" y2="' + y + '" stroke="' + css('--text-primary') + '" stroke-width="2.5">'
+    s += '<line x1="' + xS + '" x2="' + (xS + wS) + '" y1="' + y + '" y2="' + y + '" stroke="' + css('--text-primary') + '" stroke-width="2.5">'
       + '<title>' + fmtDag(d) + ' kl. ' + ref.kl + ': ' + v.n + (v.minst ? ' (minst)' : '') + '</title></line>';
   });
   svg.setAttribute('width', W); svg.setAttribute('height', H);
