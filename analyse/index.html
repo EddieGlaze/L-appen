@@ -3343,8 +3343,10 @@ function stabelDiagram(svg, dg, tot, kjopt, navn, ref){
   if (ref && ref.perDag) dg.forEach((d, i) => {
     const v = ref.perDag[d]; if (!v) return;
     const wS = Math.max(1, bw*0.72 - 2), xS = L + i*bw + (bw - wS)/2, y = T + ih - ih * v.n / maks;
-    s += '<line x1="' + xS + '" x2="' + (xS + wS) + '" y1="' + y + '" y2="' + y + '" stroke="' + css('--text-primary') + '" stroke-width="1.5" shape-rendering="crispEdges">'
-      + '<title>' + fmtDag(d) + ' kl. ' + ref.kl + ': ' + v.n + (v.minst ? ' (minst)' : '') + '</title></line>';
+    // Et rektangel med SAMME x og bredde som soeylen, ikke en linje: da
+    // kantutjevnes de to likt, og streken kan ikke stikke utenfor.
+    s += '<rect class="timesstrek" x="' + xS + '" y="' + (y - 0.5) + '" width="' + wS + '" height="1" fill="' + css('--text-primary') + '">'
+      + '<title>' + fmtDag(d) + ' kl. ' + ref.kl + ': ' + v.n + (v.minst ? ' (minst)' : '') + '</title></rect>';
   });
   svg.setAttribute('width', W); svg.setAttribute('height', H);
   svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.innerHTML = s;
