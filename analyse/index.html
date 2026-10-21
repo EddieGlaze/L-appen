@@ -3312,12 +3312,12 @@ function dagDetalj(r){
 // for aa klemme dem sammen faar svg-en en minstebredde per dag, og ruta rundt
 // ruller sidelengs.
 const KURVE_MIN_DAG = 22;
-function stabelDiagram(svg, dg, tot, kjopt, navn){
+function stabelDiagram(svg, dg, tot, kjopt, navn, ref){
   const H = 132, L = 30, R = 8, T = 14, B = 24;
   const bred = svg.parentNode ? (svg.parentNode.getBoundingClientRect().width || 700) : 700;
   const W = Math.max(320, bred, dg.length * KURVE_MIN_DAG + L + R);
   const iw = W - L - R, ih = H - T - B, bw = iw / dg.length;
-  const maks = Math.max(1, ...dg.map(d => tot[d] || 0));
+  const maks = Math.max(1, ...dg.map(d => tot[d] || 0), ref ? ref.n : 0);
   let s = '';
   [0, .5, 1].forEach(f => { const y = T + ih - f*ih;
     s += '<line x1="' + L + '" x2="' + (W-R) + '" y1="' + y + '" y2="' + y + '" stroke="' + css('--grid') + '"/>'
@@ -3337,8 +3337,59 @@ function stabelDiagram(svg, dg, tot, kjopt, navn){
     }
     if (i % hver === 0) s += '<text x="' + (x+bw/2) + '" y="' + (H-8) + '" font-size="10" text-anchor="middle" fill="' + css('--muted') + '">' + fmtDag(d) + '</text>';
   });
+  // SAMME TID I GAAR: stiplet strek over dagens soeyle der gaarsdagen sto
+  // paa samme klokkeslett. Tallet staar ved streken.
+  const ri = ref ? dg.indexOf(ref.d) : -1;
+  if (ri >= 0) {
+    const x = L + ri*bw, y = T + ih - ih * ref.n / maks;
+    s += '<line x1="' + (x - 3) + '" x2="' + (x + bw + 3) + '" y1="' + y + '" y2="' + y + '" stroke="' + css('--text-primary') + '" stroke-width="2" stroke-dasharray="4 3">'
+      + '<title>' + ref.tekst + '</title></line>'
+      + '<text x="' + (x - 5) + '" y="' + (y + 3.5) + '" font-size="9.5" font-weight="700" text-anchor="end" fill="' + css('--text-primary') + '">' + ref.n + '</text>';
+  }
   svg.setAttribute('width', W); svg.setAttribute('height', H);
   svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H); svg.innerHTML = s;
+}
+// SAMME TID I GAAR (Edvard 21.10: «en strek for hva status var paa samme
+// tidspunkt ... dagen foer»). Hver kurve teller gaarsdagen bare med hendelser
+// som skjedde FOER klokka var det samme som naa. Dagnoekkelen er kurvens egen
+// (UTC, norsk doegn eller app-doegn), saa streken havner over riktig soeyle.
+// Aktive og Moett laasen har ikke klokkeslett for alle enheter (eldre bygg
+// sender bare datoen); da vises dekningen, og streken er et minimum.
+const UTC_DAG = ms => new Date(ms).toISOString().slice(0,10);
+const APP_DAG = ms => osloDag(ms - 6 * 36e5);
+function aktivTider(r){
+  const t = [];
+  (r.runder || []).forEach(x => x && x.t && t.push(Date.parse(x.t)));
+  (r.lampeblitz || []).forEach(x => x && t.push(+x.d));
+  (r.okt || []).forEach(x => x && x.start && t.push(Date.parse(x.start)));
+  (r.flateVist || []).forEach(x => x && x.t && t.push(Date.parse(x.t)));
+  (r.kjopForsok || []).forEach(x => x && x.dato && t.push(Date.parse(x.dato)));
+  return t.filter(gyldigMs);
+}
+function laasTider(r){
+  return Object.keys(laasDager(r)).map(d => { const x = (r.laasDag || {})[d]; return x && x.tider && x.tider[0] ? Date.parse(x.tider[0]) : NaN; }).filter(gyldigMs);
+}
+// tell(r, ms => bool): enheter/hendelser paa gaarsdagen innen klokkeslettet.
+// harTid(r, dag): har enheten et klokkeslett paa den dagen i det hele tatt.
+const SAMME_TID = {
+  aktiv: { dag: UTC_DAG, tell: (r, f) => aktivTider(r).some(f) ? 1 : 0, harTid: (r, d) => aktivTider(r).some(ms => UTC_DAG(ms) === d) },
+  nye: { dag: UTC_DAG, tell: (r, f) => { const ms = Date.parse(r.foerste || ''); return gyldigMs(ms) && f(ms) ? 1 : 0; },
+    harTid: r => gyldigMs(Date.parse(r.foerste || '')) },
+  laas: { dag: APP_DAG, tell: (r, f) => laasTider(r).some(f) ? 1 : 0, harTid: (r, d) => laasTider(r).some(ms => APP_DAG(ms) === d) },
+  kjopt: { dag: osloDag, tell: (r, f) => kjopListe(r).filter(x => f(x.ms)).length, harTid: () => true },
+  trykkUtenKjop: { dag: osloDag, tell: (r, f) => {
+      const ok = (r.kjopForsok || []).map(x => x && x.dato ? { ms: Date.parse(x.dato), u: x.utfall } : null).filter(x => x && gyldigMs(x.ms) && f(x.ms));
+      return ok.some(x => x.u !== 'fullfort') && !ok.some(x => x.u === 'fullfort') ? 1 : 0; }, harTid: () => true },
+};
+function sammeTidIgaar(id, data, dagerFn){
+  const st = SAMME_TID[id]; if (!st) return null;
+  const naa = Date.now(), kutt = naa - 864e5, igaar = st.dag(kutt), idag = st.dag(naa);
+  const f = ms => st.dag(ms) === igaar && ms <= kutt;
+  const n = data.reduce((a, r) => a + st.tell(r, f), 0);
+  const igaarAlle = data.filter(r => dagerFn(r).includes(igaar));
+  const dekning = igaarAlle.length ? igaarAlle.filter(r => st.harTid(r, igaar)).length / igaarAlle.length : 1;
+  const kl = osloKl(naa);
+  return { d: idag, n, dekning, tekst: 'I går kl. ' + kl + ': ' + n + (dekning < .95 ? ' (minst - ' + Math.round(dekning * 100) + ' % av gårsdagens enheter har klokkeslett)' : '') };
 }
 // Maalene er DE SAMME som FILTRE bruker, bare med dagen som parameter i stedet
 // for dagValgt(). Gaar de fra hverandre, viser flisa ett tall og kurven et
@@ -3391,10 +3442,12 @@ function filterKurver(data){
     const tot = {}, kjopt = {};
     data.forEach(r => { const kj = kvittert(r);
       k.dager(r).forEach(d => { if (!d) return; tot[d] = (tot[d] || 0) + 1; if (kj) kjopt[d] = (kjopt[d] || 0) + 1; }); });
-    stabelDiagram(document.getElementById('kurve-' + k.id), dg, tot, kjopt, k.ord);
+    const ref = sammeTidIgaar(k.id, data, k.dager);
+    stabelDiagram(document.getElementById('kurve-' + k.id), dg, tot, kjopt, k.ord, ref);
     const sT = dg.reduce((a, d) => a + (tot[d] || 0), 0), sK = dg.reduce((a, d) => a + (kjopt[d] || 0), 0);
     const sum = document.getElementById('kurvesum-' + k.id);
-    if (sum) sum.textContent = sT + ' i vinduet' + (k.id === 'kjopt' ? '' : ' · ' + sK + ' av dem har kjøpt');
+    if (sum) sum.textContent = sT + ' i vinduet' + (k.id === 'kjopt' ? '' : ' · ' + sK + ' av dem har kjøpt')
+      + (ref ? ' · i dag ' + (tot[ref.d] || 0) + ', i går på samme tid ' + (ref.dekning < .95 ? 'minst ' : '') + ref.n : '');
   });
 }
 // REKLAMEKORTET ETTER RUNDER (Edvard 12.10: «hvor mange ganger reklamekortet
@@ -3515,12 +3568,17 @@ function proKortKurver(data){
     + '<div class="kurverull"><svg id="proKurveAnt"></svg></div></div>'
     + '<div class="kurverad"><div class="kurvetittel">Sekunder åpent, totalt <span class="tall" id="proSumSek"></span></div>'
     + '<div class="kurverull"><svg id="proKurveSek"></svg></div></div>';
-  stabelDiagram(document.getElementById('proKurveAnt'), dg, ant, {}, 'visninger');
-  stabelDiagram(document.getElementById('proKurveSek'), dg, sek, {}, 'sekunder');
+  // Samme tid i gaar: postene har tidspunkt (t), saa tallet er eksakt.
+  const naa = Date.now(), kutt = naa - 864e5, igaar = osloDag(kutt), idag = osloDag(naa), kl = osloKl(naa);
+  let gA = 0, gS = 0;
+  data.forEach(r => (r.flateVist || []).forEach(p => { if (!p || !/^pro_/.test(p.flate || '')) return; const ms = Date.parse(p.t);
+    if (gyldigMs(ms) && osloDag(ms) === igaar && ms <= kutt) { gA += +p.n || 1; gS += Math.round(+p.sek || 0); } }));
+  stabelDiagram(document.getElementById('proKurveAnt'), dg, ant, {}, 'visninger', { d: idag, n: gA, tekst: 'I går kl. ' + kl + ': ' + gA });
+  stabelDiagram(document.getElementById('proKurveSek'), dg, sek, {}, 'sekunder', { d: idag, n: gS, tekst: 'I går kl. ' + kl + ': ' + gS + ' s' });
   const sA = dg.reduce((a, d) => a + (ant[d] || 0), 0), sS = dg.reduce((a, d) => a + (sek[d] || 0), 0);
   const navn = { pro_etter: 'etter runde', pro_dash: 'etter Dash' };
   document.getElementById('proSumAnt').textContent = sA + ' i vinduet' + (sA ? ' · '
-    + Object.keys(perFlate).map(f => (navn[f] || f) + ' ' + perFlate[f]).join(' · ') : '');
+    + Object.keys(perFlate).map(f => (navn[f] || f) + ' ' + perFlate[f]).join(' · ') : '') + ' · i dag ' + (ant[idag] || 0) + ', i går på samme tid ' + gA;
   document.getElementById('proSumSek').textContent = sS + ' s i vinduet' + (sA ? ' · snitt ' + (sS / sA).toFixed(1) + ' s per visning' : '');
 }
 function tabell(data){
