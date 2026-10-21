@@ -645,7 +645,9 @@
     <summary>Kommende prøver <span class="sumnote">prøvedatoene brukerne har satt</span></summary>
     <div class="hint">Fra <code>stats.maal</code> (bare 1.4.x): datoen brukeren har satt i appen, merket
       <b>bestilt</b> når de har krysset av for at timen er bestilt, ellers <b>mål</b>. Dager igjen regnes mot
-      norsk dato. Når datoen har passert, vises svaret på «Tok du prøven i dag?» fra <code>stats.proveutfall</code>.</div>
+      norsk dato. Når datoen har passert, vises svaret på «Tok du prøven i dag?» fra <code>stats.proveutfall</code>.
+      <b>Ligger an</b> = prøvesimuleringer bestått (minst 38 av 45, som den ekte prøven) og andel riktige i øvingsrundene.
+      Trykk på en rad for å se rundene, prøveresultatene og dagene.</div>
     <div id="cProver"></div>
   </details>
   <div class="kort" data-fane="enheter">
@@ -3443,6 +3445,47 @@ function proveCelle(r){
       : pi.utfall ? '<span class="merke">' + pi.utfall + '</span>'
       : '<span style="color:var(--muted)">passert, ikke svart</span>');
 }
+// HVORDAN LIGGER DE AN (Edvard 21.10: «se hvordan de ligger an, og hvor mange
+// de klarer aa gjette ved aa se spillene de har spilt»). Regnes av rundene i
+// skyen: proevesimuleringer (45 spoersmaal, bestaatt ved minst 38 riktige, som
+// den ekte proeven), oeving (quiz) og Skiltblitz hver for seg. «Siste 7 dager»
+// viser om de blir bedre mot proevedagen.
+const PROVE_KRAV = 38;
+function ferdighet(r){
+  const run = (r.runder || []).filter(x => x && +x.av > 0);
+  const prover = run.filter(x => x.prove).sort((a, b) => (a.t || a.dato) < (b.t || b.dato) ? -1 : 1);
+  const bestod = x => (+x.poeng || 0) >= Math.round(PROVE_KRAV * (+x.av) / 45);
+  const oving = run.filter(x => !x.prove && !erBlitz(x)), blitz = run.filter(erBlitz);
+  const sum = l => l.reduce((a, x) => [a[0] + (+x.poeng || 0), a[1] + (+x.av || 0)], [0, 0]);
+  const fra7 = new Date(Date.parse(idagIso()) - 6*864e5).toISOString().slice(0,10);
+  return { prover, bestatt: prover.filter(bestod).length, bestod,
+    oving: sum(oving), oving7: sum(oving.filter(x => x.dato >= fra7)), nOving: oving.length,
+    blitz: sum(blitz), nBlitz: blitz.length };
+}
+function ferdighetKort(r){
+  const f = ferdighet(r);
+  if (!f.prover.length && !f.nOving && !f.nBlitz) return '<span style="color:var(--muted)">ingen runder i skyen</span>';
+  return (f.prover.length ? 'prøver ' + f.bestatt + '/' + f.prover.length + ' bestått' : 'ingen prøver')
+    + (f.oving[1] ? ' · øving ' + pct(f.oving[0], f.oving[1]) : '');
+}
+function ferdighetDetalj(r){
+  const f = ferdighet(r);
+  const linje = (navn, tekst) => '<div style="margin:2px 0"><span style="display:inline-block;width:130px;color:var(--muted)">' + navn + '</span>' + tekst + '</div>';
+  const prov = f.prover.slice(-8).map(x => '<span class="merke"' + (f.bestod(x) ? ' style="color:var(--good-text);border-color:var(--good-text)"' : '') + ' title="' + fmtDag(x.dato) + '">' + (+x.poeng || 0) + '/' + x.av + '</span>').join(' ');
+  return '<div class="detblokk"><div class="tit">hvordan de ligger an</div>'
+    + linje('prøvesimuleringer', f.prover.length ? '<b>' + f.bestatt + ' av ' + f.prover.length + '</b> bestått (minst ' + PROVE_KRAV + ' av 45)'
+      + (f.prover.length > 8 ? ' · siste 8: ' : ' · ') + prov : '<span style="color:var(--muted)">ingen</span>')
+    + linje('øving (quiz)', f.oving[1] ? '<b>' + pct(f.oving[0], f.oving[1]) + '</b> riktig · ' + f.oving[0] + ' av ' + f.oving[1] + ' i ' + f.nOving + ' runder'
+      + (f.oving7[1] ? ' · siste 7 dager: <b>' + pct(f.oving7[0], f.oving7[1]) + '</b>' : '') : '<span style="color:var(--muted)">ingen</span>')
+    + linje('Skiltblitz', f.blitz[1] ? '<b>' + pct(f.blitz[0], f.blitz[1]) + '</b> riktig · ' + f.nBlitz + ' runder' : '<span style="color:var(--muted)">ingen</span>')
+    + '</div>';
+}
+// Innholdet i en aapnet enhetsrad, felles for Enhetene-tabellen og
+// «Kommende prøver», saa de to aldri viser forskjellige ting.
+function enhetDetalj(r){
+  return ferdighetDetalj(r) + '<div class="rute2" style="margin:0">' + '<div>' + sideDetalj(r) + '</div><div>' + dagDetalj(r) + '</div></div>'
+    + hendelseDetalj(r);
+}
 function proveKort(data){
   const el = document.getElementById('cProver');
   if (!el) return;
@@ -3450,15 +3493,19 @@ function proveKort(data){
   const kommende = med.filter(x => x.pi.dager >= 0).sort((a, b) => a.pi.dager - b.pi.dager);
   const passert = med.filter(x => x.pi.dager < 0).sort((a, b) => b.pi.dager - a.pi.dager);
   const svart = data.filter(r => (r.proveutfall || []).length > 0).length;
-  const rad = x => '<tr><td>' + fmtDag(x.pi.dato) + '</td><td class="h">' + (x.pi.dager === 0 ? 'i dag' : x.pi.dager > 0 ? 'om ' + x.pi.dager + ' d' : -x.pi.dager + ' d siden') + '</td>'
+  let nr = 0;
+  const rad = x => { const i = nr++; return '<tr style="cursor:pointer" data-prad="' + i + '"><td><span id="ppil' + i + '" style="color:var(--muted)">›</span> ' + fmtDag(x.pi.dato) + '</td><td class="h">' + (x.pi.dager === 0 ? 'i dag' : x.pi.dager > 0 ? 'om ' + x.pi.dager + ' d' : -x.pi.dager + ' d siden') + '</td>'
     + '<td>' + (x.pi.dager >= 0 ? proveMerke(x.pi) + (x.pi.nyDato ? ' <span class="merke">ny dato</span>' : '') : proveCelle(x.r)) + '</td>'
     + '<td>' + pfMerke(x.r) + x.r.id.slice(0,8) + (kvittert(x.r) ? '<span class="merke betalt">betalt</span>' : '') + '</td>'
-    + '<td>' + (x.r.sprak || '–') + '</td><td>' + byggTekst(x.r) + '</td></tr>';
-  const hode = '<tr><th>dato</th><th class="h">dager</th><th></th><th>enhet</th><th>språk</th><th>build</th></tr>';
+    + '<td>' + (x.r.sprak || '–') + '</td><td>' + byggTekst(x.r) + '</td><td>' + ferdighetKort(x.r) + '</td></tr>'
+    + '<tr id="det-p' + i + '" style="display:none"><td colspan="7" style="padding:4px 0 12px">' + enhetDetalj(x.r) + '</td></tr>'; };
+  const hode = '<tr><th>dato</th><th class="h">dager</th><th></th><th>enhet</th><th>språk</th><th>build</th><th>ligger an</th></tr>';
   el.innerHTML = '<p style="margin:4px 0 8px"><b>' + kommende.length + ' kommende, ' + kommende.filter(x => x.pi.bestilt).length + ' bestilt, '
     + svart + ' har svart på prøvedagen.</b> <span style="color:var(--muted)">' + med.length + ' enheter har satt dato i alt.</span></p>'
     + (kommende.length ? '<table>' + hode + kommende.map(rad).join('') + '</table>' : '<p style="color:var(--muted)">Ingen kommende prøver.</p>')
     + (passert.length ? '<div class="hint" style="margin-top:10px">Datoen har passert:</div><table>' + hode + passert.map(rad).join('') + '</table>' : '');
+  el.querySelectorAll('[data-prad]').forEach(rad => rad.addEventListener('click', () => { const i = rad.dataset.prad, d = document.getElementById('det-p' + i);
+    const apen = d.style.display !== 'none'; d.style.display = apen ? 'none' : 'table-row'; document.getElementById('ppil' + i).textContent = apen ? '›' : '⌄'; }));
 }
 function proKortKurver(data){
   const el = document.getElementById('cProKort');
@@ -3534,9 +3581,8 @@ function tabell(data){
       + '<td>' + dagStripe(r) + '</td>'
       + '<td>' + (aktiveDager(r).length === 0 ? '<span style="color:var(--muted)" title="ingen dager med spor - ingenting aa maale et opphold mot">–</span>' : lengsteOpphold(r) === 0 ? '<span style="color:var(--muted)">0</span>' : '<b title="lengste hull uten spor, regnet fra foerste aapning - enheten var tilbake etterpaa">' + lengsteOpphold(r) + ' d</b>') + '</td></tr>';
     s += '<tr id="det' + i + '" style="display:none"><td></td><td colspan="' + KOLONNER.length + '" style="padding:4px 0 12px">'
-      + '<div class="rute2" style="margin:0">' + '<div>' + sideDetalj(r) + '</div><div>' + dagDetalj(r) + '</div></div>'
       // Hendelsene paa egen linje i full bredde under begge kolonnene (Edvard 10.10).
-      + hendelseDetalj(r) + '</td></tr>';
+      + enhetDetalj(r) + '</td></tr>';
   });
   t.innerHTML = s;
   t.querySelectorAll('th[data-kol]').forEach(th => th.addEventListener('click', () => { const k = th.dataset.kol; const def = KOLONNER.find(x => x.k === k);
