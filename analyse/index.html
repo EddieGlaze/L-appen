@@ -580,6 +580,13 @@
     <div class="hint" id="cKonvHint"></div>
     <svg id="cKonv" width="100%" height="170"></svg>
   </div>
+  <div class="kort" data-fane="bruk"><h3>Konvertering per nedlastingsuke</h3>
+    <div class="hint">Én rad per uke brukerne <b>lastet ned</b>, mandag-søndag, med appversjonen de fikk.
+      <b>Dag 0</b> = kjøpte samme døgn som nedlastingen. <b>Innen 7 d</b> regnes bare for uker der alle har hatt
+      sju døgn på seg (ellers «–»). <b>Hittil</b> = alle kjøpene deres så langt, uansett når. Unge uker er ikke ferdige:
+      i 1.3.0 kom en tredjedel av kjøpene etter dag 7.</div>
+    <div id="cUkeKonv" style="overflow-x:auto"></div>
+  </div>
   <div class="kort" data-fane="bruk"><h3>Kohorter: hva pengene den dagen faktisk kjøpte</h3>
     <div class="hint">Her tilskrives kjøpet <b>dagen brukeren lastet ned</b>, ikke dagen hen betalte.
       Det er den eneste måten å se om kronene brukt en gitt dag ga kjøpere - «Kjøpt i dag» svarer på
@@ -2125,7 +2132,7 @@ function tegn(){
   rekkeKort(data);
   siderKort(data);
   avbruddKort(data);
-  konvKort(data); kohortKort(data); ukeKort(data);
+  konvKort(data); ukeKonvKort(data); kohortKort(data); ukeKort(data);
   perioderKort(data); metaKostKort(data); reklameSkjemaKort(data); kilderLinje();
   // Filteret gjelder bare tabellen. Diagrammene over skal fortsatt vise alt.
   const valgt = tabellFilter ? FILTRE[tabellFilter] : null;
@@ -3035,6 +3042,32 @@ function ukeStart(d){ const t = new Date(Date.parse(d)); const dag = (t.getUTCDa
 // det ene er ferskt. Kurven stopper KONV_VINDU doegn foer i dag - de siste
 // dagene er ikke ferdig maalt, og et fallende haleslepp er den vanligste
 // maaten en slik graf lyver paa.
+// KONVERTERING PER NEDLASTINGSUKE (Edvard 21.10). Samme tall som ble vist i
+// chatten: kjoep paa dag 0, innen 7 doegn og hittil, per uke brukerne kom.
+// Versjonen leses av nedlastingsdatoen som i konvPerVersjon: fra 10.10 er det
+// 1.4.1 (9.10 var utgivelsesdagen og blandet).
+function ukeKonvKort(data){
+  const el = document.getElementById('cUkeKonv');
+  if (!el) return;
+  const idag = idagIso(), grense = new Date(Date.parse(idag) - 7*864e5).toISOString().slice(0,10);
+  const uker = {};
+  data.forEach(r => { const nd = nedlastet(r); if (!nd || nd < LANSERT) return; const u = ukeStart(nd); (uker[u] = uker[u] || []).push(r); });
+  const versjon = (fra, til) => til < '2026-10-09' ? '1.3.0' : fra >= '2026-10-10' ? '1.4.1' : 'begge';
+  const p = (k, n) => n ? pct1(k, n) : '–';
+  let h = '<table><tr><th>uke fra</th><th>versjon</th><th class="h">nye</th><th class="h">dag 0</th><th class="h">innen 7 d</th><th class="h">hittil</th><th class="h">konv. hittil</th></tr>';
+  Object.keys(uker).sort().reverse().forEach(u => {
+    const x = uker[u], til = new Date(Date.parse(u) + 6*864e5).toISOString().slice(0,10);
+    const alder = x.map(kjopAlder).filter(a => a !== null);
+    const moden = til <= grense;
+    const k7 = alder.filter(a => a <= 7).length, k0 = alder.filter(a => a === 0).length;
+    h += '<tr><td>' + fmtDag(u) + (til >= idag ? ' <span style="color:var(--muted)">(pågår)</span>' : '') + '</td>'
+      + '<td>' + versjon(u, til) + '</td><td class="h">' + x.length + '</td>'
+      + '<td class="h">' + k0 + ' <span style="color:var(--muted)">(' + p(k0, x.length) + ')</span></td>'
+      + '<td class="h">' + (moden ? k7 + ' <span style="color:var(--muted)">(' + p(k7, x.length) + ')</span>' : '<span style="color:var(--muted)" title="ikke alle har hatt sju døgn ennå">–</span>') + '</td>'
+      + '<td class="h">' + alder.length + '</td><td class="h"><b>' + p(alder.length, x.length) + '</b></td></tr>';
+  });
+  el.innerHTML = h + '</table>';
+}
 function konvKort(data){
   const svg = document.getElementById('cKonv');
   if (!svg) return;
