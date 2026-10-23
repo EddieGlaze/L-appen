@@ -1218,7 +1218,10 @@ let rader = [], dager = 14, hentetTotal = 0;
 // tabell ved hver oppstart (hentGrenser i src/tilgang.ts), saa naar Edvard
 // endrer en verdi der, foelger denne sida etter av seg selv. Standardene er
 // GRENSER_STANDARD i koden - de gjelder til en rad overstyrer dem.
-let KONFIG = { tidBudsjettMin: 5, tidBudsjettRaskMin: 4, tempoGrenseSek: 120 };
+let KONFIG = { tidBudsjettMin: 5, tidBudsjettRaskMin: 4, tempoGrenseSek: 120, mestringsterskel: 0.95 };
+// Antall spoersmaal i banken (app-expo/src/data/sporsmal.json), fylt inn av
+// bygg-analyse-data.js. Nevneren i «behersket», som i appen (ALLE.length).
+const BANK_ANTALL = /*BANK_ANTALL*/648/*BANK_ANTALL*/;
 // Hvilken flis som er trykket: null, 'idag' eller 'noensinne'. Gjelder BARE
 // tabellen - diagrammene bruker alltid hele utvalget.
 let tabellFilter = null;
@@ -1936,6 +1939,20 @@ async function hent(){
       + ' · ' + rader.length + ' rader' + (rader.length < hentetTotal ? ' av ' + hentetTotal + ' (!)' : '');
     document.getElementById('filtre').style.display = 'flex';
     tegn();
+    // DAGBOKA (stats.dagbok) har «behersket» per dag (beh, fra build-219).
+    // Den er for stor til aa hentes for alle 2 500 enhetene, saa den hentes
+    // bare for dem med proevedato eller svar paa proevedagen - det er dem
+    // «Kommende prøver» skal si om var klare.
+    const ider = rader.filter(r => r.maal || (r.proveutfall || []).length).map(r => r.id);
+    if (ider.length) try {
+      const dres = await fetch(URL_BASE + '?select=device_id,dagbok:stats->dagbok&device_id=in.(' + ider.join(',') + ')',
+        { headers: { apikey: NOKKEL, Authorization: 'Bearer ' + NOKKEL } });
+      if (dres.ok) {
+        const m = {}; (await dres.json()).forEach(x => { m[x.device_id] = Array.isArray(x.dagbok) ? x.dagbok : []; });
+        rader.forEach(r => { if (m[r.id]) r.dagbok = m[r.id]; });
+        tegn();
+      }
+    } catch { /* uten dagbok viser kortet bare proevesimuleringene */ }
   } catch (e) {
     const f = document.getElementById('feil'); f.style.display = 'block';
     f.textContent = 'Fikk ikke hentet data (' + e.message + '). Sjekk nettforbindelsen og prøv igjen.';
@@ -3559,6 +3576,49 @@ function enhetDetalj(r){
   return ferdighetDetalj(r) + '<div class="rute2" style="margin:0">' + '<div>' + sideDetalj(r) + '</div><div>' + dagDetalj(r) + '</div></div>'
     + hendelseDetalj(r);
 }
+// KLAR ETTER APPENS EGEN REGEL (Edvard 23.10: «hvis brukeren selv har mange
+// feil ... kan ikke jeg klandres»). Samme regel som App.tsx (klarhet):
+// klar = behersket >= mestringsterskel x banken (95 %), ELLER tre
+// proevesimuleringer paa rad med hoeyst to feil, regnet fra den nyeste.
+// Maalt PAA PROEVEDAGEN: siste dagbokrad til og med datoen, og bare
+// simuleringene foer den.
+const KLAR_MAKS_FEIL = 2, PROVER_PAA_RAD_KLAR = 3;
+function klarhetPaa(r, dato){
+  const rad = (r.dagbok || []).filter(x => x && x.d && x.d <= dato && x.beh !== undefined).sort((a, b) => a.d < b.d ? -1 : 1).pop() || null;
+  const sims = (r.runder || []).filter(x => x && x.prove && +x.av > 0 && (x.dato || '') <= dato)
+    .sort((a, b) => (a.t || a.dato) < (b.t || b.dato) ? 1 : -1);          // nyeste foerst, som i appen
+  let paaRad = 0; for (const x of sims) { if ((+x.av) - (+x.poeng || 0) <= KLAR_MAKS_FEIL) paaRad++; else break; }
+  const trengs = Math.ceil((+KONFIG.mestringsterskel || 0.95) * BANK_ANTALL);
+  const beh = rad ? +rad.beh || 0 : null;
+  return { beh, sett: rad ? +rad.sett || 0 : null, radDag: rad ? rad.d : null, pct: beh === null ? null : beh / BANK_ANTALL,
+    trengs, sims: sims.length, simBestatt: sims.filter(x => (+x.poeng || 0) >= Math.round(PROVE_KRAV * (+x.av) / 45)).length,
+    simPoeng: sims.slice(0, 5).map(x => (+x.poeng || 0) + '/' + x.av), paaRad,
+    klar: (beh !== null && beh >= trengs) || paaRad >= PROVER_PAA_RAD_KLAR, kjent: beh !== null || sims.length > 0 };
+}
+// Utfallstabellen: alle som har svart at de TOK proeven, de som stroek foerst.
+function utfallTabell(data){
+  const tok = [];
+  data.forEach(r => (r.proveutfall || []).forEach(u => { if (u && u.tok === 1) tok.push({ r, u }); }));
+  if (!tok.length) return '';
+  tok.sort((a, b) => (a.u.bestod === 0 ? 0 : 1) - (b.u.bestod === 0 ? 0 : 1) || (a.u.dato < b.u.dato ? 1 : -1));
+  const strok = tok.filter(x => x.u.bestod === 0);
+  const rad = ({ r, u }) => { const k = klarhetPaa(r, u.dato);
+    const beh = k.beh === null ? '<span style="color:var(--muted)" title="ingen dagbokrad med behersket før prøven (krever build-219)">–</span>'
+      : '<b>' + pct(k.beh, BANK_ANTALL) + '</b> <span style="color:var(--muted)">(' + k.beh + ' av ' + BANK_ANTALL + ', trengs ' + k.trengs + ')</span>';
+    const sim = k.sims ? k.simBestatt + ' av ' + k.sims + ' bestått <span style="color:var(--muted)">· siste ' + k.simPoeng.join(', ') + '</span>' : '<span style="color:var(--muted)">ingen</span>';
+    const dom = !k.kjent ? '<span style="color:var(--muted)">ukjent</span>'
+      : k.klar ? '<span class="merke betalt">klar</span>' : '<span class="merke" style="color:var(--critical);border-color:var(--critical)">ikke klar</span>';
+    return '<tr><td>' + fmtDag(u.dato) + '</td><td>' + (u.bestod === 0 ? '<b style="color:var(--critical)">strøk</b>' : u.bestod === 1 ? '<span style="color:var(--good-text)">bestod</span>' : '–') + '</td>'
+      + '<td>' + (u.feil ? u.feil + ' feil' : '–') + (u.likhet ? ' <span style="color:var(--muted)">· spørsmålene «' + u.likhet + '» like</span>' : '') + '</td>'
+      + '<td>' + pfMerke(r) + r.id.slice(0,8) + (kvittert(r) ? '<span class="merke betalt">betalt</span>' : '') + '</td><td>' + (r.sprak || '–') + '</td>'
+      + '<td>' + beh + '</td><td>' + sim + '</td><td>' + dom + '</td></tr>'; };
+  return '<div class="hint" style="margin-top:12px"><b>Tok prøven: ' + tok.length + ', strøk: ' + strok.length + '.</b> '
+    + 'Status <b>på prøvedagen</b> etter appens egen regel: klar = minst ' + Math.round((+KONFIG.mestringsterskel || 0.95) * 100) + ' % av banken behersket, '
+    + 'eller ' + PROVER_PAA_RAD_KLAR + ' prøvesimuleringer på rad med høyst ' + KLAR_MAKS_FEIL + ' feil. Behersket er appens eget tall fra dagboka den dagen. '
+    + 'Antall feil og hvor like spørsmålene var, er brukerens eget svar.</div>'
+    + '<table><tr><th>prøve</th><th>utfall</th><th>brukerens svar</th><th>enhet</th><th>språk</th><th>behersket</th><th>prøvesimuleringer (≥38 av 45)</th><th>klar i appen</th></tr>'
+    + tok.map(rad).join('') + '</table>';
+}
 function proveKort(data){
   const el = document.getElementById('cProver');
   if (!el) return;
@@ -3575,6 +3635,8 @@ function proveKort(data){
   const hode = '<tr><th>dato</th><th class="h">dager</th><th></th><th>enhet</th><th>språk</th><th>build</th><th>ligger an</th></tr>';
   el.innerHTML = '<p style="margin:4px 0 8px"><b>' + kommende.length + ' kommende, ' + kommende.filter(x => x.pi.bestilt).length + ' bestilt, '
     + svart + ' har svart på prøvedagen.</b> <span style="color:var(--muted)">' + med.length + ' enheter har satt dato i alt.</span></p>'
+    + utfallTabell(data)
+    + '<div class="hint" style="margin-top:12px">Kommende:</div>'
     + (kommende.length ? '<table>' + hode + kommende.map(rad).join('') + '</table>' : '<p style="color:var(--muted)">Ingen kommende prøver.</p>')
     + (passert.length ? '<div class="hint" style="margin-top:10px">Datoen har passert:</div><table>' + hode + passert.map(rad).join('') + '</table>' : '');
   el.querySelectorAll('[data-prad]').forEach(rad => rad.addEventListener('click', () => { const i = rad.dataset.prad, d = document.getElementById('det-p' + i);
