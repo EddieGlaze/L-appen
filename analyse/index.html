@@ -587,6 +587,13 @@
       i 1.3.0 kom en tredjedel av kjøpene etter dag 7.</div>
     <div id="cUkeKonv" style="overflow-x:auto"></div>
   </div>
+  <div class="kort" data-fane="bruk"><h3>Kodekampanjer</h3>
+    <div class="hint">Hver kode med hvor mange som har løst den inn, og hvem. <b>Ny</b> = lastet ned appen
+      høyst et døgn før innløsningen, altså trolig hentet av kampanjen; <b>eksisterende</b> = hadde appen fra før.
+      <b>Kjøpt etter</b> = kjøp registrert etter innløsningen. Kodestrengen vises aldri, bare merknaden.
+      Kilde: kodeinnsynet på tjeneren.</div>
+    <div id="cKoder" style="overflow-x:auto"></div>
+  </div>
   <div class="kort" data-fane="bruk"><h3>Kohorter: hva pengene den dagen faktisk kjøpte</h3>
     <div class="hint">Her tilskrives kjøpet <b>dagen brukeren lastet ned</b>, ikke dagen hen betalte.
       Det er den eneste måten å se om kronene brukt en gitt dag ga kjøpere - «Kjøpt i dag» svarer på
@@ -1218,6 +1225,11 @@ let rader = [], dager = 14, hentetTotal = 0;
 // tabell ved hver oppstart (hentGrenser i src/tilgang.ts), saa naar Edvard
 // endrer en verdi der, foelger denne sida etter av seg selv. Standardene er
 // GRENSER_STANDARD i koden - de gjelder til en rad overstyrer dem.
+// KODEKAMPANJENE (Edvard 24.10). Fra kodeinnsynet paa tjeneren
+// (supabase/supabase-kodeinnsyn.sql): kode_statistikk gir én rad per kode
+// uten selve kodestrengen (merke = merknaden), kode_innlosninger_enheter gir
+// hvilken enhet som loeste inn hvilken kode, og naar. Tomt til det er hentet.
+let KODER = { stat: [], inn: [], hentet: false };
 let KONFIG = { tidBudsjettMin: 5, tidBudsjettRaskMin: 4, tempoGrenseSek: 120, mestringsterskel: 0.95 };
 // Antall spoersmaal i banken (app-expo/src/data/sporsmal.json), fylt inn av
 // bygg-analyse-data.js. Nevneren i «behersket», som i appen (ALLE.length).
@@ -1953,6 +1965,14 @@ async function hent(){
         tegn();
       }
     } catch { /* uten dagbok viser kortet bare proevesimuleringene */ }
+    try {
+      const URL_RPC = URL_BASE.replace('fremdrift_enhet', 'rpc/');
+      const hode = { apikey: NOKKEL, Authorization: 'Bearer ' + NOKKEL, 'Content-Type': 'application/json' };
+      const [ks, ki] = await Promise.all(['kode_statistikk', 'kode_innlosninger_enheter']
+        .map(f => fetch(URL_RPC + f, { method: 'POST', headers: hode, body: '{}' }).then(r => r.ok ? r.json() : [])));
+      KODER = { stat: Array.isArray(ks) ? ks : [], inn: Array.isArray(ki) ? ki : [], hentet: true };
+      tegn();
+    } catch { /* kortet sier fra at kodedataene ikke kom */ }
   } catch (e) {
     const f = document.getElementById('feil'); f.style.display = 'block';
     f.textContent = 'Fikk ikke hentet data (' + e.message + '). Sjekk nettforbindelsen og prøv igjen.';
@@ -2153,7 +2173,7 @@ function tegn(){
   rekkeKort(data);
   siderKort(data);
   avbruddKort(data);
-  konvKort(data); ukeKonvKort(data); kohortKort(data); ukeKort(data);
+  konvKort(data); ukeKonvKort(data); kodeKort(); kohortKort(data); ukeKort(data);
   perioderKort(data); metaKostKort(data); reklameSkjemaKort(data); kilderLinje();
   // Filteret gjelder bare tabellen. Diagrammene over skal fortsatt vise alt.
   const valgt = tabellFilter ? FILTRE[tabellFilter] : null;
@@ -3088,6 +3108,49 @@ function ukeKonvKort(data){
       + '<td class="h">' + alder.length + '</td><td class="h"><b>' + p(alder.length, x.length) + '</b></td></tr>';
   });
   el.innerHTML = h + '</table>';
+}
+// KODEKAMPANJENE. Enhetene slaas opp i hele rader (ogsaa utvikler- og
+// testenheter, som merkes), fordi en kode er en kampanje og ikke et utvalg.
+function kodeKort(){
+  const el = document.getElementById('cKoder');
+  if (!el) return;
+  if (!KODER.hentet) { el.innerHTML = '<p style="color:var(--muted)">Henter kodedata …</p>'; return; }
+  if (!KODER.stat.length) { el.innerHTML = '<p style="color:var(--muted)">Ingen kodedata fra tjeneren.</p>'; return; }
+  const finn = {}; rader.forEach(r => { finn[r.id] = r; });
+  const naa = Date.now();
+  const kl = ms => osloTid(ms) || '';
+  el.innerHTML = KODER.stat.map(k => {
+    const inn = KODER.inn.filter(x => x.merke === k.merke).sort((a, b) => a.innlost < b.innlost ? 1 : -1);
+    const rad = x => {
+      const r = finn[x.enhet_id] || null, ms = Date.parse(x.innlost), utlop = ms + (+x.varighet_dager || +k.varighet_dager || 0) * 864e5;
+      const ned = r && r.foerste ? Date.parse(r.foerste) : NaN;
+      const ny = gyldigMs(ned) && ned <= ms + 6e5 && ms - ned <= 864e5;
+      const kjop = r ? kjopListe(r).filter(q => q.ms >= ms) : [];
+      return { r, ms, utlop, ny, kjop, id: x.enhet_id };
+    };
+    const rr = inn.map(rad);
+    // Tellingen uten utvikler- og testenheter (Edvards egne tester); de staar
+    // fortsatt i tabellen, merket.
+    const ekte = rr.filter(x => !(x.r && (x.r.erUtvikler || x.r.erTest)));
+    const nye = ekte.filter(x => x.ny).length, kjopt = ekte.filter(x => x.kjop.length).length, aktive = ekte.filter(x => x.utlop > naa).length;
+    const nyeKjopt = ekte.filter(x => x.ny && x.kjop.length).length, nyeUte = ekte.filter(x => x.ny && x.utlop <= naa).length;
+    const topp = '<h4 style="margin:12px 0 4px">' + k.merke + ' <span style="font-weight:400;color:var(--muted)">· '
+      + (k.varighet_dager || '?') + ' dager · ' + (k.aktiv ? 'aktiv' : 'av') + ' · kan løses inn til ' + fmtDag(String(k.gyldig_til).slice(0,10))
+      + (Date.parse(k.gyldig_til) < naa ? ' (utløpt)' : '') + '</span></h4>'
+      + '<p style="margin:0 0 6px"><b>' + k.brukt + ' av ' + k.maks_bruk + ' brukt</b>' + (rr.length > ekte.length ? ' <span style="color:var(--muted)">(' + (rr.length - ekte.length) + ' av dem dine egne tester)</span>' : '') + ' · ' + nye + ' nye, ' + (ekte.length - nye) + ' eksisterende · '
+      + aktive + ' har tilgangen nå · <b>' + kjopt + ' har kjøpt etter</b>'
+      + (nye ? ' <span style="color:var(--muted)">(nye: ' + nyeKjopt + ' av ' + nye + ', og ' + nyeUte + ' av dem er ferdige med perioden)</span>' : '') + '</p>';
+    const tab = rr.length ? '<table><tr><th>løst inn</th><th>enhet</th><th>språk</th><th></th><th>tilgang til</th><th>kjøpt etter</th></tr>'
+      + rr.map(x => '<tr><td title="norsk tid">' + kl(x.ms) + '</td>'
+        + '<td>' + (x.r ? pfMerke(x.r) : '') + x.id.slice(0,8) + (x.r && x.r.erUtvikler ? '<span class="merke">utvikler</span>' : '') + '</td>'
+        + '<td>' + (x.r ? (x.r.sprak || '–') : '<span style="color:var(--muted)">ikke i basen</span>') + '</td>'
+        + '<td>' + (x.ny ? '<span class="merke betalt" title="lastet ned høyst et døgn før innløsningen">ny</span>'
+          : '<span class="merke" title="' + (x.r && x.r.foerste ? 'lastet ned ' + fmtDag(x.r.foerste.slice(0,10)) : '') + '">eksisterende</span>') + '</td>'
+        + '<td>' + fmtDag(new Date(x.utlop).toISOString().slice(0,10)) + (x.utlop > naa ? '' : ' <span style="color:var(--muted)">(over)</span>') + '</td>'
+        + '<td>' + (x.kjop.length ? x.kjop.map(q => kl(q.ms) + ' ' + (PRODUKT_NAVN[q.produkt] || q.produkt || '')).join(', ') : '–') + '</td></tr>').join('')
+      + '</table>' : '<p style="color:var(--muted)">Ingen innløsninger.</p>';
+    return topp + tab;
+  }).join('');
 }
 function konvKort(data){
   const svg = document.getElementById('cKonv');
