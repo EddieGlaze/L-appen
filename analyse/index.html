@@ -594,6 +594,13 @@
       Kilde: kodeinnsynet på tjeneren.</div>
     <div id="cKoder" style="overflow-x:auto"></div>
   </div>
+  <div class="kort" data-fane="bruk"><h3>Gratistid-testen (A/B)</h3>
+    <div class="hint">Fra build-289 (1.4.1). Hver enhet har en fast gruppe. <b>A</b> = dagstabellen som før
+      (3:40 + 3:20 dag 1, 3:00 + 3:00 dag 2, så nedover). <b>B</b> = 1:45 + 1:45 de to første aktive dagene, deretter som A.
+      Bare enheter som <b>startet</b> på 1.4.x og lastet ned etter teststart telles - en B-enhet fra 1.3.0 er forbi
+      startfasen. <b>Kjøpt innen 7 d</b> regnes bare for dem som har hatt sju døgn.</div>
+    <div id="cPotteAB" style="overflow-x:auto"></div>
+  </div>
   <div class="kort" data-fane="bruk"><h3>Kohorter: hva pengene den dagen faktisk kjøpte</h3>
     <div class="hint">Her tilskrives kjøpet <b>dagen brukeren lastet ned</b>, ikke dagen hen betalte.
       Det er den eneste måten å se om kronene brukt en gitt dag ga kjøpere - «Kjøpt i dag» svarer på
@@ -2173,7 +2180,7 @@ function tegn(){
   rekkeKort(data);
   siderKort(data);
   avbruddKort(data);
-  konvKort(data); ukeKonvKort(data); kodeKort(); kohortKort(data); ukeKort(data);
+  konvKort(data); ukeKonvKort(data); kodeKort(); potteABKort(data); kohortKort(data); ukeKort(data);
   perioderKort(data); metaKostKort(data); reklameSkjemaKort(data); kilderLinje();
   // Filteret gjelder bare tabellen. Diagrammene over skal fortsatt vise alt.
   const valgt = tabellFilter ? FILTRE[tabellFilter] : null;
@@ -3151,6 +3158,48 @@ function kodeKort(){
       + '</table>' : '<p style="color:var(--muted)">Ingen innløsninger.</p>';
     return topp + tab;
   }).join('');
+}
+// GRATISTID-TESTEN (Edvard 25.10, build-289). Armen staar i
+// maaling.konfig.arm. Teststart settes her naar hovedtraaden har satt
+// startPotteMinB/startDagerB i konfig (null = ikke startet); foer det viser
+// kortet bare fordelingen, som skal vaere ca. 50/50.
+const POTTE_AB_START = null;
+function potteABKort(data){
+  const el = document.getElementById('cPotteAB');
+  if (!el) return;
+  const startetPaa14 = r => { const f = (r.versjonlogg || [])[0]; return !!(f && /^v?1\.4/.test(f.v || '')); };
+  const medArm = data.filter(r => r.konfig && (r.konfig.arm === 'A' || r.konfig.arm === 'B') && startetPaa14(r));
+  const fordeling = ['A', 'B'].map(a => a + ': ' + medArm.filter(r => r.konfig.arm === a).length).join(' · ');
+  if (!POTTE_AB_START) {
+    el.innerHTML = '<p><b>Ikke startet ennå.</b> <span style="color:var(--muted)">Enheter som startet på 1.4.x og melder gruppe: '
+      + (medArm.length ? fordeling : 'ingen ennå (krever build-289)') + '.</span></p>';
+    return;
+  }
+  const idag = idagIso(), grense7 = new Date(Date.parse(idag) - 7*864e5).toISOString().slice(0,10);
+  const iTest = medArm.filter(r => nedlastet(r) >= POTTE_AB_START);
+  const rad = a => {
+    const x = iTest.filter(r => r.konfig.arm === a), n = x.length;
+    const nd = r => nedlastet(r);
+    const laasDag0 = x.filter(r => Object.keys(laasDager(r)).some(d => d <= nd(r))).length;
+    const neste = r => new Date(Date.parse(nd(r)) + 864e5).toISOString().slice(0,10);
+    const modenD1 = x.filter(r => neste(r) < idag);
+    const tilbake = modenD1.filter(r => aktiveDager(r).includes(neste(r))).length;
+    const moden7 = x.filter(r => nd(r) <= grense7);
+    const k7 = moden7.filter(r => { const al = kjopAlder(r); return al !== null && al <= 7; }).length;
+    const k0 = x.filter(r => kjopAlder(r) === 0).length, kAlle = x.filter(kvittert).length;
+    const p = (k, m) => m ? pct1(k, m) : '–';
+    return '<tr><td><b>' + a + '</b></td><td class="h">' + n + '</td>'
+      + '<td class="h">' + laasDag0 + ' <span style="color:var(--muted)">(' + p(laasDag0, n) + ')</span></td>'
+      + '<td class="h">' + tilbake + ' av ' + modenD1.length + ' <span style="color:var(--muted)">(' + p(tilbake, modenD1.length) + ')</span></td>'
+      + '<td class="h">' + k0 + ' <span style="color:var(--muted)">(' + p(k0, n) + ')</span></td>'
+      + '<td class="h">' + k7 + ' av ' + moden7.length + ' <span style="color:var(--muted)">(' + p(k7, moden7.length) + ')</span></td>'
+      + '<td class="h"><b>' + kAlle + '</b> <span style="color:var(--muted)">(' + p(kAlle, n) + ')</span></td></tr>';
+  };
+  el.innerHTML = '<p style="margin:4px 0 8px">Startet ' + fmtDag(POTTE_AB_START) + ' · ' + iTest.length + ' nye i testen · ' + fordeling + ' (alle som startet på 1.4.x)</p>'
+    + '<table><tr><th>gruppe</th><th class="h">nye</th><th class="h">møtt låsen dag 1</th><th class="h">tilbake dagen etter</th>'
+    + '<th class="h">kjøpt dag 1</th><th class="h">kjøpt innen 7 d</th><th class="h">kjøpt hittil</th></tr>' + rad('A') + rad('B') + '</table>'
+    + '<div class="hint" style="margin-top:6px">Med rundt 20 nye om dagen får hver gruppe ca. 300 i måneden og 15-20 kjøpere: '
+    + 'bare store forskjeller (f.eks. 5 mot 10 %) kan skilles fra tilfeldigheter. Les etter 4-6 uker.</div>';
 }
 function konvKort(data){
   const svg = document.getElementById('cKonv');
