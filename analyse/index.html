@@ -3163,7 +3163,10 @@ function kodeKort(){
 // maaling.konfig.arm. Teststart settes her naar hovedtraaden har satt
 // startPotteMinB/startDagerB i konfig (null = ikke startet); foer det viser
 // kortet bare fordelingen, som skal vaere ca. 50/50.
-const POTTE_AB_START = null;
+// Testen ble slaatt paa 25.10 kl. 18:39 norsk tid (hovedtraaden, konfig). Kohorten
+// telles fra nedlastinger 26.10: de fleste som lastet ned 25.10 hadde alt fatt
+// dag 1 etter den gamle regelen.
+const POTTE_AB_START = '2026-10-26';
 function potteABKort(data){
   const el = document.getElementById('cPotteAB');
   if (!el) return;
@@ -3195,7 +3198,7 @@ function potteABKort(data){
       + '<td class="h">' + k7 + ' av ' + moden7.length + ' <span style="color:var(--muted)">(' + p(k7, moden7.length) + ')</span></td>'
       + '<td class="h"><b>' + kAlle + '</b> <span style="color:var(--muted)">(' + p(kAlle, n) + ')</span></td></tr>';
   };
-  el.innerHTML = '<p style="margin:4px 0 8px">Startet ' + fmtDag(POTTE_AB_START) + ' · ' + iTest.length + ' nye i testen · ' + fordeling + ' (alle som startet på 1.4.x)</p>'
+  el.innerHTML = '<p style="margin:4px 0 8px">Slått på 25.10 kl. 18:39, telles fra nedlastinger ' + fmtDag(POTTE_AB_START) + ' · ' + iTest.length + ' nye i testen · ' + fordeling + ' (alle som startet på 1.4.x)</p>'
     + '<table><tr><th>gruppe</th><th class="h">nye</th><th class="h">møtt låsen dag 1</th><th class="h">tilbake dagen etter</th>'
     + '<th class="h">kjøpt dag 1</th><th class="h">kjøpt innen 7 d</th><th class="h">kjøpt hittil</th></tr>' + rad('A') + rad('B') + '</table>'
     + '<div class="hint" style="margin-top:6px">Med rundt 20 nye om dagen får hver gruppe ca. 300 i måneden og 15-20 kjøpere: '
