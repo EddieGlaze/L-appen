@@ -1858,9 +1858,15 @@ const laasTekst = o => o.enePott ? 'brukte opp dagens eneste pott (kveldspotten 
   : o.kveld ? 'møtte kveldslåsen'
   : 'møtte låsen, men vi vet ikke i hvilken bolk';
 const region = r => { const v = String(r.telSprak || ''); const i = v.indexOf('-'); return i > 0 ? v.slice(i+1) : null; };
+// Testgruppen i gratistid-testen (Edvard 26.10: «markere de som er testere med
+// en x bak AS eller GP»): arm B paa 1.4.x. Arm B fra 1.3.0-testen (2,5 min) er
+// en annen test og merkes ikke.
+const erTester = r => !!(r.konfig && r.konfig.arm === 'B' && /^v?1\.4/.test(r.versjon || ''));
+const testX = r => erTester(r) ? 'x' : '';
 function pfMerke(r){
-  if (r.plattform === 'android') return '<span class="pf gp" title="Google Play">GP</span>';
-  if (r.plattform === 'ios') return '<span class="pf as" title="App Store">AS</span>';
+  const tt = erTester(r) ? ' · gruppe B i gratistid-testen (1:45 + 1:45 de to første dagene)' : '';
+  if (r.plattform === 'android') return '<span class="pf gp" title="Google Play' + tt + '">GP' + testX(r) + '</span>';
+  if (r.plattform === 'ios') return '<span class="pf as" title="App Store' + tt + '">AS' + testX(r) + '</span>';
   return '<span class="pf ukjent" title="rapporterer ikke plattform (eldre enn build-134)">?</span>';
 }
 
