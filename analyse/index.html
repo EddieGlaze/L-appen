@@ -80,6 +80,10 @@
 
   .filtre { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:14px; }
   .filtre .sep { flex:1; }
+  /* Variantboksene: i filterlinja oppfoerer de seg som om omslaget ikke fantes,
+     over lista paa «Enhetene» blir de sin egen rad. */
+  .filtre .variantBokser { display:contents; }
+  #variantPlass .variantBokser { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
   .knapp { font-size:12.5px; padding:5px 11px; border-radius:8px; cursor:pointer;
            border:1px solid var(--border); background:var(--surface-1); color:var(--text-secondary); }
   .knapp.valgt { color:var(--text-primary); font-weight:700; border-color:var(--series-1); }
@@ -433,13 +437,18 @@
     <button class="knapp valgt" data-dager="14">Siste 14 dager</button>
     <button class="knapp" data-dager="30">Siste 30 dager</button>
     <span style="font-size:11.5px;color:var(--muted)">· gjelder dagsdiagrammene</span>
-    <span class="sep"></span>
+    <span class="sep" id="variantSep"></span>
+    <!-- Variantboksene. Paa «Enhetene» flyttes de ned rett over lista (se
+         fanebyttet nederst); paa «Bruk og kjøp» staar de her. Samme elementer,
+         saa valgene og lytterne foelger med. -->
+    <span class="variantBokser" id="variantBokser">
     <label class="bryter" title="Enheter med aktivitet før lanseringen 14.08 er TestFlight og utvikling">
       <input type="checkbox" id="visTest"> vis testperioden (før 14.08)</label>
     <label class="bryter"><input type="checkbox" id="kunGP"> kun Android</label>
     <label class="bryter"><input type="checkbox" id="kunAS"> kun Apple</label>
     <label class="bryter" title="Ut fra versjonen enheten sist meldte (1.3.0 eller eldre)"><input type="checkbox" id="kun13"> kun 1.3.0</label>
     <label class="bryter" title="Ut fra versjonen enheten sist meldte"><input type="checkbox" id="kun14"> kun 1.4.x</label>
+    </span>
   </div>
   <div class="dagvelg" data-fane="bruk enheter">
     <label for="flisDag">Flisene under gjelder</label>
@@ -649,7 +658,7 @@
       derfor et kjøp stå på nabodagen av den aktive dagen det hører til.</div>
     <div id="cFilterKurver"></div>
   </details>
-  <details class="kort smal" data-fane="enheter" open>
+  <details class="kort smal" data-fane="enheter">
     <summary>Reklamekortet etter runder <span class="sumnote">visninger og sekunder per dag, 30 døgn</span></summary>
     <div class="hint">Kortet med kjøpsknappen som kommer etter en runde (quiz, blitz) og etter Dash-blitz,
       med en ventetid som øker for hver runde uten kjøp. Vises bare til dem som ikke har betalt.
@@ -657,7 +666,7 @@
       Norske døgn. Appen holder de 40 siste postene per enhet, så en svært aktiv enhet kan mangle de eldste dagene.</div>
     <div id="cProKort"></div>
   </details>
-  <details class="kort smal" data-fane="enheter" open>
+  <details class="kort smal" data-fane="enheter">
     <summary>Kommende prøver <span class="sumnote">prøvedatoene brukerne har satt</span></summary>
     <div class="hint">Fra <code>stats.maal</code> (bare 1.4.x): datoen brukeren har satt i appen, merket
       <b>bestilt</b> når de har krysset av for at timen er bestilt, ellers <b>mål</b>. Dager igjen regnes mot
@@ -684,6 +693,7 @@
       <input type="checkbox" id="samleKjop" checked> samle kjøperne nederst</label>
     <div id="laasFilter" style="display:none;margin-bottom:10px"></div>
     <div class="hint" id="byggFordeling" style="margin-bottom:8px"></div>
+    <div id="variantPlass" style="margin-bottom:8px"></div>
     <div style="overflow-x:auto"><table id="tabell"></table></div>
     <div class="fot" id="tabellFot"></div>
   </div>
@@ -3942,6 +3952,11 @@ function apne(nokkel) {
   function vis(navn) {
     document.querySelectorAll('#faner .fane').forEach(function (b) { b.classList.toggle('valgt', b.dataset.vis === navn); });
     document.querySelectorAll('[data-fane]').forEach(function (el) { el.style.display = el.dataset.fane.split(' ').indexOf(navn) > -1 ? '' : 'none'; });
+    // Variantboksene staar rett over lista paa «Enhetene», ellers i filterlinja.
+    var vb = document.getElementById('variantBokser'), vs = document.getElementById('variantSep');
+    var hjem = navn === 'enheter' ? document.getElementById('variantPlass') : document.getElementById('filtre');
+    if (vb && hjem && vb.parentNode !== hjem) hjem.appendChild(vb);
+    if (vs) vs.style.display = navn === 'enheter' ? 'none' : '';
     try { localStorage.setItem('analysefane2', navn); } catch (e) { }
     if (typeof tegn === 'function' && navn !== 'okonomi' && rader.length) tegn();
     window.dispatchEvent(new CustomEvent('fanebytte', { detail: navn }));
