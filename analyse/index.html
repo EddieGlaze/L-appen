@@ -3207,18 +3207,59 @@ function potteABKort(data){
     const k7 = moden7.filter(r => { const al = kjopAlder(r); return al !== null && al <= 7; }).length;
     const k0 = x.filter(r => kjopAlder(r) === 0).length, kAlle = x.filter(kvittert).length;
     const p = (k, m) => m ? pct1(k, m) : '–';
+    // Moett laasen en eller annen dag, og snitt for bruken - samme maal som
+    // kolonnene i lista under, saa tallene kan leses rett av radene.
+    const laasHittil = x.filter(r => Object.keys(laasDager(r)).length > 0).length;
+    const snitt = f => n ? (x.reduce((s, r) => s + f(r), 0) / n).toFixed(1).replace('.', ',') : '–';
+    const skjerm = x.map(paaSkjerm).filter(v => v !== null).sort((u, v) => u - v);
+    const median = skjerm.length ? minutter(skjerm[Math.floor(skjerm.length / 2)]) : '–';
     return '<tr><td><b>' + a + '</b></td><td class="h">' + n + '</td>'
+      + '<td class="h">' + snitt(r => aktiveDager(r).length) + '</td>'
+      + '<td class="h">' + snitt(r => r.runder.length + (r.lampeblitz || []).length) + '</td>'
+      + '<td class="h">' + median + '</td>'
       + '<td class="h">' + laasDag0 + ' <span style="color:var(--muted)">(' + p(laasDag0, n) + ')</span></td>'
+      + '<td class="h">' + laasHittil + ' <span style="color:var(--muted)">(' + p(laasHittil, n) + ')</span></td>'
       + '<td class="h">' + tilbake + ' av ' + modenD1.length + ' <span style="color:var(--muted)">(' + p(tilbake, modenD1.length) + ')</span></td>'
       + '<td class="h">' + k0 + ' <span style="color:var(--muted)">(' + p(k0, n) + ')</span></td>'
       + '<td class="h">' + k7 + ' av ' + moden7.length + ' <span style="color:var(--muted)">(' + p(k7, moden7.length) + ')</span></td>'
       + '<td class="h"><b>' + kAlle + '</b> <span style="color:var(--muted)">(' + p(kAlle, n) + ')</span></td></tr>';
   };
   el.innerHTML = '<p style="margin:4px 0 8px">Slått på 25.10 kl. 18:39, telles fra nedlastinger ' + fmtDag(POTTE_AB_START) + ' · ' + iTest.length + ' nye i testen · ' + fordeling + ' (alle som startet på 1.4.x)</p>'
-    + '<table><tr><th>gruppe</th><th class="h">nye</th><th class="h">møtt låsen dag 1</th><th class="h">tilbake dagen etter</th>'
+    + '<table><tr><th>gruppe</th><th class="h">nye</th><th class="h" title="snitt per enhet">aktive dager</th>'
+    + '<th class="h" title="snitt per enhet: øvingsrunder, prøver og blitz">runder</th><th class="h" title="median, innholdssider">på skjerm</th>'
+    + '<th class="h">møtt låsen dag 1</th><th class="h">møtt låsen hittil</th><th class="h">tilbake dagen etter</th>'
     + '<th class="h">kjøpt dag 1</th><th class="h">kjøpt innen 7 d</th><th class="h">kjøpt hittil</th></tr>' + rad('A') + rad('B') + '</table>'
-    + '<div class="hint" style="margin-top:6px">Med rundt 20 nye om dagen får hver gruppe ca. 300 i måneden og 15-20 kjøpere: '
-    + 'bare store forskjeller (f.eks. 5 mot 10 %) kan skilles fra tilfeldigheter. Les etter 4-6 uker.</div>';
+    + '<div class="hint" style="margin-top:6px">B er gruppen med kortere gratistid de to første dagene (merket x bak AS/GP i lista under og på «Enhetene»). '
+    + 'Med rundt 20 nye om dagen får hver gruppe ca. 300 i måneden og 15-20 kjøpere: '
+    + 'bare store forskjeller (f.eks. 5 mot 10 %) kan skilles fra tilfeldigheter. Les etter 4-6 uker.</div>'
+    + potteABListe(iTest);
+  el.querySelectorAll('[data-abrad]').forEach(tr => tr.addEventListener('click', () => { const i = tr.dataset.abrad, d = document.getElementById('det-ab' + i);
+    const apen = d.style.display !== 'none'; d.style.display = apen ? 'none' : 'table-row'; document.getElementById('abpil' + i).textContent = apen ? '›' : '⌄'; }));
+}
+// Alle enhetene i testen, én rad hver, nyeste foerst - til aa foelge med paa
+// enkeltbrukerne. Sammenlagt som de andre oppslagskortene; radene aapnes som
+// paa «Enhetene» (enhetDetalj).
+function potteABListe(iTest){
+  if (!iTest.length) return '';
+  const liste = [...iTest].sort((x, y) => nedlastSort(y).localeCompare(nedlastSort(x)));
+  const rad = (r, i) => {
+    const ld = Object.keys(laasDager(r)).sort(), ki = kjopsInfo(r), skj = paaSkjerm(r);
+    return '<tr style="cursor:pointer" data-abrad="' + i + '"><td><span id="abpil' + i + '" style="color:var(--muted)">›</span> <b>' + r.konfig.arm + '</b></td>'
+      + '<td>' + pfMerke(r) + r.id.slice(0,8) + '</td>'
+      + '<td>' + sprakNavn(r.sprak || '') + '</td>'
+      + '<td>' + fmtDag(nedlastet(r)) + '</td>'
+      + '<td class="h">' + aktiveDager(r).length + '</td>'
+      + '<td class="h">' + (r.runder.length + (r.lampeblitz || []).length) + '</td>'
+      + '<td class="h">' + (skj === null ? '–' : minutter(skj)) + '</td>'
+      + '<td>' + (ld.length ? fmtDag(ld[0]) + (ld.length > 1 ? ' <span style="color:var(--muted)">+ ' + (ld.length - 1) + ' d til</span>' : '') : '–') + '</td>'
+      + '<td>' + (kvittert(r) ? '<span class="merke betalt">' + fmtDag(kjopDagOslo(ki)) + '</span>' : '–') + '</td></tr>'
+      + '<tr id="det-ab' + i + '" style="display:none"><td colspan="9" style="padding:4px 0 12px">' + enhetDetalj(r) + '</td></tr>';
+  };
+  const nA = iTest.filter(r => r.konfig.arm === 'A').length;
+  return '<details style="margin-top:12px"><summary>Alle i testen <span class="sumnote">' + iTest.length + ' enheter (A: ' + nA + ', B: ' + (iTest.length - nA) + '), nyeste først · trykk en rad for detaljer</span></summary>'
+    + '<table><tr><th>gruppe</th><th>enhet</th><th>appspråk</th><th>lastet ned</th><th class="h">aktive dager</th><th class="h">runder</th>'
+    + '<th class="h">på skjerm</th><th>møtt låsen</th><th>kjøpt</th></tr>'
+    + liste.map(rad).join('') + '</table></details>';
 }
 function konvKort(data){
   const svg = document.getElementById('cKonv');
@@ -3741,13 +3782,13 @@ function utfallTabell(data){
       : k.klar ? '<span class="merke betalt">klar</span>' : '<span class="merke" style="color:var(--critical);border-color:var(--critical)">ikke klar</span>';
     return '<tr><td>' + fmtDag(u.dato) + '</td><td>' + (u.bestod === 0 ? '<b style="color:var(--critical)">strøk</b>' : u.bestod === 1 ? '<span style="color:var(--good-text)">bestod</span>' : '–') + '</td>'
       + '<td>' + (u.feil ? u.feil + ' feil' : '–') + (u.likhet ? ' <span style="color:var(--muted)">· spørsmålene «' + u.likhet + '» like</span>' : '') + '</td>'
-      + '<td>' + pfMerke(r) + r.id.slice(0,8) + (kvittert(r) ? '<span class="merke betalt">betalt</span>' : '') + '</td><td>' + (r.sprak || '–') + '</td>'
+      + '<td>' + pfMerke(r) + r.id.slice(0,8) + (kvittert(r) ? '<span class="merke betalt">betalt</span>' : '') + '</td><td>' + sprakNavn(r.sprak || '') + '</td>'
       + '<td>' + beh + '</td><td>' + sim + '</td><td>' + dom + '</td></tr>'; };
   return '<div class="hint" style="margin-top:12px"><b>Tok prøven: ' + tok.length + ', strøk: ' + strok.length + '.</b> '
     + 'Status <b>på prøvedagen</b> etter appens egen regel: klar = minst ' + Math.round((+KONFIG.mestringsterskel || 0.95) * 100) + ' % av banken behersket, '
     + 'eller ' + PROVER_PAA_RAD_KLAR + ' prøvesimuleringer på rad med høyst ' + KLAR_MAKS_FEIL + ' feil. Behersket er appens eget tall fra dagboka den dagen. '
     + 'Antall feil og hvor like spørsmålene var, er brukerens eget svar.</div>'
-    + '<table><tr><th>prøve</th><th>utfall</th><th>brukerens svar</th><th>enhet</th><th>språk</th><th>behersket</th><th>prøvesimuleringer (≥38 av 45)</th><th>klar i appen</th></tr>'
+    + '<table><tr><th>prøve</th><th>utfall</th><th>brukerens svar</th><th>enhet</th><th>appspråk</th><th>behersket</th><th>prøvesimuleringer (≥38 av 45)</th><th>klar i appen</th></tr>'
     + tok.map(rad).join('') + '</table>';
 }
 function proveKort(data){
@@ -3761,9 +3802,9 @@ function proveKort(data){
   const rad = x => { const i = nr++; return '<tr style="cursor:pointer" data-prad="' + i + '"><td><span id="ppil' + i + '" style="color:var(--muted)">›</span> ' + fmtDag(x.pi.dato) + '</td><td class="h">' + (x.pi.dager === 0 ? 'i dag' : x.pi.dager > 0 ? 'om ' + x.pi.dager + ' d' : -x.pi.dager + ' d siden') + '</td>'
     + '<td>' + (x.pi.dager >= 0 ? proveMerke(x.pi) + (x.pi.nyDato ? ' <span class="merke">ny dato</span>' : '') : proveCelle(x.r)) + '</td>'
     + '<td>' + pfMerke(x.r) + x.r.id.slice(0,8) + (kvittert(x.r) ? '<span class="merke betalt">betalt</span>' : '') + '</td>'
-    + '<td>' + (x.r.sprak || '–') + '</td><td>' + byggTekst(x.r) + '</td><td>' + ferdighetKort(x.r) + '</td></tr>'
+    + '<td>' + sprakNavn(x.r.sprak || '') + '</td><td>' + byggTekst(x.r) + '</td><td>' + ferdighetKort(x.r) + '</td></tr>'
     + '<tr id="det-p' + i + '" style="display:none"><td colspan="7" style="padding:4px 0 12px">' + enhetDetalj(x.r) + '</td></tr>'; };
-  const hode = '<tr><th>dato</th><th class="h">dager</th><th></th><th>enhet</th><th>språk</th><th>build</th><th>ligger an</th></tr>';
+  const hode = '<tr><th>dato</th><th class="h">dager</th><th></th><th>enhet</th><th>appspråk</th><th>build</th><th>ligger an</th></tr>';
   el.innerHTML = '<p style="margin:4px 0 8px"><b>' + kommende.length + ' kommende, ' + kommende.filter(x => x.pi.bestilt).length + ' bestilt, '
     + svart + ' har svart på prøvedagen.</b> <span style="color:var(--muted)">' + med.length + ' enheter har satt dato i alt.</span></p>'
     + utfallTabell(data)
