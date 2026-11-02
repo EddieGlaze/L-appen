@@ -107,7 +107,8 @@
   .flis.trykk { cursor:pointer; }
   .flis.trykk:hover { border-color:var(--warn); }
   /* Velgeren over tabellen. Flisene daekker «i dag»; denne er hele historikken. */
-  .kjopValg { display:flex; gap:6px; align-items:center; margin-bottom:10px; font-size:12px; }
+  .kjopValg { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-bottom:10px; font-size:12px; }
+  .kjopValg .sepV { width:1px; height:16px; background:var(--border); margin:0 4px; }
   .kjopValg .merkelapp2 { color:var(--muted); margin-right:2px; }
   .kjopValg button { font:inherit; padding:3px 10px; border-radius:9px; cursor:pointer;
     border:1px solid var(--border); background:var(--plane); color:inherit; }
@@ -1859,6 +1860,11 @@ const FILTRE = {
     merke: '<span class="merke betalt">betalt</span> ' },
   ikkeKjopt: { test: r => !kvittert(r), navn: 'ikke har kjøpt',
     merke: '<span class="merke">gratis</span> ' },
+  // BRUKT KODE (Edvard 02.11): enheter som har loest inn en kode, fra
+  // kodeinnsynet (KODER.inn). Én kode om gangen velges med 'kode:<merke>',
+  // se tabellValgt.
+  bruktKode: { test: r => kodeMerker(r.id).length > 0, navn: 'har brukt en kode',
+    merke: '<span class="merke">kode</span> ' },
 };
 const laasKlasse = o => 'laas ' + ((o.enePott || (o.morgen && o.kveld)) ? 'laasB'
   : o.morgen ? 'laasM' : o.kveld ? 'laasK' : 'laasB laasU');
@@ -2003,6 +2009,26 @@ async function hent(){
   }
 }
 const erV14 = r => /^v1\.4/.test(r.versjon || '');
+// Hvilke koder (merker) en enhet har loest inn. Bygges paa nytt naar
+// KODER.inn byttes ut (hentingen setter et nytt objekt).
+let kodeOppslag = { kilde: null, m: {} };
+function kodeMerker(id){
+  if (kodeOppslag.kilde !== KODER.inn) {
+    const m = {}; KODER.inn.forEach(x => { (m[x.enhet_id] = m[x.enhet_id] || []).push(x.merke); });
+    kodeOppslag = { kilde: KODER.inn, m };
+  }
+  return kodeOppslag.m[id] || [];
+}
+// Tabellfilteret som er valgt: et av FILTRE, eller én bestemt kode.
+function tabellValgt(){
+  if (!tabellFilter) return null;
+  if (tabellFilter.indexOf('kode:') === 0) {
+    const merke = tabellFilter.slice(5);
+    return { test: r => kodeMerker(r.id).includes(merke), navn: 'har brukt koden «' + merke + '»',
+      merke: '<span class="merke">kode</span> ' };
+  }
+  return FILTRE[tabellFilter] || null;
+}
 function utvalg(){
   const visTest = document.getElementById('visTest').checked;
   const kunGP = document.getElementById('kunGP').checked, kunAS = document.getElementById('kunAS').checked;
@@ -2199,7 +2225,7 @@ function tegn(){
   konvKort(data); ukeKonvKort(data); kodeKort(); potteABKort(data); kohortKort(data); ukeKort(data);
   perioderKort(data); metaKostKort(data); reklameSkjemaKort(data); kilderLinje();
   // Filteret gjelder bare tabellen. Diagrammene over skal fortsatt vise alt.
-  const valgt = tabellFilter ? FILTRE[tabellFilter] : null;
+  const valgt = tabellValgt();
   const tabData = valgt ? data.filter(valgt.test) : data;
   // VELGEREN OVER TABELLEN. Flisene svarer paa «i dag»; denne paa hele
   // historikken. Tallene regnes av data, ikke tabData, saa de staar stille
@@ -2207,10 +2233,18 @@ function tegn(){
   // «kjoept 46 av 46» i det man trykket, og sluttet aa si noe.
   const nKjopt = data.filter(kvittert).length;
   const vEl = document.getElementById('kjopValg');
+  // Kodeknappene: «brukt kode» for alle koder, og én per kode som noen i
+  // utvalget har loest inn. Kommer foerst naar kodedataene er hentet.
+  const kodeValg = KODER.hentet && data.some(r => kodeMerker(r.id).length)
+    ? [['bruktKode', 'brukt kode', data.filter(FILTRE.bruktKode.test).length]].concat(
+        KODER.stat.map(k => ['kode:' + k.merke, k.merke, data.filter(r => kodeMerker(r.id).includes(k.merke)).length])
+          .filter(v => v[2] > 0))
+    : [];
+  const knapp = v => '<button data-kjop="' + v[0].replace(/"/g, '&quot;') + '"' + ((tabellFilter || '') === v[0] ? ' class="paa"' : '') + '>'
+    + v[1] + ' <span style="opacity:.6">' + v[2] + '</span></button>';
   vEl.innerHTML = '<span class="merkelapp2">Vis:</span>'
-    + [['', 'alle', data.length], ['harKjopt', 'kjøpt', nKjopt], ['ikkeKjopt', 'ikke kjøpt', data.length - nKjopt]]
-      .map(v => '<button data-kjop="' + v[0] + '"' + ((tabellFilter || '') === v[0] ? ' class="paa"' : '') + '>'
-        + v[1] + ' <span style="opacity:.6">' + v[2] + '</span></button>').join('');
+    + [['', 'alle', data.length], ['harKjopt', 'kjøpt', nKjopt], ['ikkeKjopt', 'ikke kjøpt', data.length - nKjopt]].map(knapp).join('')
+    + (kodeValg.length ? '<span class="sepV"></span>' + kodeValg.map(knapp).join('') : '');
   vEl.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
     tabellFilter = b.dataset.kjop || null; tegn();
   }));
