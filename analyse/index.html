@@ -421,7 +421,7 @@
 
 <div class="topp">
   <h1>L-appen · bruksanalyse</h1>
-  <div class="stempel"><span id="stempel">henter …</span><button onclick="hent()">Oppdater</button></div>
+  <div class="stempel"><span id="stempel">henter …</span><button onclick="hent()">Oppdater</button><button id="hentAlleKnapp" onclick="byttHentAlle()" title="Henter hele basen, også enheter som ikke har vært aktive de siste 30 døgnene. Trengs for kjøp i alt og konvertering per versjon.">Hent alle</button></div>
 </div>
 <div class="ramme">
   <div class="feil" id="feil"></div>
@@ -1239,6 +1239,17 @@ const TEST_ENHETER = ['f1e307f8-8272-4465-8c4e-1210852ba37a'];
 const LANSERT = '2026-08-14';
 const PRIS_KR = 149, BUTIKK_ANDEL = 0.85;
 let rader = [], dager = 14, hentetTotal = 0;
+// Siden henter bare enheter som har synket de siste HENT_DAGER doegnene
+// (Edvard 17.11: lastingen ble treg med hele basen). Tall som trenger hele
+// historikken - kjoep i alt, konvertering per versjon, 1.3.0 - krever
+// «Hent alle».
+const HENT_DAGER = 30;
+let hentAlle = false;
+function byttHentAlle(){
+  hentAlle = !hentAlle;
+  document.getElementById('hentAlleKnapp').textContent = hentAlle ? 'Bare siste ' + HENT_DAGER + ' døgn' : 'Hent alle';
+  hent();
+}
 // Gratisgrensene slik de staar i Supabase akkurat naa. Appen leser samme
 // tabell ved hver oppstart (hentGrenser i src/tilgang.ts), saa naar Edvard
 // endrer en verdi der, foelger denne sida etter av seg selv. Standardene er
@@ -1920,9 +1931,13 @@ async function hent(){
         if (rad.nokkel in KONFIG && Number.isFinite(v)) KONFIG[rad.nokkel] = v;
       }
     } catch { /* offline eller sperret: bruk standardene */ }
+    // Bare enheter som har synket de siste HENT_DAGER doegnene, med mindre
+    // «Hent alle» er valgt. Sidene hentes én og én: samtidige kall paa hele
+    // basen gir «statement timeout» (500) fra tjeneren (17.11).
+    const filter = hentAlle ? '' : '&oppdatert=gte.' + encodeURIComponent(new Date(Date.now() - HENT_DAGER * 864e5).toISOString());
     const SIDE = 500, raa = []; let total = null;
     for (let fra = 0; ; fra += SIDE) {
-      const res = await fetch(URL_BASE + '?select=' + sel + '&order=oppdatert.desc,device_id.asc', { headers: {
+      const res = await fetch(URL_BASE + '?select=' + sel + filter + '&order=oppdatert.desc,device_id.asc', { headers: {
         apikey: NOKKEL, Authorization: 'Bearer ' + NOKKEL,
         Range: fra + '-' + (fra + SIDE - 1), 'Range-Unit': 'items', Prefer: 'count=exact' } });
       if (!res.ok && res.status !== 206) throw new Error('HTTP ' + res.status);
@@ -1977,7 +1992,8 @@ async function hent(){
         runder, forLansering: spor.some(d => d < LANSERT) };
     });
     document.getElementById('stempel').textContent = 'oppdatert ' + new Date().toLocaleTimeString('nb-NO').slice(0,5)
-      + ' · ' + rader.length + ' rader' + (rader.length < hentetTotal ? ' av ' + hentetTotal + ' (!)' : '');
+      + ' · ' + rader.length + ' rader' + (rader.length < hentetTotal ? ' av ' + hentetTotal + ' (!)' : '')
+      + (hentAlle ? ' · alle enheter' : ' · aktive siste ' + HENT_DAGER + ' døgn');
     document.getElementById('filtre').style.display = 'flex';
     tegn();
     // DAGBOKA (stats.dagbok) har «behersket» per dag (beh, fra build-219).
