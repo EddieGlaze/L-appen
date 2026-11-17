@@ -1932,20 +1932,38 @@ async function hent(){
       }
     } catch { /* offline eller sperret: bruk standardene */ }
     // Bare enheter som har synket de siste HENT_DAGER doegnene, med mindre
-    // «Hent alle» er valgt. Sidene hentes én og én: samtidige kall paa hele
-    // basen gir «statement timeout» (500) fra tjeneren (17.11).
+    // «Hent alle» er valgt.
+    // Bla etter device_id (noekkelsett, device_id=gt.<siste>) i stedet for
+    // order=oppdatert + Range: med sortering paa oppdatert pakket basen ut
+    // JSON-feltene for ALLE radene i hvert kall (fast ~0,7 s per side uansett
+    // sidestoerrelse, foerste kall opptil 2,8 s), og et travelt oeyeblikk ga
+    // «statement timeout» (HTTP 500 hos Edvard 17.11). Langs primaernoekkelen
+    // leser hvert kall bare sine egne rader. Rekkefoelgen siden forventer
+    // (nyest oppdatert foerst) settes etterpaa. 1000 er tjenerens tak per kall.
+    // Et kall som feiler proeves paa nytt inntil tre ganger. Ikke hent sidene
+    // samtidig - det ga timeout.
     const filter = hentAlle ? '' : '&oppdatert=gte.' + encodeURIComponent(new Date(Date.now() - HENT_DAGER * 864e5).toISOString());
-    const SIDE = 500, raa = []; let total = null;
-    for (let fra = 0; ; fra += SIDE) {
-      const res = await fetch(URL_BASE + '?select=' + sel + filter + '&order=oppdatert.desc,device_id.asc', { headers: {
-        apikey: NOKKEL, Authorization: 'Bearer ' + NOKKEL,
-        Range: fra + '-' + (fra + SIDE - 1), 'Range-Unit': 'items', Prefer: 'count=exact' } });
-      if (!res.ok && res.status !== 206) throw new Error('HTTP ' + res.status);
+    const SIDE = 1000, raa = [];
+    let siste = null;
+    for (let side = 0; side < 200; side++) {
+      const etter = siste === null ? '' : '&device_id=gt.' + encodeURIComponent(siste);
+      let res = null;
+      for (let forsok = 0; forsok < 4; forsok++) {
+        if (forsok) await new Promise(r => setTimeout(r, 800 * forsok));
+        try {
+          res = await fetch(URL_BASE + '?select=' + sel + filter + etter + '&order=device_id.asc&limit=' + SIDE,
+            { headers: { apikey: NOKKEL, Authorization: 'Bearer ' + NOKKEL } });
+        } catch (e) { res = null; if (forsok === 3) throw e; continue; }
+        if (res.ok || res.status < 500) break;
+      }
+      if (!res.ok) throw new Error('HTTP ' + res.status);
       const bit = await res.json(); raa.push(...bit);
-      const n = Number(((res.headers.get('Content-Range') || '').split('/')[1] || '').trim());
-      if (Number.isFinite(n)) total = n;
-      if (bit.length < SIDE || (total !== null && raa.length >= total) || fra > 100000) break;
+      if (bit.length < SIDE) break;
+      siste = bit[bit.length - 1].device_id;
     }
+    raa.sort((x, y) => String(y.oppdatert || '').localeCompare(String(x.oppdatert || ''))
+      || String(x.device_id).localeCompare(String(y.device_id)));
+    const total = raa.length;
     hentetTotal = total === null ? raa.length : total;
     // RLS-fella: en sperret tabell svarer [] med HTTP 200. Null rader er
     // aldri et resultat her - basen har hundrevis - saa det skal si fra.
