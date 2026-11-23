@@ -156,7 +156,11 @@
   var p = new URLSearchParams(location.search);
   var kilde = (p.get('k') || 'direkte').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40) || 'direkte';
 
-  var lenkeIos = APPSTORE + '?ct=' + encodeURIComponent(kilde) + '&mt=8';
+  // Apples provider token (App Store Connect > App Analytics > Campaign Link).
+  // Uten pt= faar App Analytics ikke kampanjen (ct). Tallet er likt for hele
+  // utviklerkontoen og ingen hemmelighet.
+  var PT = '129206975';
+  var lenkeIos = APPSTORE + '?' + (PT ? 'pt=' + PT + '&' : '') + 'ct=' + encodeURIComponent(kilde) + '&mt=8';
   var lenkePlay = PLAY + '&referrer=' + encodeURIComponent('utm_source=' + kilde + '&utm_medium=qr');
 
   var ua = navigator.userAgent || '';
