@@ -337,6 +337,13 @@
     border-radius:50%; background:var(--gul); }
   .dpunkt.laas::after { content:''; position:absolute; inset:0;
     border-radius:50%; background:var(--series-1); }
+  /* Trykket kjoep uten aa kjoepe (Edvard 25.11): tynn roed ring INNE i
+     dagprikken (innerkant 1.5 px), ikke utenpaa. Utenpaa ble proevd: den
+     dekket den gule laasehalvsirkelen nesten helt, siden begge maa ligge i
+     mellomrommet paa 3 px. Paa en laasedag tegnes den blaa prikken paa nytt
+     i ::after, saa ringen maa ligge der ogsaa. */
+  .dpunkt.trykk { box-shadow:inset 0 0 0 1.5px var(--critical); }
+  .dpunkt.laas.trykk::after { box-shadow:inset 0 0 0 1.5px var(--critical); }
   .dpunkt.laasM::before { clip-path:inset(0 50% 0 0); }
   .dpunkt.laasK::before { clip-path:inset(0 0 0 50%); }
   /* Uviss bolk: hel sirkel, men dempet, saa den ikke leses som «begge». */
@@ -3510,10 +3517,16 @@ function dagStripe(r){
   // En dag der potten gikk tom VAR en aktiv dag, selv om dagboka (UTC-datert)
   // ikke har rukket aa notere den. Og stripa maa strekke seg dit.
   laasteDager.forEach(d => aktive.add(d));
-  const sisteDag = laasteDager.reduce((a, d) => d > a ? d : a, idagIso());
+  // Trykk paa kjoepsknappen uten fullfoert kjoep samme dag: roed ring.
+  // UTC-dato som resten av stripa (ikke osloDag som kurven bruker), og en
+  // trykkedag er en aktiv dag selv om dagboka ikke har rukket aa notere den.
+  const tk = trykkUtenKjopUtc(r);
+  Object.keys(tk).forEach(d => aktive.add(d));
+  const sisteDag = laasteDager.concat(Object.keys(tk)).reduce((a, d) => d > a ? d : a, idagIso());
   for (let t = Date.parse(start); t <= Date.parse(sisteDag); t += 864e5) { const d = new Date(t).toISOString().slice(0,10); dg.push({ d, paa: aktive.has(d), kjop: d === kjopsdag }); }
-  const laas = d => ld[d] ? ' ' + laasKlasse(ld[d]) : '';
-  const laasTit = d => ld[d] ? ' - ' + laasTekst(ld[d]) : '';
+  const laas = d => (ld[d] ? ' ' + laasKlasse(ld[d]) : '') + (tk[d] ? ' trykk' : '');
+  const laasTit = d => (ld[d] ? ' - ' + laasTekst(ld[d]) : '')
+    + (tk[d] ? ' - trykket kjøp uten å kjøpe (' + tk[d].n + ' trykk: ' + tk[d].utfall.join(', ') + ')' : '');
   let ut = '', i = 0;
   while (i < dg.length) {
     if (dg[i].kjop) { ut += '<span class="dpunkt kjop" title="' + dg[i].d + ' - kjøp"></span>'; i++; }
@@ -3523,8 +3536,27 @@ function dagStripe(r){
       else for (let k = i; k < j; k++) ut += '<span class="dpunkt av" title="' + dg[k].d + '"></span>';
       i = j; }
   }
+  const nTrykk = Object.keys(tk).length;
   return '<span class="dstripe" title="' + nAktive + ' aktive av ' + dg.length + ' dager'
-    + (laasteDager.length ? ' · nådde taket ' + laasteDager.length + ' av dem' : '') + '">' + ut + '</span>';
+    + (laasteDager.length ? ' · nådde taket ' + laasteDager.length + ' av dem' : '')
+    + (nTrykk ? ' · trykket kjøp uten å kjøpe ' + nTrykk + (nTrykk === 1 ? ' dag' : ' dager') : '') + '">' + ut + '</span>';
+}
+// Dager (UTC, som stripa) med minst ett trykk paa kjoepsknappen og ikke noe
+// fullfoert kjoep samme dag. Kilden er maaling.kjop_forsok (de 24 siste per
+// enhet), samme som trykkUtenKjopDager, men med antall og utfall for tooltip.
+function trykkUtenKjopUtc(r){
+  const ut = {}, kjopt = new Set();
+  for (const f of (r.kjopForsok || [])) {
+    if (!f || !f.dato) continue;
+    const ms = Date.parse(f.dato);
+    if (!gyldigMs(ms)) continue;
+    const d = new Date(ms).toISOString().slice(0,10);
+    if (f.utfall === 'fullfort') { kjopt.add(d); continue; }
+    const x = ut[d] || (ut[d] = { n: 0, utfall: [] });
+    x.n++; const u = String(f.utfall || 'ukjent'); if (!x.utfall.includes(u)) x.utfall.push(u);
+  }
+  kjopt.forEach(d => delete ut[d]);
+  return ut;
 }
 function sideDetalj(r){
   if (!r.skjermSek) return '<div class="detblokk"><div class="tit">tid per side</div><span style="color:var(--muted)">krever build-126</span></div>';
