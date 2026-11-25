@@ -9,11 +9,11 @@
 <!--
   Partnerside for Miraç (@northwaymirac). Kilde: butikk/partnerside-mirac.html,
   publiseres som kopi til nettsted-lastned/mirac-c0c232/index.html.
-  Viser bare tall for koden MIRAC (merket «Miraç-video» i koder.merknad),
-  hentet med den publiserbare noekkelen via kode_statistikk() og
-  kode_innlosninger_enheter() - ingen kodestrenger, ingen priser, ingen kjoep.
-  «Ny bruker» = enheten aapnet appen foerste gang hoeyst 2 doegn foer
-  innloesningen (fremdrift_enhet.stats.foerste).
+  Viser to tall, hentet med den publiserbare noekkelen: innloesninger av koden
+  MIRAC (merket «Miraç-video») via kode_innlosninger_enheter(), og nye enheter
+  med tyrkisk appspraak (stats.sprak = 'tr') fra videoen og 30 dager frem.
+  Ingen kodestrenger, ingen priser, ingen kjoep. Edvard 25.11: alle nye
+  tyrkiske brukere tilskrives Mirac (grunnnivaa foer videoen < 0,5 per dag).
 -->
 <style>
 :root {
@@ -74,18 +74,18 @@ td:not(:first-child), th:not(:first-child) { text-align: right; }
 <body>
 <main>
   <h1>Hei Miraç!</h1>
-  <p class="ingress">Her ser du hvor mange som har brukt koden <span class="kode">MIRAC</span> i L-appen. Siden oppdateres av seg selv.</p>
+  <p class="ingress">Her ser du hvor mange nye brukere videoen din har gitt L-appen, og hvor mange som har brukt koden <span class="kode">MIRAC</span>. Siden oppdateres av seg selv.</p>
 
   <div class="tall-rad">
     <div class="kort">
-      <p class="etikett">Har brukt koden</p>
-      <div class="helt" id="totalt">-</div>
-      <div class="under" id="totaltUnder">&nbsp;</div>
+      <p class="etikett">Nye brukere på tyrkisk</p>
+      <div class="helt" id="tyrkisk">-</div>
+      <div class="under" id="tyrkiskUnder">&nbsp;</div>
     </div>
     <div class="kort">
-      <p class="etikett">Av dem nye brukere</p>
-      <div class="helt" id="nye">-</div>
-      <div class="under">lastet ned appen og brukte koden</div>
+      <p class="etikett">Har brukt koden MIRAC</p>
+      <div class="helt" id="totalt">-</div>
+      <div class="under" id="totaltUnder">&nbsp;</div>
     </div>
   </div>
   <div style="height:14px"></div>
@@ -96,18 +96,19 @@ td:not(:first-child), th:not(:first-child) { text-align: right; }
   </div>
 
   <div class="kort">
-    <h2>Brukt koden per dag</h2>
+    <h2>Nye brukere på tyrkisk per dag</h2>
     <div class="diagram" id="diagram"><div class="tips" id="tips"></div></div>
     <details>
       <summary>Vis som tabell</summary>
-      <table><thead><tr><th>Dag</th><th>Brukt koden</th><th>Nye brukere</th></tr></thead><tbody id="tabell"></tbody></table>
+      <table><thead><tr><th>Dag</th><th>Nye på tyrkisk</th><th>Brukt koden</th></tr></thead><tbody id="tabell"></tbody></table>
     </details>
   </div>
 
   <div class="kort info">
     <h2>Om tallene</h2>
-    <p>Tallene viser hvor mange som har skrevet inn koden MIRAC i appen. Det er ikke det samme som antall nedlastinger: noen laster ned uten å bruke koden.</p>
-    <p>Nedlastinger via lenken <strong>l-appen.app/?k=mirac</strong> telles av App Store og Google Play. De tallene kommer noen dager på etterskudd, og du får dem fra oss når de 30 dagene er over.</p>
+    <p><strong>Nye brukere på tyrkisk</strong> er alle som har lastet ned L-appen og valgt tyrkisk språk etter at videoen din kom ut. Før videoen fikk vi under én slik bruker annenhver dag, så nesten alle disse kommer fra deg, også de som fant appen uten lenken eller koden.</p>
+    <p><strong>Har brukt koden</strong> er alle som har skrevet inn MIRAC i appen, uansett språk.</p>
+    <p>App Store og Google Play viser også nedlastinger via lenken <strong>l-appen.app/?k=mirac</strong>, men de tallene kommer noen dager på etterskudd.</p>
   </div>
 
   <p class="fot" id="fot">Henter tall …</p>
@@ -127,7 +128,8 @@ td:not(:first-child), th:not(:first-child) { text-align: right; }
   var MERKE = 'Miraç-video';
   var URL = 'https://kbhekpqyfduhdfoshdvl.supabase.co/rest/v1';
   var NOKKEL = 'sb_publishable_w3LQFlrAiLjVcESxufmVgw_zV1j3RXA';
-  var NY_GRENSE_MS = 2 * 86400000;
+  // Videoen ble lagt ut ca. kl. 18.10 norsk tid; tyrkiske brukere telles fra kl. 18.
+  var VIDEO_START = '2026-11-25T17:00:00Z';
 
   var $ = function (id) { return document.getElementById(id); };
   var osloDag = function (ms) {
@@ -154,15 +156,23 @@ td:not(:first-child), th:not(:first-child) { text-align: right; }
     });
   }
 
-  function hentForste(ider) {
-    var biter = [];
-    for (var i = 0; i < ider.length; i += 60) biter.push(ider.slice(i, i + 60));
-    return Promise.all(biter.map(function (b) {
-      return hent('/fremdrift_enhet?select=device_id,foerste:stats->>foerste&device_id=in.(' + b.join(',') + ')');
-    })).then(function (lister) {
-      var ut = {};
-      lister.forEach(function (l) { l.forEach(function (r) { ut[r.device_id] = Date.parse(r.foerste); }); });
-      return ut;
+  // Nye enheter med tyrkisk appspraak fra videoen og ut perioden, i sider paa 500.
+  function hentTyrkiske(slutt) {
+    var ut = [];
+    function side(off) {
+      return hent('/fremdrift_enhet?select=device_id,foerste:stats->>foerste&stats->>sprak=eq.tr' +
+        '&stats->>foerste=gte.' + VIDEO_START + '&order=device_id&offset=' + off + '&limit=500')
+        .then(function (l) {
+          ut = ut.concat(l);
+          return l.length < 500 ? ut : side(off + 500);
+        });
+    }
+    return side(0).then(function (l) {
+      return l.filter(function (r) {
+        var t = Date.parse(r.foerste);
+        return isFinite(t) && osloDag(t) <= slutt &&
+          !UTELAT.some(function (p) { return String(r.device_id).indexOf(p) === 0; });
+      });
     });
   }
 
@@ -175,9 +185,9 @@ td:not(:first-child), th:not(:first-child) { text-align: right; }
         });
         var fra = VIDEO_DATO || (kode ? osloDag(Date.parse(kode.gyldig_fra)) : osloDag(Date.now()));
         innl = innl.filter(function (r) { return osloDag(Date.parse(r.innlost)) >= fra; });
-        var ider = innl.map(function (r) { return r.enhet_id; });
-        return (ider.length ? hentForste(ider) : Promise.resolve({})).then(function (forste) {
-          tegn(kode, innl, forste, fra);
+        var slutt = VIDEO_DATO ? plussDager(VIDEO_DATO, PERIODE_DAGER - 1) : '9999-12-31';
+        return hentTyrkiske(slutt).then(function (tr) {
+          tegn(innl, tr, fra);
         });
       })
       .catch(function (e) {
@@ -185,21 +195,17 @@ td:not(:first-child), th:not(:first-child) { text-align: right; }
       });
   }
 
-  function tegn(kode, innl, forste, fra) {
+  function tegn(innl, tr, fra) {
     var idag = osloDag(Date.now());
-    var perDag = {}, nyePerDag = {}, nye = 0;
-    innl.forEach(function (r) {
-      var ms = Date.parse(r.innlost), d = osloDag(ms);
-      perDag[d] = (perDag[d] || 0) + 1;
-      var f = forste[r.enhet_id];
-      if (isFinite(f) && ms - f <= NY_GRENSE_MS && ms >= f - 3600000) {
-        nye++; nyePerDag[d] = (nyePerDag[d] || 0) + 1;
-      }
-    });
+    var kodePerDag = {}, trPerDag = {};
+    innl.forEach(function (r) { var d = osloDag(Date.parse(r.innlost)); kodePerDag[d] = (kodePerDag[d] || 0) + 1; });
+    tr.forEach(function (r) { var d = osloDag(Date.parse(r.foerste)); trPerDag[d] = (trPerDag[d] || 0) + 1; });
+    var iDag = function (n) { return n ? n + ' i dag' : 'ingen i dag ennå'; };
 
+    $('tyrkisk').textContent = tr.length;
+    $('tyrkiskUnder').textContent = iDag(trPerDag[idag]);
     $('totalt').textContent = innl.length;
-    $('nye').textContent = nye;
-    $('totaltUnder').textContent = perDag[idag] ? perDag[idag] + ' i dag' : 'ingen i dag ennå';
+    $('totaltUnder').textContent = iDag(kodePerDag[idag]);
 
     // Periode: 30 dager fra videoen
     var sisteDag = idag;
@@ -218,17 +224,17 @@ td:not(:first-child), th:not(:first-child) { text-align: right; }
     for (var d = fra; d <= sisteDag && dager.length < 60; d = plussDager(d, 1)) dager.push(d);
     if (!dager.length) dager.push(idag);
 
-    soyler(dager, perDag, nyePerDag);
-    tegnPaaNytt = function () { soyler(dager, perDag, nyePerDag); };
+    soyler(dager, trPerDag, kodePerDag);
+    tegnPaaNytt = function () { soyler(dager, trPerDag, kodePerDag); };
 
     $('tabell').innerHTML = dager.slice().reverse().map(function (d) {
-      return '<tr><td>' + visDag(d) + '</td><td>' + (perDag[d] || 0) + '</td><td>' + (nyePerDag[d] || 0) + '</td></tr>';
+      return '<tr><td>' + visDag(d) + '</td><td>' + (trPerDag[d] || 0) + '</td><td>' + (kodePerDag[d] || 0) + '</td></tr>';
     }).join('');
 
     $('fot').textContent = 'Sist oppdatert ' + new Date().toLocaleTimeString('nb-NO', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Oslo' });
   }
 
-  function soyler(dager, perDag, nyePerDag) {
+  function soyler(dager, perDag, kodePerDag) {
     // Tegnes i skjermpiksler (viewBox = boksens bredde), saa aksetekstene
     // ikke krymper paa mobil.
     var B = Math.max(260, Math.round($('diagram').clientWidth) || 320), H = 180, ml = 24, mr = 4, mt = 16, mb = 24;
@@ -238,7 +244,7 @@ td:not(:first-child), th:not(:first-child) { text-align: right; }
     var iw = B - ml - mr, ih = H - mt - mb;
     var bw = iw / dager.length, gap = Math.max(2, bw * 0.25), w = Math.max(2, bw - gap);
     var y = function (v) { return mt + ih - (v / topp) * ih; };
-    var s = '<svg viewBox="0 0 ' + B + ' ' + H + '" role="img" aria-label="Antall som har brukt koden per dag"><g class="akse">';
+    var s = '<svg viewBox="0 0 ' + B + ' ' + H + '" role="img" aria-label="Nye brukere på tyrkisk per dag"><g class="akse">';
     for (var v = 0; v <= topp; v += steg) {
       s += '<line x1="' + ml + '" x2="' + (B - mr) + '" y1="' + y(v) + '" y2="' + y(v) + '"/>' +
            '<text x="' + (ml - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end">' + v + '</text>';
@@ -266,8 +272,8 @@ td:not(:first-child), th:not(:first-child) { text-align: right; }
     var svg = boks.querySelector('svg');
     function vis(e) {
       var i = e.target.getAttribute('data-i'); if (i === null) return skjul();
-      var d = dager[+i], n = perDag[d] || 0, ny = nyePerDag[d] || 0;
-      tips.innerHTML = '<strong>' + visDag(d) + '</strong>: ' + n + ' brukte koden' + (n ? ', ' + ny + ' nye' : '');
+      var d = dager[+i], n = perDag[d] || 0, k = kodePerDag[d] || 0;
+      tips.innerHTML = '<strong>' + visDag(d) + '</strong>: ' + n + ' nye på tyrkisk, ' + k + ' brukte koden';
       var sk = svg.getBoundingClientRect().width / B;
       tips.style.left = ((ml + (+i) * bw + bw / 2) * sk) + 'px';
       tips.style.top = (y(n) * sk) + 'px';
